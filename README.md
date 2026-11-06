@@ -13,7 +13,9 @@ web root (`public_html`) file-for-file, so a file at `api/login.php` here lives 
 |---|---|
 | `*.html` | Site pages (home, game, category, daily archive, shop, FAQ, legal…) |
 | `game.html` + `js/game_*.js` | The puzzle game itself |
-| `js/site_*.js`, `css/` | Shared header/footer, theme switching and layout |
+| `js/site_*.js`, `css/site_*.css` | Shared header/footer, theme switching and layout |
+| `css/pages/`, `js/pages/` | Styles and scripts for one page (e.g. `js/pages/index-app.js` is the home page app) |
+| `css/shared/`, `js/shared/` | Blocks that several pages use (header auth, service worker, page base styles) |
 | `api/` | JSON endpoints called by the pages (auth, state sync, points, rewards, leaderboards) |
 | `lib/` | Shared PHP: config loading, auth, game state, rewards, puzzle manifest |
 | `config/` | Database connection (`db.php`) and app settings (`app.php`) |
@@ -55,6 +57,20 @@ return [
 `lib/site_config.php` checks, in order: environment variables, `../public_html_work.local.php`,
 `../snapshift.local.php`, then `config.local.php`. If the database values are missing, API calls
 return a clear "Database settings missing" error.
+
+### Where page code lives
+
+Each page's HTML is just markup. Its styles and scripts are in separate files,
+linked in the same order they used to appear inline, so the cascade and the script run order
+didn't change. Edit `js/pages/game-app.js` instead of searching through `game.html`.
+After changing a CSS/JS file, bump its `?v=` value in the page so browsers fetch the new copy.
+
+### Database
+
+There's one place for credentials (`lib/site_config.php` → `config.local.php`). `snapshift_pdo()` in
+`config/db.php` is the shared connection, and `pq_pdo()` in `config.php` returns that same connection.
+`pq_db()` in `lib/pq_legacy_db.php` (rewards code) reads the same settings but keeps PDO's
+emulated prepares, which that code was written against.
 
 ## Running locally
 
