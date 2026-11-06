@@ -1,6 +1,6 @@
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
-import { bg, errorText, h, medalBadge, modal, mount, qs, store, toast } from '../lib/ui';
+import { bg, errorText, h, medalBadge, modal, mount, plusTag, qs, store, timeUntil, toast } from '../lib/ui';
 import { Board } from '../game/board';
 import { isMuted, setMuted, sfx } from '../game/sound';
 import {
@@ -31,6 +31,7 @@ import {
   MODES,
   PEEK_COOLDOWN_MS,
   PEEK_MS,
+  PLUS,
   RULES,
   ZEN_POINTS,
   type Difficulty,
@@ -48,6 +49,8 @@ interface PuzzleInfo {
   categoryName: string;
   categoryId: string | null;
   unlocked: boolean;
+  lock?: 'points' | 'members' | 'early' | null;
+  publicAt?: number | null;
   next: { slug: string; title: string } | null;
 }
 
@@ -85,6 +88,7 @@ interface CompleteResult {
   streak: { current: number } | null;
   rank: number | null;
   balance: number;
+  frozen?: string[];
 }
 
 interface GuestSave {
@@ -134,7 +138,7 @@ const canvas = h('canvas', { id: 'board' }) as HTMLCanvasElement;
 const memorizeNote = h('div', { class: 'memorize-note', hidden: true }, 'Memorize the picture…');
 const wrap = h(
   'div',
-  { class: 'board-wrap' },
+  { class: `board-wrap${me()?.frame ? ` frame-${me()!.frame}` : ''}` },
   canvas,
   memorizeNote,
   h('div', { class: 'pause-cover' }, h('button', { class: 'btn big primary', onclick: () => togglePause(false) }, 'Resume')),
@@ -160,7 +164,7 @@ async function loadPuzzle(): Promise<void> {
     return;
   }
   const d = await api.get<{
-    puzzle: { slug: string; title: string; image: string; thumb: string; unlocked: boolean; unlockCost: number };
+    puzzle: { slug: string; title: string; image: string; thumb: string; unlocked: boolean; unlockCost: number; lock: PuzzleInfo['lock']; publicAt: number | null };
     category: { id: string; name: string } | null;
     next: { slug: string; title: string } | null;
   }>(`/puzzles/${encodeURIComponent(slug)}`);
@@ -287,6 +291,9 @@ function showCompleted(done: Done | null) {
       h(
         'span',
         { class: 'row' },
+        user?.member
+          ? h('a', { class: 'btn', href: `/api/plus/download/${encodeURIComponent(puzzle.slug)}`, download: '', title: 'Download the full-size picture' }, '⬇ Picture')
+          : null,
         puzzle.next && !dailyDay ? h('a', { class: 'btn', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}&m=${mode}` }, 'Next puzzle →') : null,
         h('button', { class: 'btn primary', onclick: () => void restart(true) }, 'Play again'),
       ),
@@ -584,6 +591,9 @@ function showResult(r: CompleteResult, guest: boolean) {
           r.rank ? ` You're #${r.rank} on today's leaderboard.` : '',
           r.streak ? ` Daily streak: ${r.streak.current}.` : '',
         ),
+    r.frozen?.length
+      ? h('div', { class: 'notice' }, plusTag('STREAK FREEZE'), ` Saved your streak for ${r.frozen.length === 1 ? 'the day' : `the ${r.frozen.length} days`} you missed.`)
+      : null,
     r.milestone ? h('div', { class: 'notice warn' }, h('b', {}, `${r.milestone.title}! `), `${r.milestone.days}-day streak: +${r.milestone.points} bonus points.`) : null,
     h(
       'div',
@@ -646,8 +656,21 @@ try {
         'section',
         { class: 'panel' },
         h('h1', {}, puzzle.title),
-        h('p', { class: 'muted' }, 'This puzzle is locked. Unlock it with points from its category page.'),
-        h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'Go to category'),
+        h(
+          'p',
+          { class: 'muted' },
+          puzzle.lock === 'members'
+            ? 'This picture is in the Members’ Gallery, for SnapShift Plus members.'
+            : puzzle.lock === 'early'
+              ? `This puzzle is brand new. Plus members play it first; it opens to everyone ${puzzle.publicAt ? timeUntil(puzzle.publicAt) : 'soon'}.`
+              : 'This puzzle is locked. Unlock it with points from its category page, or get SnapShift Plus to unlock everything.',
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          h('a', { class: 'btn', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'Go to category'),
+          h('a', { class: 'btn primary', href: '/plus' }, 'See SnapShift Plus'),
+        ),
       ),
     );
   } else {
@@ -706,5 +729,16 @@ try {
     requestAnimationFrame(tick);
   }
 } catch (e) {
-  showError(main, errorText(e));
+  if (e instanceof ApiError && e.status === 403 && dailyDay) {
+    mount(
+      main,
+      h(
+        'section',
+        { class: 'panel' },
+        h('h1', {}, `Daily ${dailyDay}`),
+        h('p', { class: 'muted' }, `Free players can play the last ${PLUS.freeArchiveDays} days of dailies. SnapShift Plus opens the whole archive.`),
+        h('div', { class: 'row' }, h('a', { class: 'btn', href: '/daily' }, 'Back to the archive'), h('a', { class: 'btn primary', href: '/plus' }, 'See SnapShift Plus')),
+      ),
+    );
+  } else showError(main, errorText(e));
 }

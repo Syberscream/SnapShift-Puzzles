@@ -5,6 +5,9 @@ import {
   canPlay,
   DAILY_CATEGORY,
   categoryIndexes,
+  access,
+  membersOnlyCategories,
+  viewerOf,
   dailyStreak,
   getDaily,
   media,
@@ -16,6 +19,7 @@ import { spend, balance } from '../lib/points';
 import { dayKey, fail, msUntilNextDay, now, str, body } from '../lib/util';
 import { unlockCost } from '../../shared/rules';
 import { publicSite } from '../lib/site';
+import { isMember } from '../lib/membership';
 
 const app = new Hono<AppEnv>();
 
@@ -25,10 +29,11 @@ interface CategoryRow {
   description: string;
   tile_url: string;
   sort: number;
+  members_only: number;
 }
 
 /** Public site settings: announcement, supporter links, theme and today's banners. */
-app.get('/site', async (c) => c.json(await publicSite(c.env)));
+app.get('/site', async (c) => c.json(await publicSite(c.env, isMember(c.get('user')))));
 
 app.get('/home', async (c) => {
   const user = c.get('user');
@@ -43,11 +48,13 @@ app.get('/home', async (c) => {
     getDaily(c.env, today),
   ]);
   const countMap = new Map(counts.results.map((r) => [r.category_id, r.n]));
+  const viewer = viewerOf(user);
+  const membersCats = new Set(cats.results.filter((x) => x.members_only).map((x) => x.id));
   const latestState = await userPuzzleState(c.env, user, latest.results.map((p) => p.id));
   const latestViews = await Promise.all(
     latest.results.map(async (p) => {
       const idx = (await categoryIndexes(c.env, p.category_id!)).get(p.id) ?? 0;
-      return toView(p, idx, latestState, user?.role === 'admin');
+      return toView(p, idx, latestState, viewer, membersCats.has(p.category_id!));
     }),
   );
 
@@ -99,6 +106,7 @@ app.get('/home', async (c) => {
       description: cat.description,
       tile: cat.tile_url,
       count: countMap.get(cat.id) ?? 0,
+      membersOnly: !!cat.members_only,
     })),
     latest: latestViews,
   });
@@ -111,7 +119,7 @@ app.get('/categories', async (c) => {
   )
     .bind(DAILY_CATEGORY)
     .all<CategoryRow & { count: number }>();
-  return c.json({ categories: results.map((r) => ({ id: r.id, name: r.name, description: r.description, tile: r.tile_url, count: r.count })) });
+  return c.json({ categories: results.map((r) => ({ id: r.id, name: r.name, description: r.description, tile: r.tile_url, count: r.count, membersOnly: !!r.members_only })) });
 });
 
 app.get('/categories/:id', async (c) => {
@@ -124,9 +132,9 @@ app.get('/categories/:id', async (c) => {
     .bind(cat.id)
     .all<PuzzleRow>();
   const state = await userPuzzleState(c.env, user, results.map((p) => p.id));
-  const puzzles = results.map((p, i) => toView(p, i, state, user?.role === 'admin'));
+  const puzzles = results.map((p, i) => toView(p, i, state, viewerOf(user), !!cat.members_only));
   return c.json({
-    category: { id: cat.id, name: cat.name, description: cat.description, tile: cat.tile_url },
+    category: { id: cat.id, name: cat.name, description: cat.description, tile: cat.tile_url, membersOnly: !!cat.members_only },
     puzzles,
     unlockedCount: puzzles.filter((p) => p.unlocked).length,
     nextDailyInMs: msUntilNextDay(c.env),
@@ -141,7 +149,8 @@ app.get('/puzzles/:slug', async (c) => {
   const indexes = p.category_id ? await categoryIndexes(c.env, p.category_id) : new Map<number, number>();
   const idx = indexes.get(p.id) ?? 0;
   const state = await userPuzzleState(c.env, user, [p.id]);
-  const view = toView(p, idx, state, user?.role === 'admin');
+  const membersOnly = p.category_id ? (await membersOnlyCategories(c.env)).has(p.category_id) : false;
+  const view = toView(p, idx, state, viewerOf(user), membersOnly);
   const cat = p.category_id
     ? await c.env.DB.prepare('SELECT id, name FROM categories WHERE id = ?').bind(p.category_id).first<{ id: string; name: string }>()
     : null;
@@ -168,6 +177,9 @@ app.post('/puzzles/:slug/unlock', async (c) => {
   if (!p || !p.category_id) fail(404, 'Puzzle not found.');
   if (await canPlay(c.env, user, p)) return c.json({ ok: true, alreadyUnlocked: true, points: await balance(c.env, user.id) });
   const idx = (await categoryIndexes(c.env, p.category_id)).get(p.id) ?? 0;
+  const a = access(p, idx, viewerOf(user), (await membersOnlyCategories(c.env)).has(p.category_id), false);
+  if (a.lock === 'members') fail(403, 'This picture is for SnapShift Plus members.');
+  if (a.lock === 'early') fail(403, 'This picture is in members’ early access. It opens to everyone soon.');
   const cost = unlockCost(idx);
   if (!(await spend(c.env, user.id, cost, 'unlock', p.slug))) fail(402, `You need ${cost} points to unlock this puzzle.`);
   await c.env.DB.prepare('INSERT OR IGNORE INTO unlocks (user_id, puzzle_id, created_at) VALUES (?, ?, ?)').bind(user.id, p.id, now()).run();

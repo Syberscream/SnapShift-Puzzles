@@ -5,11 +5,12 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireUser } from '../lib/auth';
+import { isMember, plusSql } from '../lib/membership';
 import { DAILY_CATEGORY, media, type PuzzleRow } from '../lib/catalog';
 import { balance, creditStatements } from '../lib/points';
 import { addDays, body, dayKey, fail, now, randomId, weekOf } from '../lib/util';
 import { isSolved, randomSeed, replay, rng, type Action } from '../../shared/engine';
-import { TIME_ATTACK, TIME_ATTACK_SETUP as TA_SETUP, timeAttackScore } from '../../shared/rules';
+import { PLUS, TIME_ATTACK, TIME_ATTACK_SETUP as TA_SETUP, timeAttackScore } from '../../shared/rules';
 
 const app = new Hono<AppEnv>();
 
@@ -32,10 +33,22 @@ interface RunRow {
 /** Start a run. Signed-in players get it recorded; guests get puzzles only. */
 app.post('/start', async (c) => {
   const user = c.get('user');
+  const member = isMember(user);
+  const today = dayKey(c.env);
+  let runsLeft: number | null = null;
+  if (user && !member) {
+    const r = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM time_attack_runs WHERE user_id = ? AND day = ?').bind(user.id, today).first<{ n: number }>();
+    runsLeft = PLUS.freeTimeAttackRuns - (r?.n ?? 0);
+    if (runsLeft <= 0) fail(429, `Free players get ${PLUS.freeTimeAttackRuns} Time Attack runs a day. SnapShift Plus members can play as many as they like.`);
+    runsLeft--;
+  }
+  // Members' pictures (members-only categories and early access) stay out of free players' runs.
   const { results: pool } = await c.env.DB.prepare(
-    "SELECT * FROM puzzles WHERE status = 'published' AND category_id IS NOT NULL AND category_id != ? ORDER BY id",
+    `SELECT * FROM puzzles WHERE status = 'published' AND category_id IS NOT NULL AND category_id != ?
+     ${member ? '' : 'AND category_id NOT IN (SELECT id FROM categories WHERE members_only = 1) AND COALESCE(published_at, 0) <= ?'}
+     ORDER BY id`,
   )
-    .bind(DAILY_CATEGORY)
+    .bind(DAILY_CATEGORY, ...(member ? [] : [now() - PLUS.earlyAccessMs]))
     .all<PuzzleRow>();
   if (pool.length === 0) fail(404, 'No puzzles yet.');
   const seed = randomSeed();
@@ -56,11 +69,12 @@ app.post('/start', async (c) => {
   if (user) {
     runId = randomId(12);
     await c.env.DB.prepare('INSERT INTO time_attack_runs (id, user_id, day, week, seed, puzzles, started_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(runId, user.id, dayKey(c.env), weekOf(dayKey(c.env)), seed, JSON.stringify(list.map((x) => ({ id: x.p.id, seed: x.seed }))), now())
+      .bind(runId, user.id, today, weekOf(today), seed, JSON.stringify(list.map((x) => ({ id: x.p.id, seed: x.seed }))), now())
       .run();
   }
   return c.json({
     runId,
+    runsLeft,
     durationMs: TIME_ATTACK.durationMs,
     rows: TIME_ATTACK.rows,
     cols: TIME_ATTACK.cols,
@@ -153,7 +167,7 @@ app.get('/leaderboard', async (c) => {
   const q = c.req.query('week') || '';
   const week = /^\d{4}-\d{2}-\d{2}$/.test(q) ? weekOf(q) : weekOf(dayKey(c.env));
   const { results } = await c.env.DB.prepare(
-    `SELECT u.username, r.user_id, MAX(r.score) AS score,
+    `SELECT u.username, r.user_id, MAX(r.score) AS score, ${plusSql('u')} AS plus,
        (SELECT r2.solved FROM time_attack_runs r2 WHERE r2.user_id = r.user_id AND r2.week = r.week AND r2.finished_at IS NOT NULL
         ORDER BY r2.score DESC, r2.finished_at ASC LIMIT 1) AS solved,
        COUNT(*) AS runs
@@ -162,7 +176,7 @@ app.get('/leaderboard', async (c) => {
      GROUP BY r.user_id ORDER BY score DESC, MIN(r.finished_at) ASC LIMIT 50`,
   )
     .bind(week)
-    .all<{ username: string; user_id: number; score: number; solved: number; runs: number }>();
+    .all<{ username: string; user_id: number; score: number; solved: number; runs: number; plus: number }>();
   let me = null;
   if (user) {
     const mine = await c.env.DB.prepare(
@@ -182,7 +196,7 @@ app.get('/leaderboard', async (c) => {
   return c.json({
     week,
     weekEnds: addDays(week, 6),
-    rows: results.map((r, i) => ({ rank: i + 1, username: r.username, score: r.score, solved: r.solved, runs: r.runs, isMe: r.user_id === user?.id })),
+    rows: results.map((r, i) => ({ rank: i + 1, username: r.username, score: r.score, solved: r.solved, runs: r.runs, plus: !!r.plus, isMe: r.user_id === user?.id })),
     me,
   });
 });

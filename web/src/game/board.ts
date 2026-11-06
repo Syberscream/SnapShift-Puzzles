@@ -147,7 +147,8 @@ export class Board {
     const parent = this.canvas.parentElement!;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const aspect = this.src.w / this.src.h || 16 / 9;
-    let cssW = parent.clientWidth;
+    const cs = getComputedStyle(parent);
+    let cssW = parent.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
     let cssH = cssW / aspect;
     const maxH = document.fullscreenElement ? window.innerHeight - 24 : Math.max(320, window.innerHeight - 140);
     if (cssH > maxH) {

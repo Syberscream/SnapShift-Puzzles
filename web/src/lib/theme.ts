@@ -22,6 +22,8 @@ export interface Banner {
   pages: string[];
   position: 'top' | 'bottom';
   enabled: boolean;
+  /** "free" = an ad: hidden from SnapShift Plus members. */
+  audience?: 'all' | 'free';
   start: string;
   end: string;
 }

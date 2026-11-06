@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { publicUser, requireUser } from '../lib/auth';
-import { dailyStreak, getDaily, media } from '../lib/catalog';
+import { archiveOpen, dailyStreak, freezesLeft, getDaily, media } from '../lib/catalog';
+import { isMember, plusSql } from '../lib/membership';
 import { addDays, dayKey, fail, int, msUntilNextDay } from '../lib/util';
+import { PLUS } from '../../shared/rules';
 
 const app = new Hono<AppEnv>();
 
@@ -35,6 +37,7 @@ app.get('/daily/today', async (c) => {
 app.get('/daily/day/:day', async (c) => {
   const day = c.req.param('day');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) fail(422, 'Use YYYY-MM-DD.');
+  if (!archiveOpen(day, dayKey(c.env), isMember(c.get('user')))) fail(403, 'Older dailies are part of SnapShift Plus.');
   const d = await getDaily(c.env, day);
   if (!d) fail(404, 'No daily puzzle for that day.');
   const cat = d.puzzle.category_id
@@ -57,6 +60,7 @@ app.get('/daily/day/:day', async (c) => {
 /** Past dailies, newest first, 30 per page. */
 app.get('/daily/archive', async (c) => {
   const user = c.get('user');
+  const member = isMember(user);
   const today = dayKey(c.env);
   const before = /^\d{4}-\d{2}-\d{2}$/.test(c.req.query('before') || '') ? c.req.query('before')! : addDays(today, 1);
   const { results } = await c.env.DB.prepare(
@@ -85,7 +89,9 @@ app.get('/daily/archive', async (c) => {
       thumb: media(String(r.thumb_key || r.image_key || r.original_key)),
       players: r.players,
       mine: mine.get(String(r.day)) ?? null,
+      locked: !archiveOpen(String(r.day), today, member),
     })),
+    freeDays: member ? null : PLUS.freeArchiveDays,
   });
 });
 
@@ -93,12 +99,12 @@ app.get('/leaderboard/daily', async (c) => {
   const user = c.get('user');
   const day = /^\d{4}-\d{2}-\d{2}$/.test(c.req.query('day') || '') ? c.req.query('day')! : dayKey(c.env);
   const { results } = await c.env.DB.prepare(
-    `SELECT u.username, r.score_pct, r.elapsed_ms, r.moves, r.medal, r.user_id
+    `SELECT u.username, r.score_pct, r.elapsed_ms, r.moves, r.medal, r.user_id, ${plusSql('u')} AS plus
      FROM daily_results r JOIN users u ON u.id = r.user_id
      WHERE r.day = ? ORDER BY r.score_pct DESC, r.elapsed_ms ASC, r.created_at ASC LIMIT 50`,
   )
     .bind(day)
-    .all<{ username: string; score_pct: number; elapsed_ms: number; moves: number; medal: string; user_id: number }>();
+    .all<{ username: string; score_pct: number; elapsed_ms: number; moves: number; medal: string; user_id: number; plus: number }>();
   let me = null;
   if (user) {
     const mine = await c.env.DB.prepare('SELECT score_pct, elapsed_ms, moves, medal FROM daily_results WHERE day = ? AND user_id = ?')
@@ -115,7 +121,7 @@ app.get('/leaderboard/daily', async (c) => {
   }
   return c.json({
     day,
-    rows: results.map((r, i) => ({ rank: i + 1, username: r.username, scorePct: r.score_pct, elapsedMs: r.elapsed_ms, moves: r.moves, medal: r.medal, isMe: r.user_id === user?.id })),
+    rows: results.map((r, i) => ({ rank: i + 1, username: r.username, scorePct: r.score_pct, elapsedMs: r.elapsed_ms, moves: r.moves, medal: r.medal, plus: !!r.plus, isMe: r.user_id === user?.id })),
     me,
   });
 });
@@ -124,13 +130,13 @@ app.get('/leaderboard/daily', async (c) => {
 app.get('/leaderboard/points', async (c) => {
   const user = c.get('user');
   const { results } = await c.env.DB.prepare(
-    `SELECT u.username, u.id, SUM(l.delta) AS earned,
+    `SELECT u.username, u.id, SUM(l.delta) AS earned, ${plusSql('u')} AS plus,
        (SELECT COUNT(*) FROM plays p WHERE p.user_id = u.id AND p.medal = 'gold') AS golds
      FROM points_ledger l JOIN users u ON u.id = l.user_id
      WHERE l.reason IN ('win', 'daily', 'streak', 'timeattack')
      GROUP BY u.id ORDER BY earned DESC LIMIT 50`,
-  ).all<{ username: string; id: number; earned: number; golds: number }>();
-  return c.json({ rows: results.map((r, i) => ({ rank: i + 1, username: r.username, earned: r.earned, golds: r.golds, isMe: r.id === user?.id })) });
+  ).all<{ username: string; id: number; earned: number; golds: number; plus: number }>();
+  return c.json({ rows: results.map((r, i) => ({ rank: i + 1, username: r.username, earned: r.earned, golds: r.golds, plus: !!r.plus, isMe: r.id === user?.id })) });
 });
 
 app.get('/me/summary', async (c) => {
@@ -151,6 +157,7 @@ app.get('/me/summary', async (c) => {
     streak,
     medals: { gold: m.gold ?? 0, silver: m.silver ?? 0, bronze: m.bronze ?? 0 },
     completed: (m.gold ?? 0) + (m.silver ?? 0) + (m.bronze ?? 0),
+    freezesLeft: isMember(user) ? await freezesLeft(c.env, user.id, today) : null,
     ledger: ledger.results,
   });
 });

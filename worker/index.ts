@@ -8,6 +8,8 @@ import play from './routes/play';
 import stats from './routes/stats';
 import admin from './routes/admin';
 import timeAttack from './routes/timeattack';
+import billing from './routes/billing';
+import plus from './routes/plus';
 import { runPipeline } from './pipeline/pipeline';
 
 const app = new Hono<AppEnv>();
@@ -22,6 +24,8 @@ app.route('/api/auth', auth);
 app.route('/api/plays', play);
 app.route('/api/admin', admin);
 app.route('/api/time-attack', timeAttack);
+app.route('/api/billing', billing);
+app.route('/api/plus', plus);
 app.route('/api', catalog);
 app.route('/api', stats);
 

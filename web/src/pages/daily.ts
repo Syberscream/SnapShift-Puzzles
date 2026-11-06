@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
-import { bg, countdown, errorText, h, medalBadge, mount } from '../lib/ui';
+import { bg, countdown, errorText, h, medalBadge, mount, plusTag } from '../lib/ui';
 
 interface Today {
   day: string;
@@ -17,6 +17,7 @@ interface ArchiveDay {
   thumb: string;
   players: number;
   mine: { medal: string; score_pct: number } | null;
+  locked: boolean;
 }
 
 const main = await shell({ title: 'Daily Challenge & Archive' });
@@ -30,9 +31,9 @@ try {
       grid.append(
         h(
           'a',
-          { class: 'card', href: `/play?daily=${d.day}` },
-          h('div', { class: 'thumb wide', style: bg(d.thumb) }),
-          d.mine ? h('span', { class: 'corner' }, medalBadge(d.mine.medal, true)) : null,
+          { class: 'card', href: d.locked ? '/plus' : `/play?daily=${d.day}`, title: d.locked ? 'Older dailies are part of SnapShift Plus' : '' },
+          h('div', { class: `thumb wide${d.locked ? ' archive-locked' : ''}`, style: bg(d.thumb) }),
+          d.mine ? h('span', { class: 'corner' }, medalBadge(d.mine.medal, true)) : d.locked ? h('span', { class: 'corner' }, plusTag('PLUS')) : null,
           h(
             'div',
             { class: 'meta' },
@@ -76,7 +77,7 @@ try {
         h('div', { class: 'art', style: bg(t.puzzle?.thumb ?? '') }),
       ),
     ),
-    h('section', { class: 'panel' }, h('h2', {}, 'Archive'), h('p', { class: 'muted' }, 'Replay past dailies any time. Archive runs earn normal puzzle points.'), grid, h('div', { class: 'row', style: 'margin-top:12px' }, more)),
+    h('section', { class: 'panel' }, h('h2', {}, 'Archive'), h('p', { class: 'muted' }, 'Replay past dailies any time. Archive runs earn normal puzzle points.', me()?.member ? '' : [' Free players can play the last 7 days; ', h('a', { href: '/plus' }, 'SnapShift Plus'), ' opens the whole archive.']), grid, h('div', { class: 'row', style: 'margin-top:12px' }, more)),
   );
   countdown(cd, t.nextDailyInMs, () => location.reload());
   addDays(a.days);

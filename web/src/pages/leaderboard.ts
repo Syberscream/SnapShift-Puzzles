@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { shell, showError } from '../lib/shell';
-import { errorText, h, medalBadge, mount, qs } from '../lib/ui';
+import { errorText, h, medalBadge, mount, plusTag, qs } from '../lib/ui';
 import { formatTime } from '@shared/engine';
 
 interface DailyRow {
@@ -10,6 +10,7 @@ interface DailyRow {
   elapsedMs: number;
   moves: number;
   medal: string;
+  plus: boolean;
   isMe: boolean;
 }
 
@@ -39,7 +40,7 @@ async function draw() {
                     'tr',
                     { class: r.isMe ? 'me' : '' },
                     h('td', {}, r.rank),
-                    h('td', {}, r.username),
+                    h('td', {}, r.username, r.plus ? plusTag() : null),
                     h('td', {}, medalBadge(r.medal)),
                     h('td', { class: 'num' }, `${r.scorePct}%`),
                     h('td', { class: 'num' }, formatTime(r.elapsedMs)),
@@ -54,7 +55,7 @@ async function draw() {
       const d = await api.get<{
         week: string;
         weekEnds: string;
-        rows: { rank: number; username: string; score: number; solved: number; runs: number; isMe: boolean }[];
+        rows: { rank: number; username: string; score: number; solved: number; runs: number; plus: boolean; isMe: boolean }[];
         me: { score: number; rank: number | null } | null;
       }>(`/time-attack/leaderboard${qs('week') ? `?week=${qs('week')}` : ''}`);
       mount(
@@ -70,14 +71,14 @@ async function draw() {
                 'tbody',
                 {},
                 d.rows.map((r) =>
-                  h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved), h('td', { class: 'num' }, r.runs)),
+                  h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved), h('td', { class: 'num' }, r.runs)),
                 ),
               ),
             )
           : h('p', {}, 'No runs yet this week. ', h('a', { href: '/time-attack' }, 'Set the first score!')),
       );
     } else {
-      const d = await api.get<{ rows: { rank: number; username: string; earned: number; golds: number; isMe: boolean }[] }>('/leaderboard/points');
+      const d = await api.get<{ rows: { rank: number; username: string; earned: number; golds: number; plus: boolean; isMe: boolean }[] }>('/leaderboard/points');
       mount(
         body,
         h('p', { class: 'muted' }, 'All-time points earned from puzzles, dailies, streaks and Time Attack (spending points doesn’t lower your rank).'),
@@ -88,7 +89,7 @@ async function draw() {
           h(
             'tbody',
             {},
-            d.rows.map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username), h('td', { class: 'num' }, r.earned.toLocaleString()), h('td', { class: 'num' }, r.golds))),
+            d.rows.map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, r.earned.toLocaleString()), h('td', { class: 'num' }, r.golds))),
           ),
         ),
       );

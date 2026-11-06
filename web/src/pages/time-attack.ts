@@ -4,11 +4,12 @@
 
 import { api } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
-import { errorText, h, modal, mount, plural, store } from '../lib/ui';
+import { errorText, h, modal, mount, plural, plusTag, store } from '../lib/ui';
+import { ApiError } from '../lib/api';
 import { Board } from '../game/board';
 import { isMuted, setMuted, sfx } from '../game/sound';
 import { correctCount, isCorrect, isSolved, newGame, swap, type Action, type GameState } from '@shared/engine';
-import { TIME_ATTACK, TIME_ATTACK_SETUP, timeAttackScore } from '@shared/rules';
+import { PLUS, TIME_ATTACK, TIME_ATTACK_SETUP, timeAttackScore } from '@shared/rules';
 
 interface RunPuzzle {
   slug: string;
@@ -18,6 +19,8 @@ interface RunPuzzle {
 }
 interface Run {
   runId: string | null;
+  /** Free signed-in players: runs left today after this one. */
+  runsLeft: number | null;
   durationMs: number;
   rows: number;
   cols: number;
@@ -26,7 +29,7 @@ interface Run {
 interface Board_ {
   week: string;
   weekEnds: string;
-  rows: { rank: number; username: string; score: number; solved: number; runs: number; isMe: boolean }[];
+  rows: { rank: number; username: string; score: number; solved: number; runs: number; plus: boolean; isMe: boolean }[];
   me: { score: number; runs: number; rank: number | null } | null;
 }
 interface Finish {
@@ -43,6 +46,9 @@ interface Finish {
 
 const main = await shell({ title: 'Time Attack' });
 const guestBest = store<number>('ss_ta_guest_best', 0);
+/** Guests get the same daily allowance as free players, counted on this device. */
+const guestRuns = store<{ day: string; n: number }>('ss_ta_guest_runs', { day: '', n: 0 });
+const localDay = () => new Date().toLocaleDateString('en-CA');
 
 // ---- run state ----
 let run: Run | null = null;
@@ -177,10 +183,25 @@ async function countdown() {
   note.hidden = true;
 }
 
+function limitReached() {
+  modal(
+    h('h2', {}, 'That’s today’s runs'),
+    h('p', {}, `Free players get ${PLUS.freeTimeAttackRuns} Time Attack runs a day. Come back tomorrow, or get SnapShift Plus for unlimited runs.`),
+    h('div', { class: 'row end' }, h('a', { class: 'btn', href: '/time-attack' }, 'OK'), h('a', { class: 'btn primary', href: '/plus' }, 'See SnapShift Plus')),
+  );
+}
+
 async function startRun() {
+  if (!me()) {
+    const g = guestRuns.get();
+    const n = g.day === localDay() ? g.n : 0;
+    if (n >= PLUS.freeTimeAttackRuns) return limitReached();
+    guestRuns.set({ day: localDay(), n: n + 1 });
+  }
   try {
     run = await api.post<Run>('/time-attack/start', {});
   } catch (e) {
+    if (e instanceof ApiError && e.status === 429) return limitReached();
     showError(main, errorText(e));
     return;
   }
@@ -243,6 +264,7 @@ function showResult(r: Finish, guest: boolean) {
           'p',
           {},
           r.rank ? `You're #${r.rank} this week. ` : '',
+          run?.runsLeft != null ? `${plural(run.runsLeft, 'free run')} left today. ` : '',
           r.points ? `+${r.points} points.` : r.pointsCapped ? 'You’ve reached today’s Time Attack points limit; your score still counts.' : '',
           r.points && r.pointsCapped ? ' (Today’s points limit reached.)' : '',
         ),
@@ -275,7 +297,7 @@ function renderGame() {
         'section',
         { class: 'panel' },
         h('div', { class: 'hud' }, h('div', { class: 'row' }, timeEl, solvedEl, scoreEl), h('div', { class: 'row' }, titleEl)),
-        h('div', { class: 'board-wrap' }, canvas, note),
+        h('div', { class: `board-wrap${me()?.frame ? ` frame-${me()!.frame}` : ''}` }, canvas, note),
         h('div', { class: 'progress-bar', role: 'progressbar', 'aria-label': 'Tiles in place' }, progressFill),
       ),
     ),
@@ -310,6 +332,9 @@ async function intro() {
           { class: 'muted small' },
           `The leaderboard runs Monday to Sunday and counts your best run of the week. Signed-in players also earn ${TIME_ATTACK.pointsPerSolve} points per puzzle solved, up to ${TIME_ATTACK.dailyPointsCap} a day.`,
         ),
+        !user?.member
+          ? h('p', { class: 'small muted' }, `${PLUS.freeTimeAttackRuns} runs a day for free players. `, plusTag(), ' members play as many as they like.')
+          : null,
         lb?.me ? h('div', { class: 'notice' }, `Your best this week: ${lb.me.score}${lb.me.rank ? ` (#${lb.me.rank})` : ''} · ${plural(lb.me.runs, 'run')}.`) : null,
         !user && guestBest.get() ? h('div', { class: 'notice' }, `Your best on this device: ${guestBest.get()}.`) : null,
         !user ? h('p', { class: 'small' }, 'Guests can play. ', h('a', { href: '/account?next=/time-attack' }, 'Sign in'), ' to go on the leaderboard and earn points.') : null,
@@ -328,7 +353,7 @@ async function intro() {
             h(
               'tbody',
               {},
-              lb.rows.slice(0, 10).map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved))),
+              lb.rows.slice(0, 10).map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved))),
             ),
           ),
         )

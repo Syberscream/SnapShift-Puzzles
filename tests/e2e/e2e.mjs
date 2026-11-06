@@ -4,6 +4,10 @@ const { chromium } = pw;
 import * as E from './.engine/engine.js';
 
 const BASE = 'http://127.0.0.1:8787';
+import { execSync } from 'node:child_process';
+/** Run SQL against the local D1 database (to fake the passage of time). */
+const REPO = process.env.REPO || process.cwd();
+const sql = (q) => execSync(`npx wrangler d1 execute snapshift --local --command "${q.replace(/"/g, '\\"')}"`, { cwd: REPO, stdio: 'ignore' });
 const OUT = process.argv[2];
 const results = [];
 const check = (name, ok, extra = '') => {
@@ -115,6 +119,8 @@ for (let i = 0; i < queued; i++) {
 }
 const pub = await (await admin.request.get(BASE + '/api/admin/puzzles?status=published')).json();
 check('all 7 published', pub.puzzles.length === 7);
+// New puzzles are in members' early access for 48 hours; age these so the free-player checks see normal puzzles.
+sql('UPDATE puzzles SET published_at = published_at - 259200000');
 check('published puzzles have web copy + thumbnail', pub.puzzles.every((p) => p.image.endsWith('.webp') && p.thumb.endsWith('.webp')));
 check('rename kept', pub.puzzles.some((p) => p.title === 'Renamed Test Puzzle'));
 const img = await admin.request.get(BASE + pub.puzzles[0].image);
@@ -415,6 +421,123 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('time attack: guest result', /Solved\s*1/.test(res) && /150/.test(res) && /Create a free account/.test(res), res.replace(/\s+/g, ' '));
   check('no JS errors (time attack)', gErr.length === 0, gErr.join(' | '));
   await gp.close();
+}
+
+// ---------- SnapShift Plus ----------
+{
+  const j = async (r) => (await r).json();
+  const meOf = async (ctx) => (await j(ctx.request.get(BASE + '/api/auth/me'))).user;
+  const addDays = (d, n) => {
+    const t = new Date(d + 'T12:00:00Z');
+    t.setUTCDate(t.getUTCDate() + n);
+    return t.toISOString().slice(0, 10);
+  };
+  await admin.request.put(BASE + '/api/admin/billing', { data: { monthlyPriceId: 'price_testmonthly', yearlyPriceId: 'price_testyearly', lifetimePriceId: 'price_testlifetime' } });
+  const plans = await j(player.request.get(BASE + '/api/billing/plans'));
+  check('plus: plans available', plans.enabled && plans.plans.every((p) => p.available), JSON.stringify(plans));
+  const badPrice = await admin.request.put(BASE + '/api/admin/billing', { data: { monthlyPriceId: 'https://buy.stripe.com/x' } });
+  check('plus: admin rejects a payment link as a price id', badPrice.status() === 422);
+
+  // ---- free player limits ----
+  const taStarts = [];
+  for (let i = 0; i < 3; i++) taStarts.push((await player.request.post(BASE + '/api/time-attack/start')).status());
+  check('plus: free players get 3 Time Attack runs a day', taStarts.join() === '200,200,429', taStarts.join()); // one run was used earlier
+  const oldDay = addDays(today, -10);
+  check('plus: old dailies locked for free players', (await player.request.get(BASE + `/api/daily/day/${oldDay}`)).status() === 403);
+  check('plus: recent dailies open', (await player.request.get(BASE + `/api/daily/day/${addDays(today, -3)}`)).ok());
+  const lockedPlay = await player.request.post(BASE + '/api/plays', { data: { daily: oldDay } });
+  check('plus: cannot start an old daily without Plus', lockedPlay.status() === 403);
+
+  // A puzzle moved into the Members' Gallery, and a brand-new one in early access.
+  const nonDaily = pub.puzzles.filter((p) => p.categoryId !== 'daily');
+  const memberPuzzle = nonDaily[nonDaily.length - 1];
+  await admin.request.patch(BASE + `/api/admin/puzzles/${memberPuzzle.id}`, { data: { categoryId: 'members' } });
+  const mcat = await j(player.request.get(BASE + '/api/categories/members'));
+  check('plus: members gallery locked for free players', mcat.category.membersOnly && mcat.puzzles[0]?.lock === 'members', JSON.stringify(mcat.puzzles[0]));
+  check('plus: members puzzle not playable', (await player.request.post(BASE + '/api/plays', { data: { puzzle: memberPuzzle.slug } })).status() === 403);
+  const animals = (await j(player.request.get(BASE + '/api/categories/animals'))).puzzles;
+  const earlyP = animals.find((p) => p.index > 0);
+  sql(`UPDATE puzzles SET published_at = ${Date.now()} WHERE slug = '${earlyP.slug}'`);
+  const earlyView = (await j(player.request.get(BASE + `/api/puzzles/${earlyP.slug}`))).puzzle;
+  check('plus: new puzzles are early access', earlyView.lock === 'early' && !earlyView.unlocked && earlyView.publicAt > Date.now(), JSON.stringify({ lock: earlyView.lock, unlocked: earlyView.unlocked }));
+  check('plus: early puzzles cannot be bought with points', (await player.request.post(BASE + `/api/puzzles/${earlyP.slug}/unlock`)).status() === 403);
+  const freeFirst = animals.find((p) => p.index === 0);
+  check('plus: free first puzzle stays free', freeFirst.unlocked);
+
+  // An ad banner, hidden from members.
+  await admin.request.put(BASE + '/api/admin/site', { data: { banners: [{ image: '/img/logo.png', pages: ['all'], position: 'bottom', enabled: true, audience: 'free', alt: 'Ad' }] } });
+  check('plus: free players see ads', (await j(player.request.get(BASE + '/api/site'))).banners.length === 1);
+
+  // ---- buy Plus through the page ----
+  await player.goto(BASE + '/plus');
+  await player.waitForSelector('text=Choose a plan');
+  await player.screenshot({ path: `${OUT}/14-plus.png`, fullPage: true });
+  await player.click('text=Choose Yearly');
+  await player.waitForURL(/\/plus\?welcome=1/, { timeout: 15000 });
+  await player.waitForSelector('text=You’re a Plus member', { timeout: 30000 });
+  const m = await meOf(player);
+  check('plus: checkout makes you a member for a year', m.member && m.billing && m.memberUntil > Date.now() + 360 * 86400_000, JSON.stringify(m));
+  check('plus: members see no ads', (await j(player.request.get(BASE + '/api/site'))).banners.length === 0);
+  check('plus: members gallery playable', (await player.request.post(BASE + '/api/plays', { data: { puzzle: memberPuzzle.slug } })).ok());
+  check('plus: early access playable', (await player.request.post(BASE + '/api/plays', { data: { puzzle: earlyP.slug } })).ok());
+  check('plus: every puzzle unlocked', (await j(player.request.get(BASE + '/api/categories/animals'))).puzzles.every((p) => p.unlocked));
+  check('plus: full daily archive', (await player.request.get(BASE + `/api/daily/day/${oldDay}`)).ok());
+  const ta = await player.request.post(BASE + '/api/time-attack/start');
+  check('plus: unlimited Time Attack', ta.ok() && (await ta.json()).runsLeft === null);
+  const again = await player.request.post(BASE + '/api/billing/checkout', { data: { plan: 'monthly' } });
+  check('plus: no second subscription', again.status() === 409);
+  const portal = await j(player.request.post(BASE + '/api/billing/portal'));
+  check('plus: billing portal link', /portal=1/.test(portal.url || ''), portal.url);
+
+  // Frame, requests, medals, downloads, badge.
+  await player.request.put(BASE + '/api/plus/frame', { data: { frame: 'gold' } });
+  check('plus: frame saved', (await meOf(player)).frame === 'gold');
+  const r1 = await player.request.post(BASE + '/api/plus/requests', { data: { idea: 'A lighthouse on a stormy cliff at sunset', categoryId: 'members' } });
+  const r2 = await player.request.post(BASE + '/api/plus/requests', { data: { idea: 'A red panda asleep in a maple tree', categoryId: 'animals' } });
+  const r3 = await player.request.post(BASE + '/api/plus/requests', { data: { idea: 'A third idea this month', categoryId: 'members' } });
+  check('plus: 2 picture requests a month', r1.ok() && r2.ok() && r3.status() === 429, `${r1.status()} ${r2.status()} ${r3.status()}`);
+  let reqPuzzle = null;
+  for (let i = 0; i < 15 && !reqPuzzle; i++) {
+    await admin.request.post(BASE + '/api/admin/generation/run');
+    reqPuzzle = (await j(admin.request.get(BASE + '/api/admin/puzzles?status=pending'))).puzzles.find((p) => p.request);
+    if (!reqPuzzle) await player.waitForTimeout(1000);
+  }
+  check('plus: request reaches the review queue with its member', reqPuzzle?.request?.username === 'PuzzleFan', JSON.stringify(reqPuzzle?.request));
+  const reqs = await j(player.request.get(BASE + '/api/plus/requests'));
+  check('plus: member sees request status', reqs.left === 0 && reqs.requests.some((r) => r.status === 'review'), JSON.stringify(reqs.requests.map((r) => r.status)));
+  const medals = await j(player.request.get(BASE + '/api/plus/medals'));
+  check('plus: medal collection', medals.puzzles.length >= 1 && medals.puzzles[0].results.length >= 1);
+  const dl = await player.request.get(BASE + `/api/plus/download/${medals.puzzles.find((p) => !p.daily)?.slug ?? medals.puzzles[0].slug}`);
+  check('plus: download finished picture', dl.ok() && /attachment/.test(dl.headers()['content-disposition'] || ''), dl.headers()['content-disposition']);
+  const lb = await j(player.request.get(BASE + '/api/leaderboard/points'));
+  check('plus: badge on leaderboard', lb.rows.find((r) => r.username === 'PuzzleFan')?.plus === true);
+  await player.goto(BASE + '/account');
+  await player.waitForSelector('text=Medal collection', { timeout: 10000 });
+  check('plus: account shows membership, frame and requests', (await player.locator('text=Board frame').count()) === 1 && (await player.locator('text=Request a picture').count()) === 1);
+  await player.screenshot({ path: `${OUT}/15-account-plus.png`, fullPage: true });
+  await player.goto(BASE + `/play?p=${earlyP.slug}`);
+  await player.waitForSelector('#board');
+  check('plus: frame around the board', (await player.locator('.board-wrap.frame-gold').count()) === 1);
+  await player.screenshot({ path: `${OUT}/16-frame.png` });
+
+  // ---- webhooks: bad signature, cancellation, lifetime ----
+  const bad = await j(fetch('http://127.0.0.1:8791/test/raw-event', { method: 'POST' }));
+  check('plus: webhook rejects bad signatures', bad.status === 400);
+  const subs = await j(fetch('http://127.0.0.1:8791/test/subs'));
+  await j(fetch(`http://127.0.0.1:8791/test/cancel/${subs[0].id}`, { method: 'POST' }));
+  const after = await meOf(player);
+  check('plus: cancelled subscription ends membership', !after.member, JSON.stringify(after));
+  check('plus: locked again after cancelling', (await player.request.post(BASE + '/api/plays', { data: { puzzle: memberPuzzle.slug } })).status() === 403);
+  const pf = (await j(admin.request.get(BASE + '/api/admin/users?q=PuzzleFan'))).users[0];
+  await admin.request.post(BASE + `/api/admin/users/${pf.id}/supporter`, { data: { lifetime: true } });
+  const life = await meOf(player);
+  check('plus: admin can give lifetime Plus', life.member && life.lifetime);
+  const bill = await j(admin.request.get(BASE + '/api/admin/billing'));
+  check('plus: admin membership counts', bill.members.lifetime === 1 && bill.stripeKey && bill.webhookSecret, JSON.stringify(bill.members));
+  // Admin pages render.
+  await admin.goto(BASE + '/admin#membership');
+  await admin.waitForSelector('text=Paying members');
+  await admin.screenshot({ path: `${OUT}/17-admin-membership.png`, fullPage: true });
 }
 
 // Static pages render

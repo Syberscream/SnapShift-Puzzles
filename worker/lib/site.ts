@@ -16,6 +16,8 @@ export interface Banner {
   /** Above or below the page content. */
   position: 'top' | 'bottom';
   enabled: boolean;
+  /** "free": an ad, hidden from SnapShift Plus members. */
+  audience: 'all' | 'free';
   /** Optional YYYY-MM-DD dates (inclusive) in the site timezone. */
   start: string;
   end: string;
@@ -115,6 +117,7 @@ export function cleanBanners(list: unknown): Banner[] {
         pages: pages.length ? pages : ['all'],
         position: b.position === 'bottom' ? 'bottom' : 'top',
         enabled: b.enabled !== false,
+        audience: b.audience === 'free' ? 'free' : 'all',
         start: date(b.start),
         end: date(b.end),
       },
@@ -123,7 +126,7 @@ export function cleanBanners(list: unknown): Banner[] {
 }
 
 /** What players get: settings with only the banners that are on today. */
-export async function publicSite(env: Env) {
+export async function publicSite(env: Env, member = false) {
   const s = await getSite(env);
   const today = dayKey(env);
   return {
@@ -132,7 +135,7 @@ export async function publicSite(env: Env) {
     supporterYearlyUrl: s.supporterYearlyUrl,
     contactEmail: s.contactEmail,
     theme: s.theme,
-    banners: s.banners.filter((b) => b.enabled && (!b.start || b.start <= today) && (!b.end || b.end >= today)),
+    banners: s.banners.filter((b) => b.enabled && !(member && b.audience === 'free') && (!b.start || b.start <= today) && (!b.end || b.end >= today)),
   };
 }
 

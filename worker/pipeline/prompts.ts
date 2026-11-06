@@ -95,9 +95,10 @@ const pick = <T>(list: T[], rand: () => number): T => list[Math.floor(rand() * l
  * The chosen title is added to `taken` so a batch never repeats itself.
  */
 export function pickIdea(categoryId: string, rand: () => number, hint = '', taken: Set<string> = new Set()): PromptIdea {
-  // The daily pool mixes every theme so each day feels different.
-  const theme = categoryId === 'daily' ? pick(Object.keys(SUBJECTS), rand) : categoryId;
-  const subjects = categoryId === 'daily' ? Object.values(SUBJECTS).flat() : (SUBJECTS[theme] ?? ['Scenic View']);
+  // The daily pool and the members' gallery mix every theme so each picture feels different.
+  const mixed = categoryId === 'daily' || categoryId === 'members';
+  const theme = mixed ? pick(Object.keys(SUBJECTS), rand) : categoryId;
+  const subjects = mixed ? Object.values(SUBJECTS).flat() : (SUBJECTS[theme] ?? ['Scenic View']);
   const style = STYLES[theme] ?? 'high-resolution photograph';
   const extra = hint ? ` Theme: ${hint}.` : '';
 
@@ -123,7 +124,7 @@ export function pickIdea(categoryId: string, rand: () => number, hint = '', take
     }
   }
   taken.add(title.toLowerCase());
-  const subjectStyle = categoryId === 'daily' ? STYLES[Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? ''] ?? style : style;
+  const subjectStyle = mixed ? STYLES[Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? ''] ?? style : style;
   return { title, prompt: `${subject} ${setting[0]}, ${subjectStyle}.${extra} ${PUZZLE_SUFFIX}` };
 }
 

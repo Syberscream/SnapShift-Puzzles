@@ -69,6 +69,24 @@ export const ZEN_POINTS = 10;
 /** Rotation mode pays a bit more. Rotating a tile counts as a move. */
 export const ROTATION_BONUS = 1.25;
 
+/** SnapShift Plus: what free players are limited to, and what members get. */
+export const PLUS = {
+  /** Free players can play this many days back in the daily archive (today included). */
+  freeArchiveDays: 7,
+  /** Free players' Time Attack runs per day (signed-in; members are unlimited). */
+  freeTimeAttackRuns: 3,
+  /** New puzzles are members-only for this long after they're published. */
+  earlyAccessMs: 48 * 3600_000,
+  /** Missed days a member's streak can skip each calendar month. */
+  streakFreezesPerMonth: 2,
+  /** Picture ideas a member can send each calendar month. */
+  requestsPerMonth: 2,
+};
+/** Board frames members can pick. */
+export const FRAMES = ['', 'gold', 'wood', 'neon', 'ice'] as const;
+export type Frame = (typeof FRAMES)[number];
+export const FRAME_LABELS: Record<Frame, string> = { '': 'Plain', gold: 'Gold', wood: 'Wood', neon: 'Neon', ice: 'Ice' };
+
 /** Time Attack: as many small puzzles as you can in the time limit. */
 export const TIME_ATTACK = {
   durationMs: 180_000,

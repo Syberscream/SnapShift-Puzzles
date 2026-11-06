@@ -26,13 +26,14 @@ function header(user: Me | null): HTMLElement {
     'nav',
     { class: 'nav', id: 'site-nav', 'aria-label': 'Main' },
     user
-      ? h('a', { class: 'btn', href: '/account' }, user.username)
+      ? h('a', { class: 'btn', href: '/account' }, user.member && user.role !== 'admin' ? h('span', { class: 'plus-star', title: 'SnapShift Plus' }, '✦ ') : null, user.username)
       : h('a', { class: 'btn', href: '/account' }, 'Sign in'),
     h('a', { class: 'btn', href: '/' }, 'Home'),
     h('a', { class: 'btn', href: '/categories' }, 'Play'),
     h('a', { class: 'btn', href: '/daily' }, 'Daily'),
     h('a', { class: 'btn', href: '/time-attack' }, 'Time Attack'),
     h('a', { class: 'btn', href: '/leaderboard' }, 'Leaderboard'),
+    !user?.member ? h('a', { class: 'btn plus-btn', href: '/plus' }, '✦ Get Plus') : null,
     user?.role === 'admin' ? h('a', { class: 'btn green', href: '/admin' }, 'Admin') : null,
     user ? pointsPill : null,
   );
@@ -68,7 +69,7 @@ function footer(): HTMLElement {
       h('a', { href: '/about' }, 'About'),
       h('a', { href: '/how-to-play' }, 'How to play'),
       h('a', { href: '/faq' }, 'FAQ'),
-      h('a', { href: '/supporter' }, 'Supporter'),
+      h('a', { href: '/plus' }, 'SnapShift Plus'),
       h('a', { href: '/contact' }, 'Contact'),
       h('a', { href: '/privacy' }, 'Privacy'),
       h('a', { href: '/terms' }, 'Terms'),

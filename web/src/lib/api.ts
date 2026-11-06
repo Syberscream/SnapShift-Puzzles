@@ -46,6 +46,13 @@ export interface Me {
   emailVerified: boolean;
   points: number;
   supporter: boolean;
+  /** SnapShift Plus (admins count as members). */
+  member: boolean;
+  memberUntil: number | null;
+  lifetime: boolean;
+  /** Has a Stripe billing account (can open the billing portal). */
+  billing: boolean;
+  frame: string;
 }
 
 export interface PuzzleView {
@@ -59,6 +66,8 @@ export interface PuzzleView {
   thumb: string;
   unlockCost: number;
   unlocked: boolean;
+  lock: 'points' | 'members' | 'early' | null;
+  publicAt: number | null;
   bestMedal: string | null;
   inProgress: boolean;
 }
@@ -69,4 +78,5 @@ export interface Category {
   description: string;
   tile: string;
   count: number;
+  membersOnly?: boolean;
 }

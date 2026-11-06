@@ -1,6 +1,6 @@
 import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
-import { bg, countdown, errorText, h, medalBadge, mount, plural } from '../lib/ui';
+import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag } from '../lib/ui';
 import { puzzleCard } from './shared';
 
 interface Home {
@@ -111,6 +111,7 @@ function render(d: Home) {
             { class: 'card category-card', href: `/category?c=${c.id}` },
             h('div', { class: 'thumb', style: bg(c.tile) }),
             h('span', { class: 'pill count' }, plural(c.count, 'puzzle')),
+            c.membersOnly ? h('span', { class: 'corner' }, plusTag('MEMBERS')) : null,
             h('div', { class: 'meta' }, h('b', {}, c.name), h('span', { class: 'muted small' }, c.description)),
           ),
         ),

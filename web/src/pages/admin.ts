@@ -18,6 +18,7 @@ interface AdminPuzzle {
   model: string | null;
   sort: number;
   createdAt: number;
+  request?: { username: string; idea: string } | null;
 }
 interface Cat {
   id: string;
@@ -27,6 +28,7 @@ interface Cat {
   sort: number;
   generate: number;
   prompt_hint: string;
+  members_only: number;
   published: number;
   pending: number;
 }
@@ -65,6 +67,7 @@ const TABS: [string, string, () => Promise<void>][] = [
   ['players', 'Players', players],
   ['messages', 'Messages', messages],
   ['site', 'Site settings', site],
+  ['membership', 'Membership', membership],
 ];
 
 async function show(key: string, fn: () => Promise<void>) {
@@ -175,6 +178,7 @@ function reviewCard(p: AdminPuzzle, onDone: () => void) {
       desc,
       cat,
       h('span', { class: 'muted small' }, `${p.source}${p.model ? ' · ' + p.model : ''} · ${new Date(p.createdAt).toLocaleDateString()}`),
+      p.request ? h('div', { class: 'notice small' }, h('b', {}, `Requested by ${p.request.username}: `), p.request.idea) : null,
       p.prompt ? h('details', { class: 'small muted' }, h('summary', {}, 'Prompt'), p.prompt) : null,
       h('div', { class: 'row', style: 'margin-top:6px' }, publish, reject),
     ),
@@ -305,6 +309,7 @@ async function categories() {
         h('input', { name: 'name', value: c.name ?? '', placeholder: 'Name', style: 'max-width:180px' }),
         h('input', { name: 'sort', type: 'number', value: c.sort ?? 0, style: 'max-width:80px', title: 'Order' }),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'generate', checked: c.generate !== 0 }), 'Auto-generate'),
+        h('label', { class: 'check', title: 'Only SnapShift Plus members can play this category' }, h('input', { type: 'checkbox', name: 'members_only', checked: !!c.members_only }), 'Members only'),
         c.id ? h('span', { class: 'muted small' }, `${c.published} published · ${c.pending} waiting`) : null,
       ),
       h('input', { name: 'description', value: c.description ?? '', placeholder: 'Description', style: 'margin-top:8px' }),
@@ -316,7 +321,7 @@ async function categories() {
       e.preventDefault();
       const d = new FormData(f);
       try {
-        await api.put(`/admin/categories/${encodeURIComponent(String(d.get('id')))}`, { ...Object.fromEntries(d), sort: Number(d.get('sort')), generate: d.get('generate') === 'on' });
+        await api.put(`/admin/categories/${encodeURIComponent(String(d.get('id')))}`, { ...Object.fromEntries(d), sort: Number(d.get('sort')), generate: d.get('generate') === 'on', members_only: d.get('members_only') === 'on' });
         toast('Saved', '', 'good');
         await categories();
       } catch (x) {
@@ -360,13 +365,13 @@ async function players() {
   const search = h('input', { placeholder: 'Search username or email', style: 'max-width:320px' }) as HTMLInputElement;
   const list = h('div');
   const load = async () => {
-    const { users } = await api.get<{ users: { id: number; username: string; email: string; role: string; points: number; email_verified: number; created_at: number }[] }>(`/admin/users?q=${encodeURIComponent(search.value)}`);
+    const { users } = await api.get<{ users: { id: number; username: string; email: string; role: string; points: number; email_verified: number; created_at: number; supporter_until: number | null; lifetime: number; stripe_subscription_id: string | null }[] }>(`/admin/users?q=${encodeURIComponent(search.value)}`);
     mount(
       list,
       h(
         'table',
         {},
-        h('thead', {}, h('tr', {}, h('th', {}, 'Player'), h('th', {}, 'Email'), h('th', { class: 'num' }, 'Points'), h('th', {}, ''))),
+        h('thead', {}, h('tr', {}, h('th', {}, 'Player'), h('th', {}, 'Email'), h('th', {}, 'Plus'), h('th', { class: 'num' }, 'Points'), h('th', {}, ''))),
         h(
           'tbody',
           {},
@@ -376,12 +381,22 @@ async function players() {
               {},
               h('td', {}, u.username, u.role === 'admin' ? ' (admin)' : ''),
               h('td', { class: 'small' }, u.email, u.email_verified ? '' : ' · unverified'),
+              h(
+                'td',
+                { class: 'small' },
+                u.lifetime
+                  ? 'Lifetime'
+                  : u.supporter_until && u.supporter_until > Date.now()
+                    ? `${u.stripe_subscription_id ? 'Paying' : 'Given'} · until ${new Date(u.supporter_until).toLocaleDateString()}`
+                    : '—',
+              ),
               h('td', { class: 'num' }, u.points),
               h(
                 'td',
                 { class: 'row end' },
                 h('button', { class: 'btn', onclick: async () => { const v = prompt(`Adjust points for ${u.username} (e.g. 100 or -50):`); if (v && Number(v)) { await api.post(`/admin/users/${u.id}/points`, { delta: Number(v), note: 'admin adjustment' }); await load(); } } }, 'Points'),
-                h('button', { class: 'btn', onclick: async () => { const v = prompt(`Supporter days for ${u.username} (0 to remove):`, '30'); if (v !== null) { await api.post(`/admin/users/${u.id}/supporter`, { days: Number(v) }); toast('Updated', '', 'good'); } } }, 'Supporter'),
+                h('button', { class: 'btn', onclick: async () => { const v = prompt(`Give ${u.username} SnapShift Plus for how many days? (0 removes it)`, '30'); if (v !== null) { await api.post(`/admin/users/${u.id}/supporter`, { days: Number(v) }); toast('Updated', '', 'good'); await load(); } } }, 'Plus days'),
+                h('button', { class: 'btn', onclick: async () => { if (confirm(u.lifetime ? `Remove lifetime Plus from ${u.username}?` : `Give ${u.username} lifetime Plus?`)) { await api.post(`/admin/users/${u.id}/supporter`, { lifetime: !u.lifetime }); toast('Updated', '', 'good'); await load(); } } }, u.lifetime ? 'Remove lifetime' : 'Lifetime'),
               ),
             ),
           ),
@@ -448,8 +463,6 @@ async function site() {
     { class: 'panel' },
     h('h2', {}, 'General'),
     h('div', { class: 'field' }, h('label', {}, 'Announcement (a notice at the top of every page; empty to hide)'), h('input', { name: 'announcement', value: s.announcement })),
-    h('div', { class: 'field' }, h('label', {}, 'Supporter monthly payment link (Stripe Payment Link)'), h('input', { name: 'supporterMonthlyUrl', value: s.supporterMonthlyUrl, placeholder: 'https://buy.stripe.com/...' })),
-    h('div', { class: 'field' }, h('label', {}, 'Supporter yearly payment link'), h('input', { name: 'supporterYearlyUrl', value: s.supporterYearlyUrl })),
     h('div', { class: 'field' }, h('label', {}, 'Contact email shown to players'), h('input', { name: 'contactEmail', value: s.contactEmail })),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
   );
@@ -558,11 +571,13 @@ async function site() {
             pos.addEventListener('change', () => (b.position = pos.value as Banner['position']));
             const on = h('input', { type: 'checkbox', checked: b.enabled }) as HTMLInputElement;
             on.addEventListener('change', () => (b.enabled = on.checked));
+            const ad = h('input', { type: 'checkbox', checked: b.audience === 'free' }) as HTMLInputElement;
+            ad.addEventListener('change', () => (b.audience = ad.checked ? 'free' : 'all'));
             return h(
               'div',
               { class: 'panel soft' },
               h('img', { src: b.image, alt: '', style: 'max-height:120px;width:auto;border-radius:10px;margin-bottom:10px' }),
-              h('div', { class: 'field' }, h('label', {}, 'Link when clicked (optional)'), field('href', 'https://… or /supporter')),
+              h('div', { class: 'field' }, h('label', {}, 'Link when clicked (optional)'), field('href', 'https://… or /plus')),
               h('div', { class: 'field' }, h('label', {}, 'Description for screen readers'), field('alt', 'e.g. SnapShift t-shirts are here')),
               h('div', { class: 'field' }, h('label', {}, 'Show on'), h('div', { class: 'row' }, BANNER_PAGES.map(([key, label]) => {
                 const cb = h('input', { type: 'checkbox', checked: b.pages.includes(key) }) as HTMLInputElement;
@@ -571,7 +586,7 @@ async function site() {
                 });
                 return h('label', { class: 'check' }, cb, label);
               }))),
-              h('div', { class: 'row' }, pos, h('span', { class: 'muted small' }, 'From'), date('start'), h('span', { class: 'muted small' }, 'to'), date('end'), h('label', { class: 'check' }, on, 'Show')),
+              h('div', { class: 'row' }, pos, h('span', { class: 'muted small' }, 'From'), date('start'), h('span', { class: 'muted small' }, 'to'), date('end'), h('label', { class: 'check' }, on, 'Show'), h('label', { class: 'check', title: 'An ad: SnapShift Plus members don’t see it' }, ad, 'Ad (hide for Plus members)')),
               h(
                 'div',
                 { class: 'row', style: 'margin-top:8px' },
@@ -619,6 +634,68 @@ async function site() {
 
   mount(body, h('div', { class: 'two-col' }, look, general), bannerSection);
   apply();
+}
+
+interface BillingInfo {
+  settings: Record<'monthlyPriceId' | 'yearlyPriceId' | 'lifetimePriceId' | 'monthlyLabel' | 'yearlyLabel' | 'lifetimeLabel', string>;
+  stripeKey: boolean;
+  stripeTestMode: boolean;
+  webhookSecret: boolean;
+  webhookUrl: string;
+  members: { lifetime: number; subscribers: number; granted: number };
+}
+
+async function membership() {
+  const b = await api.get<BillingInfo>('/admin/billing');
+  const ok = (v: boolean, yes: string, no: string) => h('span', { class: `tag ${v ? 'done' : 'failed'}` }, v ? yes : no);
+  const field = (name: keyof BillingInfo['settings'], label: string, placeholder: string) =>
+    h('div', { class: 'field' }, h('label', {}, label), h('input', { name, value: b.settings[name], placeholder }));
+  const f = h(
+    'form',
+    { class: 'panel' },
+    h('h2', {}, 'Plans'),
+    h('p', { class: 'muted small' }, 'Create the products and prices in your Stripe dashboard, then paste each price id here (it starts with price_). The labels are what players see on the Plus page. Leave a price empty to hide that plan.'),
+    h('div', { class: 'two-col' },
+      h('div', {}, field('monthlyPriceId', 'Monthly price id (recurring, monthly)', 'price_…'), field('yearlyPriceId', 'Yearly price id (recurring, yearly)', 'price_…'), field('lifetimePriceId', 'Lifetime price id (one-time)', 'price_…')),
+      h('div', {}, field('monthlyLabel', 'Monthly label', '$2.99 / month'), field('yearlyLabel', 'Yearly label', '$24.99 / year'), field('lifetimeLabel', 'Lifetime label', '$49 once')),
+    ),
+    h('button', { class: 'btn primary', type: 'submit' }, 'Save plans'),
+  );
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api.put('/admin/billing', Object.fromEntries(new FormData(f)));
+      toast('Saved', '', 'good');
+    } catch (x) {
+      toast('Could not save', errorText(x), 'bad', 6000);
+    }
+  });
+  mount(
+    body,
+    h(
+      'section',
+      { class: 'panel' },
+      h('h2', {}, 'SnapShift Plus'),
+      h(
+        'div',
+        { class: 'row' },
+        h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Paying members'), h('b', {}, b.members.subscribers)),
+        h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Lifetime'), h('b', {}, b.members.lifetime)),
+        h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Given by admin'), h('b', {}, b.members.granted)),
+      ),
+      h(
+        'p',
+        { style: 'margin-top:12px' },
+        'Stripe secret key: ',
+        ok(b.stripeKey, b.stripeTestMode ? 'set (test mode)' : 'set', 'missing'),
+        ' · Webhook secret: ',
+        ok(b.webhookSecret, 'set', 'missing'),
+      ),
+      h('p', { class: 'muted small' }, 'Webhook URL for Stripe: ', h('code', {}, b.webhookUrl)),
+      h('p', { class: 'muted small' }, 'Events to send: checkout.session.completed, customer.subscription.created, customer.subscription.updated, customer.subscription.deleted, invoice.paid, charge.refunded.'),
+    ),
+    f,
+  );
 }
 
 // Start after all helpers above are defined.

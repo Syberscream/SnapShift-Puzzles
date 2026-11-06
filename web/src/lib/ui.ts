@@ -54,6 +54,17 @@ export function bg(url: string): string {
   return url ? `background-image:url("${url.replace(/"/g, '%22')}")` : '';
 }
 
+/** The small "PLUS" tag shown next to members' names and on members' pictures. */
+export function plusTag(text = 'PLUS'): HTMLElement {
+  return h('span', { class: 'plus-tag', title: 'SnapShift Plus' }, '✦ ', text);
+}
+
+/** "in 5h" / "in 2 days" until a time. */
+export function timeUntil(ms: number): string {
+  const hrs = Math.max(1, Math.round((ms - Date.now()) / 3600_000));
+  return hrs < 36 ? `in ${hrs}h` : `in ${Math.round(hrs / 24)} days`;
+}
+
 /** A medal coin. With `named`, it sits in a pill with the medal's name (used on picture cards). */
 export function medalBadge(medal: string | null | undefined, named = false): HTMLElement | null {
   if (!medal) return null;

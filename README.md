@@ -68,6 +68,28 @@ Guests can play the daily and the free puzzle in each category; their games are 
 
 All of these numbers live in `shared/rules.ts`.
 
+## SnapShift Plus (membership)
+
+Free players get the daily, streaks, leaderboards, every difficulty and mode, the first puzzle in each category
+(the rest unlock with points), the last 7 days of the daily archive and 3 Time Attack runs a day.
+Plus members get every puzzle unlocked, no ad banners, the full archive, new puzzles 48 h early, the
+Members' Gallery category, unlimited Time Attack, 2 streak freezes and 2 picture requests a month,
+full-size downloads, a Plus badge, board frames and a medal collection. Plus never changes scores or points.
+The limits live in `PLUS` in `shared/rules.ts`.
+
+Billing is Stripe Checkout + the Stripe customer portal; a webhook (`/api/billing/webhook`) keeps
+`users.supporter_until` in step with the subscription. To set it up:
+
+1. In Stripe, create a product "SnapShift Plus" with three prices: monthly recurring, yearly recurring and a one-time (lifetime).
+2. `npx wrangler secret put STRIPE_SECRET_KEY` (Developers → API keys → Secret key).
+3. Stripe → Developers → Webhooks → Add endpoint: `https://snapshiftpuzzles.com/api/billing/webhook`, events
+   `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`. Then `npx wrangler secret put STRIPE_WEBHOOK_SECRET` (the `whsec_…` signing secret).
+4. Stripe → Settings → Billing → Customer portal: turn on cancelling and updating payment methods.
+5. Admin → Membership: paste the three price ids and the labels shown to players.
+
+Banners marked "Ad" in Admin → Site settings are hidden from members. Admins can also give Plus by hand (Admin → Players).
+
 ## Automated puzzles with ElevenLabs
 
 1. **Plan** – if automatic generation is on, every 10 minutes the Worker tops up the review queue
@@ -107,6 +129,8 @@ npx wrangler r2 bucket create snapshift-media
 # 2. Secrets
 npx wrangler secret put ELEVENLABS_API_KEY  # from elevenlabs.io → Developers → API keys
 npx wrangler secret put RESEND_API_KEY      # optional: verification / password-reset email (resend.com)
+npx wrangler secret put STRIPE_SECRET_KEY   # optional: SnapShift Plus (see below)
+npx wrangler secret put STRIPE_WEBHOOK_SECRET
 
 # 3. Build, create the tables, deploy
 npm run deploy

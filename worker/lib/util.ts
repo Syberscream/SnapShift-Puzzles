@@ -2,7 +2,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { Context } from 'hono';
 import type { AppEnv, Env } from '../env';
 
-export function fail(status: 400 | 401 | 402 | 403 | 404 | 409 | 422 | 429 | 500 | 503, message: string): never {
+export function fail(status: 400 | 401 | 402 | 403 | 404 | 409 | 422 | 429 | 500 | 502 | 503, message: string): never {
   throw new HTTPException(status, { message });
 }
 

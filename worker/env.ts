@@ -16,6 +16,11 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** "1" in local development: return email links in API responses. */
   DEV_MODE?: string;
+  /** Stripe (SnapShift Plus). Price ids are set in Admin → Site settings. */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  /** Tests only: a fake Stripe API. */
+  STRIPE_BASE_URL?: string;
 }
 
 export interface User {
@@ -26,6 +31,10 @@ export interface User {
   email_verified: number;
   points: number;
   supporter_until: number | null;
+  lifetime: number;
+  frame: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
   created_at: number;
 }
 

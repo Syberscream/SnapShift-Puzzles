@@ -2,6 +2,7 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import type { Context, Next } from 'hono';
 import type { AppEnv, Env, User } from '../env';
 import { fail, now, randomId, sha256 } from './util';
+import { isMember } from './membership';
 
 const COOKIE = 'ss_session';
 const SESSION_DAYS = 30;
@@ -40,7 +41,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return diff === 0;
 }
 
-const USER_COLS = 'u.id, u.email, u.username, u.role, u.email_verified, u.points, u.supporter_until, u.created_at';
+const USER_COLS = 'u.id, u.email, u.username, u.role, u.email_verified, u.points, u.supporter_until, u.lifetime, u.frame, u.stripe_customer_id, u.stripe_subscription_id, u.created_at';
 
 export async function startSession(c: Context<AppEnv>, userId: number): Promise<void> {
   const token = randomId(32);
@@ -106,6 +107,11 @@ export function publicUser(u: User) {
     role: u.role,
     emailVerified: !!u.email_verified,
     points: u.points,
-    supporter: !!(u.supporter_until && u.supporter_until > now()),
+    supporter: isMember(u),
+    member: isMember(u),
+    memberUntil: u.lifetime ? null : u.supporter_until && u.supporter_until > now() ? u.supporter_until : null,
+    lifetime: !!u.lifetime,
+    billing: !!u.stripe_customer_id,
+    frame: isMember(u) ? u.frame : '',
   };
 }

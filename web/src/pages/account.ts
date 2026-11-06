@@ -1,6 +1,7 @@
 import { api, type Me } from '../lib/api';
 import { me, shell } from '../lib/shell';
-import { errorText, h, medalBadge, mount, qs, toast } from '../lib/ui';
+import { errorText, h, medalBadge, mount, qs, toast, plusTag } from '../lib/ui';
+import { framePanel, medalsPanel, membershipPanel, requestsPanel } from './account-plus';
 
 const main = await shell({ title: 'Account' });
 const next = qs('next') && qs('next').startsWith('/') && !qs('next').startsWith('//') ? qs('next') : '/';
@@ -98,6 +99,7 @@ async function profileView(user: Me) {
     streak: { current: number; best: number };
     medals: { gold: number; silver: number; bronze: number };
     completed: number;
+    freezesLeft: number | null;
     ledger: { delta: number; reason: string; ref: string | null; created_at: number }[];
   }>('/me/summary');
   const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', timeattack: 'Time Attack', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment' };
@@ -135,7 +137,7 @@ async function profileView(user: Me) {
     h(
       'section',
       { class: 'panel' },
-      h('div', { class: 'spread' }, h('div', {}, h('h1', {}, user.username), h('p', { class: 'muted' }, user.email, user.supporter ? ' · Supporter ♥' : '')), h('button', { class: 'btn', onclick: async () => (await api.post('/auth/logout'), (location.href = '/')) }, 'Sign out')),
+      h('div', { class: 'spread' }, h('div', {}, h('h1', {}, user.username), h('p', { class: 'muted' }, user.email, user.member && user.role !== 'admin' ? [' · ', plusTag()] : '')), h('button', { class: 'btn', onclick: async () => (await api.post('/auth/logout'), (location.href = '/')) }, 'Sign out')),
       h(
         'div',
         { class: 'row' },
@@ -175,6 +177,12 @@ async function profileView(user: Me) {
       pw,
     ),
   );
+  main.append(membershipPanel(user, s.freezesLeft));
+  if (user.member) {
+    main.append(framePanel(user));
+    main.append(await requestsPanel());
+    main.append(await medalsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
+  }
 }
 
 const verify = qs('verify');

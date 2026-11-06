@@ -8,6 +8,8 @@ import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
 import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, takenTitles, type GenerationSettings } from '../pipeline/pipeline';
 import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX } from '../pipeline/prompts';
 import { rng, randomSeed } from '../../shared/engine';
+import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
+import { setLifetime } from '../lib/membership';
 
 const app = new Hono<AppEnv>();
 app.use('*', async (c, next) => {
@@ -80,7 +82,16 @@ app.get('/puzzles', async (c) => {
   )
     .bind(...(cat ? [status, cat] : [status]))
     .all<PuzzleRow>();
-  return c.json({ puzzles: results.map(adminPuzzle) });
+  // Members' picture requests behind these puzzles.
+  const req = new Map<number, { username: string; idea: string }>();
+  if (results.length) {
+    const r = await c.env.DB.prepare(
+      `SELECT j.puzzle_id, u.username, r.idea FROM puzzle_requests r JOIN generation_jobs j ON j.id = r.job_id JOIN users u ON u.id = r.user_id
+       WHERE j.puzzle_id IN (${results.map((p) => p.id).join(',')})`,
+    ).all<{ puzzle_id: number; username: string; idea: string }>();
+    for (const x of r.results) req.set(x.puzzle_id, { username: x.username, idea: x.idea });
+  }
+  return c.json({ puzzles: results.map((p) => ({ ...adminPuzzle(p), request: req.get(p.id) ?? null })) });
 });
 
 app.patch('/puzzles/:id', async (c) => {
@@ -255,11 +266,11 @@ app.put('/categories/:id', async (c) => {
   const name = str(b.name, 40);
   if (!name) fail(422, 'Name is required.');
   await c.env.DB.prepare(
-    `INSERT INTO categories (id, name, description, tile_url, sort, generate, prompt_hint) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO categories (id, name, description, tile_url, sort, generate, prompt_hint, members_only) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description, tile_url = excluded.tile_url,
-       sort = excluded.sort, generate = excluded.generate, prompt_hint = excluded.prompt_hint`,
+       sort = excluded.sort, generate = excluded.generate, prompt_hint = excluded.prompt_hint, members_only = excluded.members_only`,
   )
-    .bind(id, name, str(b.description, 300), str(b.tile_url, 300), int(b.sort), b.generate === false ? 0 : 1, str(b.prompt_hint, 300))
+    .bind(id, name, str(b.description, 300), str(b.tile_url, 300), int(b.sort), b.generate === false ? 0 : 1, str(b.prompt_hint, 300), b.members_only ? 1 : 0)
     .run();
   return c.json({ ok: true, id });
 });
@@ -297,7 +308,7 @@ app.put('/daily/:day', async (c) => {
 app.get('/users', async (c) => {
   const q = str(c.req.query('q'), 100);
   const { results } = await c.env.DB.prepare(
-    `SELECT id, username, email, role, email_verified, points, supporter_until, created_at, last_login_at FROM users
+    `SELECT id, username, email, role, email_verified, points, supporter_until, lifetime, stripe_customer_id, stripe_subscription_id, created_at, last_login_at FROM users
      ${q ? 'WHERE username LIKE ? OR email LIKE ?' : ''} ORDER BY id DESC LIMIT 50`,
   )
     .bind(...(q ? [`%${q}%`, `%${q}%`] : []))
@@ -313,11 +324,54 @@ app.post('/users/:id/points', async (c) => {
   return c.json({ ok: true });
 });
 
+/** Give (or take away) membership by hand: {days} from now (0 removes), or {lifetime: true|false}. */
 app.post('/users/:id/supporter', async (c) => {
-  const days = int((await body(c)).days);
+  const b = await body(c);
+  const id = int(c.req.param('id'));
+  if (typeof b.lifetime === 'boolean') {
+    await setLifetime(c.env, id, b.lifetime);
+    return c.json({ ok: true, lifetime: b.lifetime });
+  }
+  const days = int(b.days);
   const until = days > 0 ? now() + days * 86400_000 : null;
-  await c.env.DB.prepare('UPDATE users SET supporter_until = ? WHERE id = ?').bind(until, int(c.req.param('id'))).run();
+  await c.env.DB.prepare('UPDATE users SET supporter_until = ? WHERE id = ?').bind(until, id).run();
   return c.json({ ok: true, supporterUntil: until });
+});
+
+// ---------- membership / billing ----------
+
+app.get('/billing', async (c) => {
+  const [settings, members] = await Promise.all([
+    getBilling(c.env),
+    c.env.DB.prepare(
+      `SELECT SUM(lifetime = 1) AS lifetime, SUM(lifetime = 0 AND supporter_until > ? AND stripe_subscription_id IS NOT NULL) AS subscribers,
+         SUM(lifetime = 0 AND supporter_until > ? AND stripe_subscription_id IS NULL) AS granted FROM users`,
+    )
+      .bind(now(), now())
+      .first<{ lifetime: number; subscribers: number; granted: number }>(),
+  ]);
+  return c.json({
+    settings,
+    stripeKey: !!c.env.STRIPE_SECRET_KEY,
+    stripeTestMode: (c.env.STRIPE_SECRET_KEY || '').startsWith('sk_test') || (c.env.STRIPE_SECRET_KEY || '').startsWith('rk_test'),
+    webhookSecret: !!c.env.STRIPE_WEBHOOK_SECRET,
+    webhookUrl: `${c.env.APP_URL.replace(/\/$/, '')}/api/billing/webhook`,
+    members: { lifetime: members?.lifetime ?? 0, subscribers: members?.subscribers ?? 0, granted: members?.granted ?? 0 },
+  });
+});
+
+app.put('/billing', async (c) => {
+  const b = await body(c);
+  const cur = await getBilling(c.env);
+  const next = { ...cur };
+  for (const k of Object.keys(BILLING_DEFAULTS) as (keyof BillingSettings)[]) {
+    if (b[k] === undefined) continue;
+    const v = str(b[k], 120);
+    if (k.endsWith('PriceId') && v && !/^price_[A-Za-z0-9]+$/.test(v)) fail(422, 'Price ids look like price_1Abc… (copy them from the Stripe dashboard).');
+    next[k] = v;
+  }
+  await putSetting(c.env, 'billing', next);
+  return c.json({ settings: next });
 });
 
 app.get('/messages', async (c) => {

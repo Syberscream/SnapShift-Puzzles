@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import type { AppEnv, User } from '../env';
 import { requireUser } from '../lib/auth';
-import { canPlay, dailyStreak, getDaily, media, type PuzzleRow } from '../lib/catalog';
+import { archiveOpen, canPlay, dailyStreak, getDaily, media, useStreakFreezes, type PuzzleRow } from '../lib/catalog';
+import { isMember } from '../lib/membership';
 import { balance, creditStatements, spend } from '../lib/points';
 import { body, dayKey, fail, int, now, randomId } from '../lib/util';
 import {
@@ -122,6 +123,7 @@ app.post('/', async (c) => {
   let seed: number;
   if (dailyDay) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dailyDay)) fail(422, 'Bad day.');
+    if (!archiveOpen(dailyDay, dayKey(c.env), isMember(user))) fail(403, 'Older dailies are part of SnapShift Plus.');
     const d = await getDaily(c.env, dailyDay);
     if (!d) fail(404, 'No daily puzzle for that day.');
     puzzle = d.puzzle;
@@ -293,7 +295,9 @@ app.post('/:id/complete', async (c) => {
   // Streak milestones (7 / 14 / 30 days, then every 30) pay once per streak.
   let streak = null;
   let milestone = null;
+  let frozen: string[] = [];
   if (countsForDaily) {
+    if (isMember(user)) frozen = await useStreakFreezes(c.env, user.id, today);
     streak = await dailyStreak(c.env, user.id, today);
     const hit = streakMilestone(streak.current);
     if (hit) {
@@ -329,6 +333,7 @@ app.post('/:id/complete', async (c) => {
     dailyBonus,
     milestone,
     streak,
+    frozen,
     rank,
     balance: await balance(c.env, user.id),
   });
