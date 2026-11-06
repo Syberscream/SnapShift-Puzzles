@@ -1,0 +1,3 @@
+<FilesMatch "^(error_log|theme\.json)$">
+    Require all denied
+</FilesMatch>

@@ -1,0 +1,2001 @@
+{
+    "generated_at": 1778909790,
+    "total_puzzles": 320,
+    "counts": {
+        "animals": 41,
+        "architecture": 40,
+        "art": 26,
+        "cities": 18,
+        "food": 40,
+        "fractals": 5,
+        "landscapes": 50,
+        "marine": 24,
+        "nature": 21,
+        "scifi": 19,
+        "space": 17,
+        "vehicles": 19
+    },
+    "latest5": [
+        {
+            "name": "Green Slopes",
+            "src": "puzzles/landscapes/Green Slopes.png",
+            "thumb": "puzzles/_thumbs/landscapes/Green Slopes.jpg",
+            "updated": 1778902204,
+            "catId": "landscapes"
+        },
+        {
+            "name": "Red Dystopian",
+            "src": "puzzles/landscapes/Red Dystopian.png",
+            "thumb": "puzzles/_thumbs/landscapes/Red Dystopian.jpg",
+            "updated": 1778902204,
+            "catId": "landscapes"
+        },
+        {
+            "name": "Fenceline Tree",
+            "src": "puzzles/landscapes/Fenceline Tree.png",
+            "thumb": "puzzles/_thumbs/landscapes/Fenceline Tree.jpg",
+            "updated": 1778902203,
+            "catId": "landscapes"
+        },
+        {
+            "name": "Mossy Garden",
+            "src": "puzzles/landscapes/Mossy Garden.png",
+            "thumb": "puzzles/_thumbs/landscapes/Mossy Garden.jpg",
+            "updated": 1778902203,
+            "catId": "landscapes"
+        },
+        {
+            "name": "Nautical Knot",
+            "src": "puzzles/marine/Nautical Knot.png",
+            "thumb": "puzzles/_thumbs/marine/Nautical Knot.jpg",
+            "updated": 1778902154,
+            "catId": "marine"
+        }
+    ],
+    "categories": {
+        "animals": [
+            {
+                "name": "Savanna Elephant",
+                "src": "puzzles/animals/Savanna Elephant.png",
+                "thumb": "puzzles/_thumbs/animals/Savanna Elephant.jpg",
+                "updated": 1778901917
+            },
+            {
+                "name": "Egyptian Horses",
+                "src": "puzzles/animals/Egyptian Horses.png",
+                "thumb": "puzzles/_thumbs/animals/Egyptian Horses.jpg",
+                "updated": 1778901916
+            },
+            {
+                "name": "Mountain Stag",
+                "src": "puzzles/animals/Mountain Stag.png",
+                "thumb": "puzzles/_thumbs/animals/Mountain Stag.jpg",
+                "updated": 1778901916
+            },
+            {
+                "name": "Antelope Herd",
+                "src": "puzzles/animals/Antelope Herd.png",
+                "thumb": "puzzles/_thumbs/animals/Antelope Herd.jpg",
+                "updated": 1777510412
+            },
+            {
+                "name": "Deer Greenery",
+                "src": "puzzles/animals/Deer Greenery.png",
+                "thumb": "puzzles/_thumbs/animals/Deer Greenery.jpg",
+                "updated": 1777510412
+            },
+            {
+                "name": "Eagle Flight",
+                "src": "puzzles/animals/Eagle Flight.png",
+                "thumb": "puzzles/_thumbs/animals/Eagle Flight.jpg",
+                "updated": 1777510412
+            },
+            {
+                "name": "Majestic Antlers",
+                "src": "puzzles/animals/Majestic Antlers.png",
+                "thumb": "puzzles/_thumbs/animals/Majestic Antlers.jpg",
+                "updated": 1777510412
+            },
+            {
+                "name": "White Lion",
+                "src": "puzzles/animals/White Lion.png",
+                "thumb": "puzzles/_thumbs/animals/White Lion.jpg",
+                "updated": 1777510412
+            },
+            {
+                "name": "Grassland Herd",
+                "src": "puzzles/animals/Grassland Herd.png",
+                "thumb": "puzzles/_thumbs/animals/Grassland Herd.jpg",
+                "updated": 1776394079
+            },
+            {
+                "name": "Grazing Goat",
+                "src": "puzzles/animals/Grazing Goat.png",
+                "thumb": "puzzles/_thumbs/animals/Grazing Goat.jpg",
+                "updated": 1776394079
+            },
+            {
+                "name": "Hippo Stare",
+                "src": "puzzles/animals/Hippo Stare.png",
+                "thumb": "puzzles/_thumbs/animals/Hippo Stare.jpg",
+                "updated": 1776394079
+            },
+            {
+                "name": "Peering Deer",
+                "src": "puzzles/animals/Peering Deer.png",
+                "thumb": "puzzles/_thumbs/animals/Peering Deer.jpg",
+                "updated": 1776394079
+            },
+            {
+                "name": "Rustic Elk",
+                "src": "puzzles/animals/Rustic Elk.png",
+                "thumb": "puzzles/_thumbs/animals/Rustic Elk.jpg",
+                "updated": 1776394079
+            },
+            {
+                "name": "Flowing Mane",
+                "src": "puzzles/animals/Flowing Mane.png",
+                "thumb": "puzzles/_thumbs/animals/Flowing Mane.jpg",
+                "updated": 1775355833
+            },
+            {
+                "name": "Bird Foliage",
+                "src": "puzzles/animals/Bird Foliage.png",
+                "thumb": "puzzles/_thumbs/animals/Bird Foliage.jpg",
+                "updated": 1775355829
+            },
+            {
+                "name": "Chicken Closeup",
+                "src": "puzzles/animals/Chicken Closeup.png",
+                "thumb": "puzzles/_thumbs/animals/Chicken Closeup.jpg",
+                "updated": 1775355829
+            },
+            {
+                "name": "Curled Horn",
+                "src": "puzzles/animals/Curled Horn.png",
+                "thumb": "puzzles/_thumbs/animals/Curled Horn.jpg",
+                "updated": 1775355829
+            },
+            {
+                "name": "Lizard Blue",
+                "src": "puzzles/animals/Lizard Blue.png",
+                "thumb": "puzzles/_thumbs/animals/Lizard Blue.jpg",
+                "updated": 1775355829
+            },
+            {
+                "name": "Vibrant Clownfish",
+                "src": "puzzles/animals/Vibrant Clownfish.png",
+                "thumb": "puzzles/_thumbs/animals/Vibrant Clownfish.jpg",
+                "updated": 1774759404
+            },
+            {
+                "name": "Tiger Stripes",
+                "src": "puzzles/animals/Tiger Stripes.png",
+                "thumb": "puzzles/_thumbs/animals/Tiger Stripes.jpg",
+                "updated": 1774759402
+            },
+            {
+                "name": "Intense Gaze",
+                "src": "puzzles/animals/Intense Gaze.png",
+                "thumb": "puzzles/_thumbs/animals/Intense Gaze.jpg",
+                "updated": 1773899095
+            },
+            {
+                "name": "Speckled Breast",
+                "src": "puzzles/animals/Speckled Breast.png",
+                "thumb": "puzzles/_thumbs/animals/Speckled Breast.jpg",
+                "updated": 1773899095
+            },
+            {
+                "name": "Eagle Focus",
+                "src": "puzzles/animals/Eagle Focus.png",
+                "thumb": "puzzles/_thumbs/animals/Eagle Focus.jpg",
+                "updated": 1773412916
+            },
+            {
+                "name": "Bright Clownfish",
+                "src": "puzzles/animals/Bright Clownfish.png",
+                "thumb": "puzzles/_thumbs/animals/Bright Clownfish.jpg",
+                "updated": 1773412913
+            },
+            {
+                "name": "Curious Otter",
+                "src": "puzzles/animals/Curious Otter.png",
+                "thumb": "puzzles/_thumbs/animals/Curious Otter.jpg",
+                "updated": 1773412913
+            },
+            {
+                "name": "Goat In Green",
+                "src": "puzzles/animals/Goat in Green.png",
+                "thumb": "puzzles/_thumbs/animals/Goat in Green.jpg",
+                "updated": 1773412913
+            },
+            {
+                "name": "Autumn Bear",
+                "src": "puzzles/animals/Autumn Bear.png",
+                "thumb": "puzzles/_thumbs/animals/Autumn Bear.jpg",
+                "updated": 1772947532
+            },
+            {
+                "name": "Hornbill Long Beak",
+                "src": "puzzles/animals/Hornbill Long Beak.png",
+                "thumb": "puzzles/_thumbs/animals/Hornbill Long Beak.jpg",
+                "updated": 1771644548
+            },
+            {
+                "name": "Elephant Eye",
+                "src": "puzzles/animals/Elephant Eye.png",
+                "thumb": "puzzles/_thumbs/animals/Elephant Eye.jpg",
+                "updated": 1771644217
+            },
+            {
+                "name": "Hornbill Closeup",
+                "src": "puzzles/animals/Hornbill Closeup.png",
+                "thumb": "puzzles/_thumbs/animals/Hornbill Closeup.jpg",
+                "updated": 1771644217
+            },
+            {
+                "name": "Rhino Low Key",
+                "src": "puzzles/animals/Rhino Low Key.png",
+                "thumb": "puzzles/_thumbs/animals/Rhino Low Key.jpg",
+                "updated": 1771644217
+            },
+            {
+                "name": "Snow Leopard",
+                "src": "puzzles/animals/Snow Leopard.png",
+                "thumb": "puzzles/_thumbs/animals/Snow Leopard.jpg",
+                "updated": 1771644217
+            },
+            {
+                "name": "Stag",
+                "src": "puzzles/animals/Stag.png",
+                "thumb": "puzzles/_thumbs/animals/Stag.jpg",
+                "updated": 1771644217
+            },
+            {
+                "name": "Tiger Blue Eyes",
+                "src": "puzzles/animals/Tiger Blue Eyes.png",
+                "thumb": "puzzles/_thumbs/animals/Tiger Blue Eyes.jpg",
+                "updated": 1771644217
+            },
+            {
+                "name": "Dragon",
+                "src": "puzzles/animals/Dragon.jpg",
+                "thumb": "puzzles/_thumbs/animals/Dragon.jpg",
+                "updated": 1771629923
+            },
+            {
+                "name": "Foxes",
+                "src": "puzzles/animals/Foxes.jpg",
+                "thumb": "puzzles/_thumbs/animals/Foxes.jpg",
+                "updated": 1771629923
+            },
+            {
+                "name": "Mountain Goat",
+                "src": "puzzles/animals/Mountain Goat.jpg",
+                "thumb": "puzzles/_thumbs/animals/Mountain Goat.jpg",
+                "updated": 1771629923
+            },
+            {
+                "name": "Cat",
+                "src": "puzzles/animals/Cat.png",
+                "thumb": "puzzles/_thumbs/animals/Cat.jpg",
+                "updated": 1771629559
+            },
+            {
+                "name": "Elk",
+                "src": "puzzles/animals/Elk.png",
+                "thumb": "puzzles/_thumbs/animals/Elk.jpg",
+                "updated": 1771629559
+            },
+            {
+                "name": "Leopard",
+                "src": "puzzles/animals/Leopard.png",
+                "thumb": "puzzles/_thumbs/animals/Leopard.jpg",
+                "updated": 1771629559
+            },
+            {
+                "name": "Lion",
+                "src": "puzzles/animals/Lion.png",
+                "thumb": "puzzles/_thumbs/animals/Lion.jpg",
+                "updated": 1771629559
+            }
+        ],
+        "architecture": [
+            {
+                "name": "Low Skyline",
+                "src": "puzzles/architecture/Low Skyline.png",
+                "thumb": "puzzles/_thumbs/architecture/Low Skyline.jpg",
+                "updated": 1777510349
+            },
+            {
+                "name": "Ornate Composition",
+                "src": "puzzles/architecture/Ornate Composition.png",
+                "thumb": "puzzles/_thumbs/architecture/Ornate Composition.jpg",
+                "updated": 1777510349
+            },
+            {
+                "name": "Ornate Pediment",
+                "src": "puzzles/architecture/Ornate Pediment.png",
+                "thumb": "puzzles/_thumbs/architecture/Ornate Pediment.jpg",
+                "updated": 1777510349
+            },
+            {
+                "name": "Ornate Stone",
+                "src": "puzzles/architecture/Ornate Stone.png",
+                "thumb": "puzzles/_thumbs/architecture/Ornate Stone.jpg",
+                "updated": 1777510349
+            },
+            {
+                "name": "Carved Corbel",
+                "src": "puzzles/architecture/Carved Corbel.png",
+                "thumb": "puzzles/_thumbs/architecture/Carved Corbel.jpg",
+                "updated": 1777510348
+            },
+            {
+                "name": "Carved Entablature",
+                "src": "puzzles/architecture/Carved Entablature.png",
+                "thumb": "puzzles/_thumbs/architecture/Carved Entablature.jpg",
+                "updated": 1777510348
+            },
+            {
+                "name": "Curved Glass",
+                "src": "puzzles/architecture/Curved Glass.png",
+                "thumb": "puzzles/_thumbs/architecture/Curved Glass.jpg",
+                "updated": 1777510348
+            },
+            {
+                "name": "Dramatic Neoclassic",
+                "src": "puzzles/architecture/Dramatic Neoclassic.png",
+                "thumb": "puzzles/_thumbs/architecture/Dramatic Neoclassic.jpg",
+                "updated": 1777510348
+            },
+            {
+                "name": "Historic Downtown",
+                "src": "puzzles/architecture/Historic Downtown.png",
+                "thumb": "puzzles/_thumbs/architecture/Historic Downtown.jpg",
+                "updated": 1777510348
+            },
+            {
+                "name": "Lone Simplicity",
+                "src": "puzzles/architecture/Lone Simplicity.png",
+                "thumb": "puzzles/_thumbs/architecture/Lone Simplicity.jpg",
+                "updated": 1777510348
+            },
+            {
+                "name": "Brutalist Concrete",
+                "src": "puzzles/architecture/Brutalist Concrete.png",
+                "thumb": "puzzles/_thumbs/architecture/Brutalist Concrete.jpg",
+                "updated": 1777510347
+            },
+            {
+                "name": "Carved Balcony",
+                "src": "puzzles/architecture/Carved Balcony.png",
+                "thumb": "puzzles/_thumbs/architecture/Carved Balcony.jpg",
+                "updated": 1777510347
+            },
+            {
+                "name": "Dark Twin Columns",
+                "src": "puzzles/architecture/Dark Twin Columns.png",
+                "thumb": "puzzles/_thumbs/architecture/Dark Twin Columns.jpg",
+                "updated": 1776394152
+            },
+            {
+                "name": "Grande Vertical",
+                "src": "puzzles/architecture/Grande Vertical.png",
+                "thumb": "puzzles/_thumbs/architecture/Grande Vertical.jpg",
+                "updated": 1776394150
+            },
+            {
+                "name": "Historic Perspective",
+                "src": "puzzles/architecture/Historic Perspective.png",
+                "thumb": "puzzles/_thumbs/architecture/Historic Perspective.jpg",
+                "updated": 1776394150
+            },
+            {
+                "name": "Corinthian Capital",
+                "src": "puzzles/architecture/Corinthian Capital.png",
+                "thumb": "puzzles/_thumbs/architecture/Corinthian Capital.jpg",
+                "updated": 1776394148
+            },
+            {
+                "name": "Curled Volutes",
+                "src": "puzzles/architecture/Curled Volutes.png",
+                "thumb": "puzzles/_thumbs/architecture/Curled Volutes.jpg",
+                "updated": 1776394148
+            },
+            {
+                "name": "Curved Atrium",
+                "src": "puzzles/architecture/Curved Atrium.png",
+                "thumb": "puzzles/_thumbs/architecture/Curved Atrium.jpg",
+                "updated": 1776394148
+            },
+            {
+                "name": "Curved Roofline",
+                "src": "puzzles/architecture/Curved Roofline.png",
+                "thumb": "puzzles/_thumbs/architecture/Curved Roofline.jpg",
+                "updated": 1776394148
+            },
+            {
+                "name": "Curved Skyline",
+                "src": "puzzles/architecture/Curved Skyline.png",
+                "thumb": "puzzles/_thumbs/architecture/Curved Skyline.jpg",
+                "updated": 1776394148
+            },
+            {
+                "name": "Riveted Metal",
+                "src": "puzzles/architecture/Riveted Metal.png",
+                "thumb": "puzzles/_thumbs/architecture/Riveted Metal.jpg",
+                "updated": 1775355912
+            },
+            {
+                "name": "Red Lattice",
+                "src": "puzzles/architecture/Red Lattice.png",
+                "thumb": "puzzles/_thumbs/architecture/Red Lattice.jpg",
+                "updated": 1775355911
+            },
+            {
+                "name": "Riveted Steel",
+                "src": "puzzles/architecture/Riveted Steel.png",
+                "thumb": "puzzles/_thumbs/architecture/Riveted Steel.jpg",
+                "updated": 1775355911
+            },
+            {
+                "name": "Cathdral Facade",
+                "src": "puzzles/architecture/Cathdral Facade.png",
+                "thumb": "puzzles/_thumbs/architecture/Cathdral Facade.jpg",
+                "updated": 1775355910
+            },
+            {
+                "name": "Monumental Arch",
+                "src": "puzzles/architecture/Monumental Arch.png",
+                "thumb": "puzzles/_thumbs/architecture/Monumental Arch.jpg",
+                "updated": 1775355909
+            },
+            {
+                "name": "Ornate Facade",
+                "src": "puzzles/architecture/Ornate Facade.png",
+                "thumb": "puzzles/_thumbs/architecture/Ornate Facade.jpg",
+                "updated": 1775355909
+            },
+            {
+                "name": "Cable Stays",
+                "src": "puzzles/architecture/Cable Stays.png",
+                "thumb": "puzzles/_thumbs/architecture/Cable Stays.jpg",
+                "updated": 1775355908
+            },
+            {
+                "name": "Colorful Townhouses",
+                "src": "puzzles/architecture/Colorful Townhouses.png",
+                "thumb": "puzzles/_thumbs/architecture/Colorful Townhouses.jpg",
+                "updated": 1772408805
+            },
+            {
+                "name": "European Plaza",
+                "src": "puzzles/architecture/European Plaza.png",
+                "thumb": "puzzles/_thumbs/architecture/European Plaza.jpg",
+                "updated": 1772408805
+            },
+            {
+                "name": "Pavilion Arch",
+                "src": "puzzles/architecture/Pavilion Arch.png",
+                "thumb": "puzzles/_thumbs/architecture/Pavilion Arch.jpg",
+                "updated": 1772408804
+            },
+            {
+                "name": "Isolated Facade",
+                "src": "puzzles/architecture/Isolated Facade.png",
+                "thumb": "puzzles/_thumbs/architecture/Isolated Facade.jpg",
+                "updated": 1772408803
+            },
+            {
+                "name": "Modern Waterfront",
+                "src": "puzzles/architecture/Modern Waterfront.png",
+                "thumb": "puzzles/_thumbs/architecture/Modern Waterfront.jpg",
+                "updated": 1772408803
+            },
+            {
+                "name": "Domed Palace",
+                "src": "puzzles/architecture/Domed Palace.png",
+                "thumb": "puzzles/_thumbs/architecture/Domed Palace.jpg",
+                "updated": 1772408509
+            },
+            {
+                "name": "Modern Glass",
+                "src": "puzzles/architecture/Modern Glass.png",
+                "thumb": "puzzles/_thumbs/architecture/Modern Glass.jpg",
+                "updated": 1772408508
+            },
+            {
+                "name": "Ornate Arches",
+                "src": "puzzles/architecture/Ornate Arches.png",
+                "thumb": "puzzles/_thumbs/architecture/Ornate Arches.jpg",
+                "updated": 1772408508
+            },
+            {
+                "name": "Pool Hall",
+                "src": "puzzles/architecture/Pool Hall.png",
+                "thumb": "puzzles/_thumbs/architecture/Pool Hall.jpg",
+                "updated": 1772408508
+            },
+            {
+                "name": "Modern Courtyard",
+                "src": "puzzles/architecture/Modern Courtyard.png",
+                "thumb": "puzzles/_thumbs/architecture/Modern Courtyard.jpg",
+                "updated": 1771630123
+            },
+            {
+                "name": "Stone Facade",
+                "src": "puzzles/architecture/Stone Facade.png",
+                "thumb": "puzzles/_thumbs/architecture/Stone Facade.jpg",
+                "updated": 1771630123
+            },
+            {
+                "name": "Garden Coutyard",
+                "src": "puzzles/architecture/Garden Coutyard.png",
+                "thumb": "puzzles/_thumbs/architecture/Garden Coutyard.jpg",
+                "updated": 1771630122
+            },
+            {
+                "name": "Infinity Glow",
+                "src": "puzzles/architecture/Infinity Glow.png",
+                "thumb": "puzzles/_thumbs/architecture/Infinity Glow.jpg",
+                "updated": 1771630122
+            }
+        ],
+        "art": [
+            {
+                "name": "Classic Stone",
+                "src": "puzzles/art/Classic Stone.png",
+                "thumb": "puzzles/_thumbs/art/Classic Stone.jpg",
+                "updated": 1778902091
+            },
+            {
+                "name": "Classical Blindfold",
+                "src": "puzzles/art/Classical Blindfold.png",
+                "thumb": "puzzles/_thumbs/art/Classical Blindfold.jpg",
+                "updated": 1778902090
+            },
+            {
+                "name": "Davinci Portrait",
+                "src": "puzzles/art/DaVinci Portrait.png",
+                "thumb": "puzzles/_thumbs/art/DaVinci Portrait.jpg",
+                "updated": 1778902090
+            },
+            {
+                "name": "Flowing Floral",
+                "src": "puzzles/art/Flowing Floral.png",
+                "thumb": "puzzles/_thumbs/art/Flowing Floral.jpg",
+                "updated": 1778902090
+            },
+            {
+                "name": "Mixed Media Faceart",
+                "src": "puzzles/art/Mixed Media Faceart.png",
+                "thumb": "puzzles/_thumbs/art/Mixed Media Faceart.jpg",
+                "updated": 1778902090
+            },
+            {
+                "name": "Bearded Man",
+                "src": "puzzles/art/Bearded Man.png",
+                "thumb": "puzzles/_thumbs/art/Bearded Man.jpg",
+                "updated": 1778902089
+            },
+            {
+                "name": "Orange Reflections",
+                "src": "puzzles/art/Orange Reflections.png",
+                "thumb": "puzzles/_thumbs/art/Orange Reflections.jpg",
+                "updated": 1773899264
+            },
+            {
+                "name": "Artists Studio",
+                "src": "puzzles/art/Artists Studio.png",
+                "thumb": "puzzles/_thumbs/art/Artists Studio.jpg",
+                "updated": 1772409001
+            },
+            {
+                "name": "Floral Collage",
+                "src": "puzzles/art/Floral Collage.png",
+                "thumb": "puzzles/_thumbs/art/Floral Collage.jpg",
+                "updated": 1772408947
+            },
+            {
+                "name": "Woman Painting",
+                "src": "puzzles/art/Woman Painting.png",
+                "thumb": "puzzles/_thumbs/art/Woman Painting.jpg",
+                "updated": 1772408947
+            },
+            {
+                "name": "Venetian Canal",
+                "src": "puzzles/art/Venetian Canal.png",
+                "thumb": "puzzles/_thumbs/art/Venetian Canal.jpg",
+                "updated": 1772408573
+            },
+            {
+                "name": "Triple Portrait",
+                "src": "puzzles/art/Triple Portrait.png",
+                "thumb": "puzzles/_thumbs/art/Triple Portrait.jpg",
+                "updated": 1772408572
+            },
+            {
+                "name": "Venetian Braids",
+                "src": "puzzles/art/Venetian Braids.png",
+                "thumb": "puzzles/_thumbs/art/Venetian Braids.jpg",
+                "updated": 1772408572
+            },
+            {
+                "name": "Sleeping Woman",
+                "src": "puzzles/art/Sleeping Woman.png",
+                "thumb": "puzzles/_thumbs/art/Sleeping Woman.jpg",
+                "updated": 1772408571
+            },
+            {
+                "name": "Old Masters",
+                "src": "puzzles/art/Old Masters.png",
+                "thumb": "puzzles/_thumbs/art/Old Masters.jpg",
+                "updated": 1772408570
+            },
+            {
+                "name": "Red Beret Baroque",
+                "src": "puzzles/art/Red Beret Baroque.png",
+                "thumb": "puzzles/_thumbs/art/Red Beret Baroque.jpg",
+                "updated": 1772408570
+            },
+            {
+                "name": "Red Woman",
+                "src": "puzzles/art/Red Woman.png",
+                "thumb": "puzzles/_thumbs/art/Red Woman.jpg",
+                "updated": 1772408570
+            },
+            {
+                "name": "Seaside Blonde",
+                "src": "puzzles/art/Seaside Blonde.png",
+                "thumb": "puzzles/_thumbs/art/Seaside Blonde.jpg",
+                "updated": 1772408570
+            },
+            {
+                "name": "Freckled Teen",
+                "src": "puzzles/art/Freckled Teen.png",
+                "thumb": "puzzles/_thumbs/art/Freckled Teen.jpg",
+                "updated": 1772408569
+            },
+            {
+                "name": "Dual Portrait",
+                "src": "puzzles/art/Dual Portrait.png",
+                "thumb": "puzzles/_thumbs/art/Dual Portrait.jpg",
+                "updated": 1772408568
+            },
+            {
+                "name": "Freckled Cheeks",
+                "src": "puzzles/art/Freckled Cheeks.png",
+                "thumb": "puzzles/_thumbs/art/Freckled Cheeks.jpg",
+                "updated": 1772408568
+            },
+            {
+                "name": "Blue Eyes",
+                "src": "puzzles/art/Blue Eyes.png",
+                "thumb": "puzzles/_thumbs/art/Blue Eyes.jpg",
+                "updated": 1772408567
+            },
+            {
+                "name": "Blue Headscarf",
+                "src": "puzzles/art/Blue Headscarf.png",
+                "thumb": "puzzles/_thumbs/art/Blue Headscarf.jpg",
+                "updated": 1772408567
+            },
+            {
+                "name": "Brown Eyes",
+                "src": "puzzles/art/Brown Eyes.png",
+                "thumb": "puzzles/_thumbs/art/Brown Eyes.jpg",
+                "updated": 1772408567
+            },
+            {
+                "name": "Curly Boy",
+                "src": "puzzles/art/Curly Boy.png",
+                "thumb": "puzzles/_thumbs/art/Curly Boy.jpg",
+                "updated": 1772408567
+            },
+            {
+                "name": "Artist Studio",
+                "src": "puzzles/art/Artist Studio.png",
+                "thumb": "puzzles/_thumbs/art/Artist Studio.jpg",
+                "updated": 1771630196
+            }
+        ],
+        "cities": [
+            {
+                "name": "Yellow Taxies",
+                "src": "puzzles/cities/Yellow Taxies.png",
+                "thumb": "puzzles/_thumbs/cities/Yellow Taxies.jpg",
+                "updated": 1772408754
+            },
+            {
+                "name": "Street Reflections",
+                "src": "puzzles/cities/Street Reflections.png",
+                "thumb": "puzzles/_thumbs/cities/Street Reflections.jpg",
+                "updated": 1772408752
+            },
+            {
+                "name": "Waterfront Canal",
+                "src": "puzzles/cities/Waterfront Canal.png",
+                "thumb": "puzzles/_thumbs/cities/Waterfront Canal.jpg",
+                "updated": 1772408752
+            },
+            {
+                "name": "Venice Canal",
+                "src": "puzzles/cities/Venice Canal.png",
+                "thumb": "puzzles/_thumbs/cities/Venice Canal.jpg",
+                "updated": 1772408751
+            },
+            {
+                "name": "Vintage Streetcar",
+                "src": "puzzles/cities/Vintage Streetcar.png",
+                "thumb": "puzzles/_thumbs/cities/Vintage Streetcar.jpg",
+                "updated": 1772408751
+            },
+            {
+                "name": "City Intersection",
+                "src": "puzzles/cities/City Intersection.png",
+                "thumb": "puzzles/_thumbs/cities/City Intersection.jpg",
+                "updated": 1772408749
+            },
+            {
+                "name": "Gritty Canal",
+                "src": "puzzles/cities/Gritty Canal.png",
+                "thumb": "puzzles/_thumbs/cities/Gritty Canal.jpg",
+                "updated": 1772408749
+            },
+            {
+                "name": "Historic Spires",
+                "src": "puzzles/cities/Historic Spires.png",
+                "thumb": "puzzles/_thumbs/cities/Historic Spires.jpg",
+                "updated": 1772408748
+            },
+            {
+                "name": "Moored Canal",
+                "src": "puzzles/cities/Moored Canal.png",
+                "thumb": "puzzles/_thumbs/cities/Moored Canal.jpg",
+                "updated": 1772408748
+            },
+            {
+                "name": "Rainy City",
+                "src": "puzzles/cities/Rainy City.png",
+                "thumb": "puzzles/_thumbs/cities/Rainy City.jpg",
+                "updated": 1772408748
+            },
+            {
+                "name": "Hillside Old Town",
+                "src": "puzzles/cities/Hillside Old Town.png",
+                "thumb": "puzzles/_thumbs/cities/Hillside Old Town.jpg",
+                "updated": 1772408747
+            },
+            {
+                "name": "Cathedral Reflection",
+                "src": "puzzles/cities/Cathedral Reflection.png",
+                "thumb": "puzzles/_thumbs/cities/Cathedral Reflection.jpg",
+                "updated": 1772408745
+            },
+            {
+                "name": "Dense City Tram",
+                "src": "puzzles/cities/Dense City Tram.png",
+                "thumb": "puzzles/_thumbs/cities/Dense City Tram.jpg",
+                "updated": 1772408745
+            },
+            {
+                "name": "Grande Boulevard",
+                "src": "puzzles/cities/Grande Boulevard.png",
+                "thumb": "puzzles/_thumbs/cities/Grande Boulevard.jpg",
+                "updated": 1772408745
+            },
+            {
+                "name": "Canal Waterfront",
+                "src": "puzzles/cities/Canal Waterfront.png",
+                "thumb": "puzzles/_thumbs/cities/Canal Waterfront.jpg",
+                "updated": 1771647611
+            },
+            {
+                "name": "Dense City",
+                "src": "puzzles/cities/Dense City.png",
+                "thumb": "puzzles/_thumbs/cities/Dense City.jpg",
+                "updated": 1771647611
+            },
+            {
+                "name": "Rainy Street",
+                "src": "puzzles/cities/Rainy Street.png",
+                "thumb": "puzzles/_thumbs/cities/Rainy Street.jpg",
+                "updated": 1771647611
+            },
+            {
+                "name": "Sunset Skyline",
+                "src": "puzzles/cities/Sunset Skyline.png",
+                "thumb": "puzzles/_thumbs/cities/Sunset Skyline.jpg",
+                "updated": 1771647611
+            }
+        ],
+        "food": [
+            {
+                "name": "Cheesy Dog",
+                "src": "puzzles/food/Cheesy Dog.png",
+                "thumb": "puzzles/_thumbs/food/Cheesy Dog.jpg",
+                "updated": 1778902026
+            },
+            {
+                "name": "Blue Shell",
+                "src": "puzzles/food/Blue Shell.png",
+                "thumb": "puzzles/_thumbs/food/Blue Shell.jpg",
+                "updated": 1778902025
+            },
+            {
+                "name": "Strawberry Waffle",
+                "src": "puzzles/food/Strawberry Waffle.png",
+                "thumb": "puzzles/_thumbs/food/Strawberry Waffle.jpg",
+                "updated": 1778902025
+            },
+            {
+                "name": "Kabob Select",
+                "src": "puzzles/food/Kabob Select.png",
+                "thumb": "puzzles/_thumbs/food/Kabob Select.jpg",
+                "updated": 1778902024
+            },
+            {
+                "name": "Lobster Sampler",
+                "src": "puzzles/food/Lobster Sampler.png",
+                "thumb": "puzzles/_thumbs/food/Lobster Sampler.jpg",
+                "updated": 1778902024
+            },
+            {
+                "name": "Salty Pretsel",
+                "src": "puzzles/food/Salty Pretsel.png",
+                "thumb": "puzzles/_thumbs/food/Salty Pretsel.jpg",
+                "updated": 1778902024
+            },
+            {
+                "name": "Smothered Corn",
+                "src": "puzzles/food/Smothered Corn.png",
+                "thumb": "puzzles/_thumbs/food/Smothered Corn.jpg",
+                "updated": 1778902024
+            },
+            {
+                "name": "Choco Snack Mix",
+                "src": "puzzles/food/Choco Snack Mix.png",
+                "thumb": "puzzles/_thumbs/food/Choco Snack Mix.jpg",
+                "updated": 1776394335
+            },
+            {
+                "name": "Pastrey Mix",
+                "src": "puzzles/food/Pastrey Mix.png",
+                "thumb": "puzzles/_thumbs/food/Pastrey Mix.jpg",
+                "updated": 1776394335
+            },
+            {
+                "name": "Cheese Stretch",
+                "src": "puzzles/food/Cheese Stretch.png",
+                "thumb": "puzzles/_thumbs/food/Cheese Stretch.jpg",
+                "updated": 1776394332
+            },
+            {
+                "name": "Floral Soup",
+                "src": "puzzles/food/Floral Soup.png",
+                "thumb": "puzzles/_thumbs/food/Floral Soup.jpg",
+                "updated": 1776394332
+            },
+            {
+                "name": "Party Platter",
+                "src": "puzzles/food/Party Platter.png",
+                "thumb": "puzzles/_thumbs/food/Party Platter.jpg",
+                "updated": 1776394332
+            },
+            {
+                "name": "Seafood Platter",
+                "src": "puzzles/food/Seafood Platter.png",
+                "thumb": "puzzles/_thumbs/food/Seafood Platter.jpg",
+                "updated": 1775356186
+            },
+            {
+                "name": "Eye Scream",
+                "src": "puzzles/food/Eye Scream.png",
+                "thumb": "puzzles/_thumbs/food/Eye Scream.jpg",
+                "updated": 1775356185
+            },
+            {
+                "name": "Jelly Fiesta",
+                "src": "puzzles/food/Jelly Fiesta.png",
+                "thumb": "puzzles/_thumbs/food/Jelly Fiesta.jpg",
+                "updated": 1775356185
+            },
+            {
+                "name": "Deluxe Pizza",
+                "src": "puzzles/food/Deluxe Pizza.png",
+                "thumb": "puzzles/_thumbs/food/Deluxe Pizza.jpg",
+                "updated": 1775356035
+            },
+            {
+                "name": "Breakfast Loops",
+                "src": "puzzles/food/Breakfast Loops.png",
+                "thumb": "puzzles/_thumbs/food/Breakfast Loops.jpg",
+                "updated": 1775356033
+            },
+            {
+                "name": "Meadow Picnic",
+                "src": "puzzles/food/Meadow Picnic.png",
+                "thumb": "puzzles/_thumbs/food/Meadow Picnic.jpg",
+                "updated": 1772409164
+            },
+            {
+                "name": "Turkey Platter",
+                "src": "puzzles/food/Turkey Platter.png",
+                "thumb": "puzzles/_thumbs/food/Turkey Platter.jpg",
+                "updated": 1772409162
+            },
+            {
+                "name": "Vintage Picnic",
+                "src": "puzzles/food/Vintage Picnic.png",
+                "thumb": "puzzles/_thumbs/food/Vintage Picnic.jpg",
+                "updated": 1772408848
+            },
+            {
+                "name": "Wicker Picnic",
+                "src": "puzzles/food/Wicker Picnic.png",
+                "thumb": "puzzles/_thumbs/food/Wicker Picnic.jpg",
+                "updated": 1772408848
+            },
+            {
+                "name": "Wild Daisy Picnic",
+                "src": "puzzles/food/Wild Daisy Picnic.png",
+                "thumb": "puzzles/_thumbs/food/Wild Daisy Picnic.jpg",
+                "updated": 1772408847
+            },
+            {
+                "name": "Mixed Fruit",
+                "src": "puzzles/food/Mixed Fruit.png",
+                "thumb": "puzzles/_thumbs/food/Mixed Fruit.jpg",
+                "updated": 1772408289
+            },
+            {
+                "name": "Golden Turkey",
+                "src": "puzzles/food/Golden Turkey.png",
+                "thumb": "puzzles/_thumbs/food/Golden Turkey.jpg",
+                "updated": 1772408287
+            },
+            {
+                "name": "Open Faced",
+                "src": "puzzles/food/Open Faced.png",
+                "thumb": "puzzles/_thumbs/food/Open Faced.jpg",
+                "updated": 1772408286
+            },
+            {
+                "name": "Roasted Turkey",
+                "src": "puzzles/food/Roasted Turkey.png",
+                "thumb": "puzzles/_thumbs/food/Roasted Turkey.jpg",
+                "updated": 1772408286
+            },
+            {
+                "name": "Rustic Life",
+                "src": "puzzles/food/Rustic Life.png",
+                "thumb": "puzzles/_thumbs/food/Rustic Life.jpg",
+                "updated": 1772408286
+            },
+            {
+                "name": "Salmon Turned",
+                "src": "puzzles/food/Salmon Turned.png",
+                "thumb": "puzzles/_thumbs/food/Salmon Turned.jpg",
+                "updated": 1772408286
+            },
+            {
+                "name": "Fish Dish",
+                "src": "puzzles/food/Fish Dish.png",
+                "thumb": "puzzles/_thumbs/food/Fish Dish.jpg",
+                "updated": 1771652598
+            },
+            {
+                "name": "Bacon Cheeseburger",
+                "src": "puzzles/food/Bacon Cheeseburger.png",
+                "thumb": "puzzles/_thumbs/food/Bacon Cheeseburger.jpg",
+                "updated": 1771652594
+            },
+            {
+                "name": "Breakfast Sandwich",
+                "src": "puzzles/food/Breakfast Sandwich.png",
+                "thumb": "puzzles/_thumbs/food/Breakfast Sandwich.jpg",
+                "updated": 1771652594
+            },
+            {
+                "name": "Cheeseburger",
+                "src": "puzzles/food/Cheeseburger.png",
+                "thumb": "puzzles/_thumbs/food/Cheeseburger.jpg",
+                "updated": 1771652594
+            },
+            {
+                "name": "Dripping Hamburger",
+                "src": "puzzles/food/Dripping Hamburger.png",
+                "thumb": "puzzles/_thumbs/food/Dripping Hamburger.jpg",
+                "updated": 1771652594
+            },
+            {
+                "name": "Fried Egg Toast",
+                "src": "puzzles/food/Fried Egg Toast.png",
+                "thumb": "puzzles/_thumbs/food/Fried Egg Toast.jpg",
+                "updated": 1771652594
+            },
+            {
+                "name": "Berry Bowl",
+                "src": "puzzles/food/Berry Bowl.png",
+                "thumb": "puzzles/_thumbs/food/Berry Bowl.jpg",
+                "updated": 1771652429
+            },
+            {
+                "name": "Dessert Assorted",
+                "src": "puzzles/food/Dessert Assorted.png",
+                "thumb": "puzzles/_thumbs/food/Dessert Assorted.jpg",
+                "updated": 1771652429
+            },
+            {
+                "name": "Meal Spread",
+                "src": "puzzles/food/Meal Spread.png",
+                "thumb": "puzzles/_thumbs/food/Meal Spread.jpg",
+                "updated": 1771652429
+            },
+            {
+                "name": "Rustic Fried Egg",
+                "src": "puzzles/food/Rustic Fried Egg.png",
+                "thumb": "puzzles/_thumbs/food/Rustic Fried Egg.jpg",
+                "updated": 1771652429
+            },
+            {
+                "name": "Seafood Sandwich",
+                "src": "puzzles/food/Seafood Sandwich.png",
+                "thumb": "puzzles/_thumbs/food/Seafood Sandwich.jpg",
+                "updated": 1771652429
+            },
+            {
+                "name": "Stacked Burger",
+                "src": "puzzles/food/Stacked Burger.png",
+                "thumb": "puzzles/_thumbs/food/Stacked Burger.jpg",
+                "updated": 1771652429
+            }
+        ],
+        "fractals": [
+            {
+                "name": "Spiral Macro",
+                "src": "puzzles/fractals/Spiral Macro.png",
+                "thumb": "puzzles/_thumbs/fractals/Spiral Macro.jpg",
+                "updated": 1773984012
+            },
+            {
+                "name": "Abstract Spiral",
+                "src": "puzzles/fractals/Abstract Spiral.png",
+                "thumb": "puzzles/_thumbs/fractals/Abstract Spiral.jpg",
+                "updated": 1771651469
+            },
+            {
+                "name": "Golden Pollen",
+                "src": "puzzles/fractals/Golden Pollen.png",
+                "thumb": "puzzles/_thumbs/fractals/Golden Pollen.jpg",
+                "updated": 1771651469
+            },
+            {
+                "name": "Macro Flower",
+                "src": "puzzles/fractals/Macro Flower.png",
+                "thumb": "puzzles/_thumbs/fractals/Macro Flower.jpg",
+                "updated": 1771651469
+            },
+            {
+                "name": "Teal Swirls",
+                "src": "puzzles/fractals/Teal Swirls.png",
+                "thumb": "puzzles/_thumbs/fractals/Teal Swirls.jpg",
+                "updated": 1771651469
+            }
+        ],
+        "landscapes": [
+            {
+                "name": "Green Slopes",
+                "src": "puzzles/landscapes/Green Slopes.png",
+                "thumb": "puzzles/_thumbs/landscapes/Green Slopes.jpg",
+                "updated": 1778902204
+            },
+            {
+                "name": "Red Dystopian",
+                "src": "puzzles/landscapes/Red Dystopian.png",
+                "thumb": "puzzles/_thumbs/landscapes/Red Dystopian.jpg",
+                "updated": 1778902204
+            },
+            {
+                "name": "Fenceline Tree",
+                "src": "puzzles/landscapes/Fenceline Tree.png",
+                "thumb": "puzzles/_thumbs/landscapes/Fenceline Tree.jpg",
+                "updated": 1778902203
+            },
+            {
+                "name": "Mossy Garden",
+                "src": "puzzles/landscapes/Mossy Garden.png",
+                "thumb": "puzzles/_thumbs/landscapes/Mossy Garden.jpg",
+                "updated": 1778902203
+            },
+            {
+                "name": "Blue Forest",
+                "src": "puzzles/landscapes/Blue Forest.png",
+                "thumb": "puzzles/_thumbs/landscapes/Blue Forest.jpg",
+                "updated": 1776394417
+            },
+            {
+                "name": "Misty Valley",
+                "src": "puzzles/landscapes/Misty Valley.png",
+                "thumb": "puzzles/_thumbs/landscapes/Misty Valley.jpg",
+                "updated": 1776394416
+            },
+            {
+                "name": "Misty Woodland",
+                "src": "puzzles/landscapes/Misty Woodland.png",
+                "thumb": "puzzles/_thumbs/landscapes/Misty Woodland.jpg",
+                "updated": 1776394416
+            },
+            {
+                "name": "Calm Inlet",
+                "src": "puzzles/landscapes/Calm Inlet.png",
+                "thumb": "puzzles/_thumbs/landscapes/Calm Inlet.jpg",
+                "updated": 1776394415
+            },
+            {
+                "name": "Fallen Maple",
+                "src": "puzzles/landscapes/Fallen Maple.png",
+                "thumb": "puzzles/_thumbs/landscapes/Fallen Maple.jpg",
+                "updated": 1776394415
+            },
+            {
+                "name": "Fantasy Valley",
+                "src": "puzzles/landscapes/Fantasy Valley.png",
+                "thumb": "puzzles/_thumbs/landscapes/Fantasy Valley.jpg",
+                "updated": 1776394415
+            },
+            {
+                "name": "Forest Pathway",
+                "src": "puzzles/landscapes/Forest Pathway.png",
+                "thumb": "puzzles/_thumbs/landscapes/Forest Pathway.jpg",
+                "updated": 1776394415
+            },
+            {
+                "name": "Forest Reflection",
+                "src": "puzzles/landscapes/Forest Reflection.png",
+                "thumb": "puzzles/_thumbs/landscapes/Forest Reflection.jpg",
+                "updated": 1776394415
+            },
+            {
+                "name": "Pebble Shoreline",
+                "src": "puzzles/landscapes/Pebble Shoreline.png",
+                "thumb": "puzzles/_thumbs/landscapes/Pebble Shoreline.jpg",
+                "updated": 1773899227
+            },
+            {
+                "name": "Country Hillside",
+                "src": "puzzles/landscapes/Country Hillside.png",
+                "thumb": "puzzles/_thumbs/landscapes/Country Hillside.jpg",
+                "updated": 1772949728
+            },
+            {
+                "name": "Wooden Gate",
+                "src": "puzzles/landscapes/Wooden Gate.png",
+                "thumb": "puzzles/_thumbs/landscapes/Wooden Gate.jpg",
+                "updated": 1772949728
+            },
+            {
+                "name": "Alpine Wetland",
+                "src": "puzzles/landscapes/Alpine Wetland.png",
+                "thumb": "puzzles/_thumbs/landscapes/Alpine Wetland.jpg",
+                "updated": 1772949726
+            },
+            {
+                "name": "Mist Harbor",
+                "src": "puzzles/landscapes/Mist Harbor.png",
+                "thumb": "puzzles/_thumbs/landscapes/Mist Harbor.jpg",
+                "updated": 1772949726
+            },
+            {
+                "name": "Red Barn",
+                "src": "puzzles/landscapes/Red Barn.png",
+                "thumb": "puzzles/_thumbs/landscapes/Red Barn.jpg",
+                "updated": 1772949726
+            },
+            {
+                "name": "Valley Village",
+                "src": "puzzles/landscapes/Valley Village.png",
+                "thumb": "puzzles/_thumbs/landscapes/Valley Village.jpg",
+                "updated": 1772949726
+            },
+            {
+                "name": "Mirrored Mountain",
+                "src": "puzzles/landscapes/Mirrored Mountain.png",
+                "thumb": "puzzles/_thumbs/landscapes/Mirrored Mountain.jpg",
+                "updated": 1772949725
+            },
+            {
+                "name": "Arched Autumn",
+                "src": "puzzles/landscapes/Arched Autumn.png",
+                "thumb": "puzzles/_thumbs/landscapes/Arched Autumn.jpg",
+                "updated": 1772949724
+            },
+            {
+                "name": "Blue Grain",
+                "src": "puzzles/landscapes/Blue Grain.png",
+                "thumb": "puzzles/_thumbs/landscapes/Blue Grain.jpg",
+                "updated": 1772949724
+            },
+            {
+                "name": "Dirt Path",
+                "src": "puzzles/landscapes/Dirt Path.png",
+                "thumb": "puzzles/_thumbs/landscapes/Dirt Path.jpg",
+                "updated": 1772949724
+            },
+            {
+                "name": "Lakeside Grasses",
+                "src": "puzzles/landscapes/Lakeside Grasses.png",
+                "thumb": "puzzles/_thumbs/landscapes/Lakeside Grasses.jpg",
+                "updated": 1772949724
+            },
+            {
+                "name": "Woodland Creek",
+                "src": "puzzles/landscapes/Woodland Creek.png",
+                "thumb": "puzzles/_thumbs/landscapes/Woodland Creek.jpg",
+                "updated": 1772409305
+            },
+            {
+                "name": "Turquoise Lagoon",
+                "src": "puzzles/landscapes/Turquoise Lagoon.png",
+                "thumb": "puzzles/_thumbs/landscapes/Turquoise Lagoon.jpg",
+                "updated": 1772409097
+            },
+            {
+                "name": "Crystal Cove",
+                "src": "puzzles/landscapes/Crystal Cove.png",
+                "thumb": "puzzles/_thumbs/landscapes/Crystal Cove.jpg",
+                "updated": 1772409093
+            },
+            {
+                "name": "Rocky Valley",
+                "src": "puzzles/landscapes/Rocky Valley.png",
+                "thumb": "puzzles/_thumbs/landscapes/Rocky Valley.jpg",
+                "updated": 1772409093
+            },
+            {
+                "name": "Rugged Desert",
+                "src": "puzzles/landscapes/Rugged Desert.png",
+                "thumb": "puzzles/_thumbs/landscapes/Rugged Desert.jpg",
+                "updated": 1772408644
+            },
+            {
+                "name": "Sandy Shoreline",
+                "src": "puzzles/landscapes/Sandy Shoreline.png",
+                "thumb": "puzzles/_thumbs/landscapes/Sandy Shoreline.jpg",
+                "updated": 1772408644
+            },
+            {
+                "name": "Turquoise Surf",
+                "src": "puzzles/landscapes/Turquoise Surf.png",
+                "thumb": "puzzles/_thumbs/landscapes/Turquoise Surf.jpg",
+                "updated": 1772408644
+            },
+            {
+                "name": "Sand Dunes",
+                "src": "puzzles/landscapes/Sand Dunes.png",
+                "thumb": "puzzles/_thumbs/landscapes/Sand Dunes.jpg",
+                "updated": 1772408643
+            },
+            {
+                "name": "Mountain Bay",
+                "src": "puzzles/landscapes/Mountain Bay.png",
+                "thumb": "puzzles/_thumbs/landscapes/Mountain Bay.jpg",
+                "updated": 1772408642
+            },
+            {
+                "name": "Desert Rock",
+                "src": "puzzles/landscapes/Desert Rock.png",
+                "thumb": "puzzles/_thumbs/landscapes/Desert Rock.jpg",
+                "updated": 1772408641
+            },
+            {
+                "name": "Golden Horizon",
+                "src": "puzzles/landscapes/Golden Horizon.png",
+                "thumb": "puzzles/_thumbs/landscapes/Golden Horizon.jpg",
+                "updated": 1772408641
+            },
+            {
+                "name": "Island Beach",
+                "src": "puzzles/landscapes/Island Beach.png",
+                "thumb": "puzzles/_thumbs/landscapes/Island Beach.jpg",
+                "updated": 1772408641
+            },
+            {
+                "name": "Desert Mountain",
+                "src": "puzzles/landscapes/Desert Mountain.png",
+                "thumb": "puzzles/_thumbs/landscapes/Desert Mountain.jpg",
+                "updated": 1772408640
+            },
+            {
+                "name": "Forest Pond",
+                "src": "puzzles/landscapes/Forest Pond.png",
+                "thumb": "puzzles/_thumbs/landscapes/Forest Pond.jpg",
+                "updated": 1772408357
+            },
+            {
+                "name": "Alpine River",
+                "src": "puzzles/landscapes/Alpine River.png",
+                "thumb": "puzzles/_thumbs/landscapes/Alpine River.jpg",
+                "updated": 1772408355
+            },
+            {
+                "name": "Lush Forest",
+                "src": "puzzles/landscapes/Lush Forest.png",
+                "thumb": "puzzles/_thumbs/landscapes/Lush Forest.jpg",
+                "updated": 1772408355
+            },
+            {
+                "name": "Pastel Wildflowers",
+                "src": "puzzles/landscapes/Pastel Wildflowers.png",
+                "thumb": "puzzles/_thumbs/landscapes/Pastel Wildflowers.jpg",
+                "updated": 1771652896
+            },
+            {
+                "name": "Sunlit Meadow",
+                "src": "puzzles/landscapes/Sunlit Meadow.png",
+                "thumb": "puzzles/_thumbs/landscapes/Sunlit Meadow.jpg",
+                "updated": 1771652896
+            },
+            {
+                "name": "Warm Lily",
+                "src": "puzzles/landscapes/Warm Lily.png",
+                "thumb": "puzzles/_thumbs/landscapes/Warm Lily.jpg",
+                "updated": 1771652896
+            },
+            {
+                "name": "Rolling Green",
+                "src": "puzzles/landscapes/Rolling Green.png",
+                "thumb": "puzzles/_thumbs/landscapes/Rolling Green.jpg",
+                "updated": 1771647648
+            },
+            {
+                "name": "Rugged Ridgelines",
+                "src": "puzzles/landscapes/Rugged Ridgelines.png",
+                "thumb": "puzzles/_thumbs/landscapes/Rugged Ridgelines.jpg",
+                "updated": 1771647646
+            },
+            {
+                "name": "Moody Mountain",
+                "src": "puzzles/landscapes/Moody Mountain.png",
+                "thumb": "puzzles/_thumbs/landscapes/Moody Mountain.jpg",
+                "updated": 1771647645
+            },
+            {
+                "name": "Forest Lake",
+                "src": "puzzles/landscapes/Forest Lake.png",
+                "thumb": "puzzles/_thumbs/landscapes/Forest Lake.jpg",
+                "updated": 1771647644
+            },
+            {
+                "name": "Grassy Valley",
+                "src": "puzzles/landscapes/Grassy Valley.png",
+                "thumb": "puzzles/_thumbs/landscapes/Grassy Valley.jpg",
+                "updated": 1771647644
+            },
+            {
+                "name": "Lush Greenery",
+                "src": "puzzles/landscapes/Lush Greenery.png",
+                "thumb": "puzzles/_thumbs/landscapes/Lush Greenery.jpg",
+                "updated": 1771647644
+            },
+            {
+                "name": "Lush Riverside",
+                "src": "puzzles/landscapes/Lush Riverside.png",
+                "thumb": "puzzles/_thumbs/landscapes/Lush Riverside.jpg",
+                "updated": 1771647644
+            }
+        ],
+        "marine": [
+            {
+                "name": "Nautical Knot",
+                "src": "puzzles/marine/Nautical Knot.png",
+                "thumb": "puzzles/_thumbs/marine/Nautical Knot.jpg",
+                "updated": 1778902154
+            },
+            {
+                "name": "Green Sail",
+                "src": "puzzles/marine/Green Sail.png",
+                "thumb": "puzzles/_thumbs/marine/Green Sail.jpg",
+                "updated": 1778902153
+            },
+            {
+                "name": "Stormy Deck",
+                "src": "puzzles/marine/Stormy Deck.png",
+                "thumb": "puzzles/_thumbs/marine/Stormy Deck.jpg",
+                "updated": 1778902153
+            },
+            {
+                "name": "Coral Habitat",
+                "src": "puzzles/marine/Coral Habitat.png",
+                "thumb": "puzzles/_thumbs/marine/Coral Habitat.jpg",
+                "updated": 1777510460
+            },
+            {
+                "name": "Dark Band",
+                "src": "puzzles/marine/Dark Band.png",
+                "thumb": "puzzles/_thumbs/marine/Dark Band.jpg",
+                "updated": 1777510460
+            },
+            {
+                "name": "Glowing Fins",
+                "src": "puzzles/marine/Glowing Fins.png",
+                "thumb": "puzzles/_thumbs/marine/Glowing Fins.jpg",
+                "updated": 1777510460
+            },
+            {
+                "name": "Coiled Ropes",
+                "src": "puzzles/marine/Coiled Ropes.png",
+                "thumb": "puzzles/_thumbs/marine/Coiled Ropes.jpg",
+                "updated": 1776394242
+            },
+            {
+                "name": "Moody Seascape",
+                "src": "puzzles/marine/Moody Seascape.png",
+                "thumb": "puzzles/_thumbs/marine/Moody Seascape.jpg",
+                "updated": 1776394242
+            },
+            {
+                "name": "Rough Deploy",
+                "src": "puzzles/marine/Rough Deploy.png",
+                "thumb": "puzzles/_thumbs/marine/Rough Deploy.jpg",
+                "updated": 1776394242
+            },
+            {
+                "name": "Warship Sunset",
+                "src": "puzzles/marine/Warship Sunset.png",
+                "thumb": "puzzles/_thumbs/marine/Warship Sunset.jpg",
+                "updated": 1776394242
+            },
+            {
+                "name": "Misty Fleet",
+                "src": "puzzles/marine/Misty Fleet.png",
+                "thumb": "puzzles/_thumbs/marine/Misty Fleet.jpg",
+                "updated": 1772409032
+            },
+            {
+                "name": "Yacht Ondeck",
+                "src": "puzzles/marine/Yacht Ondeck.png",
+                "thumb": "puzzles/_thumbs/marine/Yacht Ondeck.jpg",
+                "updated": 1771652773
+            },
+            {
+                "name": "Sailboat Bow",
+                "src": "puzzles/marine/Sailboat Bow.png",
+                "thumb": "puzzles/_thumbs/marine/Sailboat Bow.jpg",
+                "updated": 1771652769
+            },
+            {
+                "name": "Sailboat Open Blue",
+                "src": "puzzles/marine/Sailboat Open Blue.png",
+                "thumb": "puzzles/_thumbs/marine/Sailboat Open Blue.jpg",
+                "updated": 1771652769
+            },
+            {
+                "name": "Tall Mast Schooner",
+                "src": "puzzles/marine/Tall Mast Schooner.png",
+                "thumb": "puzzles/_thumbs/marine/Tall Mast Schooner.jpg",
+                "updated": 1771652769
+            },
+            {
+                "name": "White Schooner",
+                "src": "puzzles/marine/White Schooner.png",
+                "thumb": "puzzles/_thumbs/marine/White Schooner.jpg",
+                "updated": 1771652769
+            },
+            {
+                "name": "Coastal Cliffs",
+                "src": "puzzles/marine/Coastal Cliffs.png",
+                "thumb": "puzzles/_thumbs/marine/Coastal Cliffs.jpg",
+                "updated": 1771637109
+            },
+            {
+                "name": "Turquoise Waves",
+                "src": "puzzles/marine/Turquoise Waves.png",
+                "thumb": "puzzles/_thumbs/marine/Turquoise Waves.jpg",
+                "updated": 1771637109
+            },
+            {
+                "name": "Sandy Beach",
+                "src": "puzzles/marine/Sandy Beach.png",
+                "thumb": "puzzles/_thumbs/marine/Sandy Beach.jpg",
+                "updated": 1771636208
+            },
+            {
+                "name": "Canyon Stream",
+                "src": "puzzles/marine/Canyon Stream.png",
+                "thumb": "puzzles/_thumbs/marine/Canyon Stream.jpg",
+                "updated": 1771636205
+            },
+            {
+                "name": "Mossy Bottom",
+                "src": "puzzles/marine/Mossy Bottom.png",
+                "thumb": "puzzles/_thumbs/marine/Mossy Bottom.jpg",
+                "updated": 1771636205
+            },
+            {
+                "name": "Ocean Sunset",
+                "src": "puzzles/marine/Ocean Sunset.png",
+                "thumb": "puzzles/_thumbs/marine/Ocean Sunset.jpg",
+                "updated": 1771636205
+            },
+            {
+                "name": "Rocky Cove",
+                "src": "puzzles/marine/Rocky Cove.png",
+                "thumb": "puzzles/_thumbs/marine/Rocky Cove.jpg",
+                "updated": 1771636205
+            },
+            {
+                "name": "Stormy Sea",
+                "src": "puzzles/marine/Stormy Sea.png",
+                "thumb": "puzzles/_thumbs/marine/Stormy Sea.jpg",
+                "updated": 1771636205
+            }
+        ],
+        "nature": [
+            {
+                "name": "Colorful Beetle",
+                "src": "puzzles/nature/Colorful Beetle.png",
+                "thumb": "puzzles/_thumbs/nature/Colorful Beetle.jpg",
+                "updated": 1777510534
+            },
+            {
+                "name": "Golden Dew",
+                "src": "puzzles/nature/Golden Dew.png",
+                "thumb": "puzzles/_thumbs/nature/Golden Dew.jpg",
+                "updated": 1777510534
+            },
+            {
+                "name": "Red Shrub",
+                "src": "puzzles/nature/Red Shrub.png",
+                "thumb": "puzzles/_thumbs/nature/Red Shrub.jpg",
+                "updated": 1777510534
+            },
+            {
+                "name": "White Flowers",
+                "src": "puzzles/nature/White Flowers.png",
+                "thumb": "puzzles/_thumbs/nature/White Flowers.jpg",
+                "updated": 1777510534
+            },
+            {
+                "name": "Pink Botanical",
+                "src": "puzzles/nature/Pink Botanical.png",
+                "thumb": "puzzles/_thumbs/nature/Pink Botanical.jpg",
+                "updated": 1775355988
+            },
+            {
+                "name": "Red Bird Perch",
+                "src": "puzzles/nature/Red Bird Perch.png",
+                "thumb": "puzzles/_thumbs/nature/Red Bird Perch.jpg",
+                "updated": 1775355988
+            },
+            {
+                "name": "Red Bloom",
+                "src": "puzzles/nature/Red Bloom.png",
+                "thumb": "puzzles/_thumbs/nature/Red Bloom.jpg",
+                "updated": 1775355988
+            },
+            {
+                "name": "Tunnel Glow",
+                "src": "puzzles/nature/Tunnel Glow.png",
+                "thumb": "puzzles/_thumbs/nature/Tunnel Glow.jpg",
+                "updated": 1774763450
+            },
+            {
+                "name": "Floral Still",
+                "src": "puzzles/nature/Floral Still.png",
+                "thumb": "puzzles/_thumbs/nature/Floral Still.jpg",
+                "updated": 1774759523
+            },
+            {
+                "name": "Floral Droplets",
+                "src": "puzzles/nature/Floral Droplets.png",
+                "thumb": "puzzles/_thumbs/nature/Floral Droplets.jpg",
+                "updated": 1773899163
+            },
+            {
+                "name": "Greens Dew",
+                "src": "puzzles/nature/Greens Dew.png",
+                "thumb": "puzzles/_thumbs/nature/Greens Dew.jpg",
+                "updated": 1773412934
+            },
+            {
+                "name": "Red Foliage",
+                "src": "puzzles/nature/Red Foliage.png",
+                "thumb": "puzzles/_thumbs/nature/Red Foliage.jpg",
+                "updated": 1772949783
+            },
+            {
+                "name": "Perched Wasp",
+                "src": "puzzles/nature/Perched Wasp.png",
+                "thumb": "puzzles/_thumbs/nature/Perched Wasp.jpg",
+                "updated": 1772949782
+            },
+            {
+                "name": "Purple Splash",
+                "src": "puzzles/nature/Purple Splash.png",
+                "thumb": "puzzles/_thumbs/nature/Purple Splash.jpg",
+                "updated": 1772949780
+            },
+            {
+                "name": "White Floral",
+                "src": "puzzles/nature/White Floral.png",
+                "thumb": "puzzles/_thumbs/nature/White Floral.jpg",
+                "updated": 1772949780
+            },
+            {
+                "name": "Willow Sun Kissed",
+                "src": "puzzles/nature/Willow Sun Kissed.png",
+                "thumb": "puzzles/_thumbs/nature/Willow Sun Kissed.jpg",
+                "updated": 1772949780
+            },
+            {
+                "name": "Misty Meadow",
+                "src": "puzzles/nature/Misty Meadow.png",
+                "thumb": "puzzles/_thumbs/nature/Misty Meadow.jpg",
+                "updated": 1771644493
+            },
+            {
+                "name": "Multicolor Fields",
+                "src": "puzzles/nature/Multicolor Fields.png",
+                "thumb": "puzzles/_thumbs/nature/Multicolor Fields.jpg",
+                "updated": 1771644493
+            },
+            {
+                "name": "Wildflower Super Bloom",
+                "src": "puzzles/nature/Wildflower Super Bloom.png",
+                "thumb": "puzzles/_thumbs/nature/Wildflower Super Bloom.jpg",
+                "updated": 1771644493
+            },
+            {
+                "name": "Lily Bouquet",
+                "src": "puzzles/nature/Lily Bouquet.png",
+                "thumb": "puzzles/_thumbs/nature/Lily Bouquet.jpg",
+                "updated": 1771644492
+            },
+            {
+                "name": "Lily Macro",
+                "src": "puzzles/nature/Lily Macro.png",
+                "thumb": "puzzles/_thumbs/nature/Lily Macro.jpg",
+                "updated": 1771644492
+            }
+        ],
+        "scifi": [
+            {
+                "name": "Dark Liquids",
+                "src": "puzzles/scifi/Dark Liquids.png",
+                "thumb": "puzzles/_thumbs/scifi/Dark Liquids.jpg",
+                "updated": 1777510264
+            },
+            {
+                "name": "Electric Dome",
+                "src": "puzzles/scifi/Electric Dome.png",
+                "thumb": "puzzles/_thumbs/scifi/Electric Dome.jpg",
+                "updated": 1777510264
+            },
+            {
+                "name": "Science Lab",
+                "src": "puzzles/scifi/Science Lab.png",
+                "thumb": "puzzles/_thumbs/scifi/Science Lab.jpg",
+                "updated": 1777510264
+            },
+            {
+                "name": "Weathered Robot",
+                "src": "puzzles/scifi/Weathered Robot.png",
+                "thumb": "puzzles/_thumbs/scifi/Weathered Robot.jpg",
+                "updated": 1777510264
+            },
+            {
+                "name": "Cable Stayed",
+                "src": "puzzles/scifi/Cable Stayed.png",
+                "thumb": "puzzles/_thumbs/scifi/Cable Stayed.jpg",
+                "updated": 1772409130
+            },
+            {
+                "name": "Spacecraft Descent",
+                "src": "puzzles/scifi/Spacecraft Descent.png",
+                "thumb": "puzzles/_thumbs/scifi/Spacecraft Descent.jpg",
+                "updated": 1772408460
+            },
+            {
+                "name": "Future Skyline",
+                "src": "puzzles/scifi/Future Skyline.png",
+                "thumb": "puzzles/_thumbs/scifi/Future Skyline.jpg",
+                "updated": 1772408458
+            },
+            {
+                "name": "Red Walker",
+                "src": "puzzles/scifi/Red Walker.png",
+                "thumb": "puzzles/_thumbs/scifi/Red Walker.jpg",
+                "updated": 1772408458
+            },
+            {
+                "name": "Scifi Workshop",
+                "src": "puzzles/scifi/SciFi Workshop.png",
+                "thumb": "puzzles/_thumbs/scifi/SciFi Workshop.jpg",
+                "updated": 1772408458
+            },
+            {
+                "name": "Dramatic Edge",
+                "src": "puzzles/scifi/Dramatic Edge.png",
+                "thumb": "puzzles/_thumbs/scifi/Dramatic Edge.jpg",
+                "updated": 1772408400
+            },
+            {
+                "name": "Desert Outpost",
+                "src": "puzzles/scifi/Desert Outpost.png",
+                "thumb": "puzzles/_thumbs/scifi/Desert Outpost.jpg",
+                "updated": 1772408399
+            },
+            {
+                "name": "Dramatic Mask",
+                "src": "puzzles/scifi/Dramatic Mask.png",
+                "thumb": "puzzles/_thumbs/scifi/Dramatic Mask.jpg",
+                "updated": 1772408399
+            },
+            {
+                "name": "Futuristic Corridor",
+                "src": "puzzles/scifi/Futuristic Corridor.png",
+                "thumb": "puzzles/_thumbs/scifi/Futuristic Corridor.jpg",
+                "updated": 1772408399
+            },
+            {
+                "name": "Humanoid Horizon",
+                "src": "puzzles/scifi/Humanoid Horizon.png",
+                "thumb": "puzzles/_thumbs/scifi/Humanoid Horizon.jpg",
+                "updated": 1772408399
+            },
+            {
+                "name": "Space Cockpit",
+                "src": "puzzles/scifi/Space Cockpit.png",
+                "thumb": "puzzles/_thumbs/scifi/Space Cockpit.jpg",
+                "updated": 1772408399
+            },
+            {
+                "name": "Spherical Habitat",
+                "src": "puzzles/scifi/Spherical Habitat.png",
+                "thumb": "puzzles/_thumbs/scifi/Spherical Habitat.jpg",
+                "updated": 1771652093
+            },
+            {
+                "name": "Contemplative Robot",
+                "src": "puzzles/scifi/Contemplative Robot.png",
+                "thumb": "puzzles/_thumbs/scifi/Contemplative Robot.jpg",
+                "updated": 1771652092
+            },
+            {
+                "name": "Dusty Touchdown",
+                "src": "puzzles/scifi/Dusty Touchdown.png",
+                "thumb": "puzzles/_thumbs/scifi/Dusty Touchdown.jpg",
+                "updated": 1771652092
+            },
+            {
+                "name": "Harbour City",
+                "src": "puzzles/scifi/Harbour City.png",
+                "thumb": "puzzles/_thumbs/scifi/Harbour City.jpg",
+                "updated": 1771652092
+            }
+        ],
+        "space": [
+            {
+                "name": "Golden Starship",
+                "src": "puzzles/space/Golden Starship.png",
+                "thumb": "puzzles/_thumbs/space/Golden Starship.jpg",
+                "updated": 1777510178
+            },
+            {
+                "name": "Ringed Alien Sky",
+                "src": "puzzles/space/Ringed Alien Sky.png",
+                "thumb": "puzzles/_thumbs/space/Ringed Alien Sky.jpg",
+                "updated": 1777510177
+            },
+            {
+                "name": "Sleek Spacecraft",
+                "src": "puzzles/space/Sleek Spacecraft.png",
+                "thumb": "puzzles/_thumbs/space/Sleek Spacecraft.jpg",
+                "updated": 1777510177
+            },
+            {
+                "name": "Starship Hangar",
+                "src": "puzzles/space/Starship Hangar.png",
+                "thumb": "puzzles/_thumbs/space/Starship Hangar.jpg",
+                "updated": 1777510177
+            },
+            {
+                "name": "Colossal Ship",
+                "src": "puzzles/space/Colossal Ship.png",
+                "thumb": "puzzles/_thumbs/space/Colossal Ship.jpg",
+                "updated": 1777510176
+            },
+            {
+                "name": "Dark Storm",
+                "src": "puzzles/space/Dark Storm.png",
+                "thumb": "puzzles/_thumbs/space/Dark Storm.jpg",
+                "updated": 1777510176
+            },
+            {
+                "name": "Escape Pod",
+                "src": "puzzles/space/Escape Pod.png",
+                "thumb": "puzzles/_thumbs/space/Escape Pod.jpg",
+                "updated": 1777510176
+            },
+            {
+                "name": "Looming Saucer",
+                "src": "puzzles/space/Looming Saucer.png",
+                "thumb": "puzzles/_thumbs/space/Looming Saucer.jpg",
+                "updated": 1777510176
+            },
+            {
+                "name": "Alien Ridge",
+                "src": "puzzles/space/Alien Ridge.png",
+                "thumb": "puzzles/_thumbs/space/Alien Ridge.jpg",
+                "updated": 1777510175
+            },
+            {
+                "name": "Icy Planet",
+                "src": "puzzles/space/Icy Planet.png",
+                "thumb": "puzzles/_thumbs/space/Icy Planet.jpg",
+                "updated": 1774759599
+            },
+            {
+                "name": "Cosmic Light",
+                "src": "puzzles/space/Cosmic Light.png",
+                "thumb": "puzzles/_thumbs/space/Cosmic Light.jpg",
+                "updated": 1773900751
+            },
+            {
+                "name": "Alien Desert",
+                "src": "puzzles/space/Alien Desert.png",
+                "thumb": "puzzles/_thumbs/space/Alien Desert.jpg",
+                "updated": 1772409287
+            },
+            {
+                "name": "Earth Curvature",
+                "src": "puzzles/space/Earth Curvature.png",
+                "thumb": "puzzles/_thumbs/space/Earth Curvature.jpg",
+                "updated": 1771652263
+            },
+            {
+                "name": "Planetary Rings",
+                "src": "puzzles/space/Planetary Rings.png",
+                "thumb": "puzzles/_thumbs/space/Planetary Rings.jpg",
+                "updated": 1771652263
+            },
+            {
+                "name": "Purple Nebula",
+                "src": "puzzles/space/Purple Nebula.png",
+                "thumb": "puzzles/_thumbs/space/Purple Nebula.jpg",
+                "updated": 1771652263
+            },
+            {
+                "name": "Ringed Starfield",
+                "src": "puzzles/space/Ringed Starfield.png",
+                "thumb": "puzzles/_thumbs/space/Ringed Starfield.jpg",
+                "updated": 1771652263
+            },
+            {
+                "name": "Sunrise Flare",
+                "src": "puzzles/space/Sunrise Flare.png",
+                "thumb": "puzzles/_thumbs/space/Sunrise Flare.jpg",
+                "updated": 1771652263
+            }
+        ],
+        "vehicles": [
+            {
+                "name": "Silver Classic",
+                "src": "puzzles/vehicles/Silver Classic.png",
+                "thumb": "puzzles/_thumbs/vehicles/Silver Classic.jpg",
+                "updated": 1772946818
+            },
+            {
+                "name": "Touring Roadside",
+                "src": "puzzles/vehicles/Touring Roadside.png",
+                "thumb": "puzzles/_thumbs/vehicles/Touring Roadside.jpg",
+                "updated": 1772946818
+            },
+            {
+                "name": "Urban Red",
+                "src": "puzzles/vehicles/Urban Red.png",
+                "thumb": "puzzles/_thumbs/vehicles/Urban Red.jpg",
+                "updated": 1772946818
+            },
+            {
+                "name": "Rural Motorcycle",
+                "src": "puzzles/vehicles/Rural Motorcycle.png",
+                "thumb": "puzzles/_thumbs/vehicles/Rural Motorcycle.jpg",
+                "updated": 1772946815
+            },
+            {
+                "name": "Rustic Barn",
+                "src": "puzzles/vehicles/Rustic Barn.png",
+                "thumb": "puzzles/_thumbs/vehicles/Rustic Barn.jpg",
+                "updated": 1772946815
+            },
+            {
+                "name": "Black Sport",
+                "src": "puzzles/vehicles/Black Sport.png",
+                "thumb": "puzzles/_thumbs/vehicles/Black Sport.jpg",
+                "updated": 1772946814
+            },
+            {
+                "name": "Green Vintage",
+                "src": "puzzles/vehicles/Green Vintage.png",
+                "thumb": "puzzles/_thumbs/vehicles/Green Vintage.jpg",
+                "updated": 1772946814
+            },
+            {
+                "name": "Motorcycle Outlook",
+                "src": "puzzles/vehicles/Motorcycle Outlook.png",
+                "thumb": "puzzles/_thumbs/vehicles/Motorcycle Outlook.jpg",
+                "updated": 1772946814
+            },
+            {
+                "name": "Red Facade",
+                "src": "puzzles/vehicles/Red Facade.png",
+                "thumb": "puzzles/_thumbs/vehicles/Red Facade.jpg",
+                "updated": 1772946814
+            },
+            {
+                "name": "Cargo Flatbed",
+                "src": "puzzles/vehicles/Cargo Flatbed.png",
+                "thumb": "puzzles/_thumbs/vehicles/Cargo Flatbed.jpg",
+                "updated": 1771644884
+            },
+            {
+                "name": "Classic Racer",
+                "src": "puzzles/vehicles/Classic Racer.png",
+                "thumb": "puzzles/_thumbs/vehicles/Classic Racer.jpg",
+                "updated": 1771644884
+            },
+            {
+                "name": "Industrial Cargo",
+                "src": "puzzles/vehicles/Industrial Cargo.png",
+                "thumb": "puzzles/_thumbs/vehicles/Industrial Cargo.jpg",
+                "updated": 1771644884
+            },
+            {
+                "name": "Neon Muscle Car",
+                "src": "puzzles/vehicles/Neon Muscle Car.png",
+                "thumb": "puzzles/_thumbs/vehicles/Neon Muscle Car.jpg",
+                "updated": 1771644884
+            },
+            {
+                "name": "Orange Night Highway",
+                "src": "puzzles/vehicles/Orange Night Highway.png",
+                "thumb": "puzzles/_thumbs/vehicles/Orange Night Highway.jpg",
+                "updated": 1771644884
+            },
+            {
+                "name": "Urban Street",
+                "src": "puzzles/vehicles/Urban Street.png",
+                "thumb": "puzzles/_thumbs/vehicles/Urban Street.jpg",
+                "updated": 1771644884
+            },
+            {
+                "name": "Desert Luxury",
+                "src": "puzzles/vehicles/Desert Luxury.png",
+                "thumb": "puzzles/_thumbs/vehicles/Desert Luxury.jpg",
+                "updated": 1771630675
+            },
+            {
+                "name": "Muscle Golden Hour",
+                "src": "puzzles/vehicles/Muscle Golden Hour.png",
+                "thumb": "puzzles/_thumbs/vehicles/Muscle Golden Hour.jpg",
+                "updated": 1771630675
+            },
+            {
+                "name": "Orange Sunset Coupe",
+                "src": "puzzles/vehicles/Orange Sunset Coupe.png",
+                "thumb": "puzzles/_thumbs/vehicles/Orange Sunset Coupe.jpg",
+                "updated": 1771630675
+            },
+            {
+                "name": "Vintage Sedan",
+                "src": "puzzles/vehicles/Vintage Sedan.png",
+                "thumb": "puzzles/_thumbs/vehicles/Vintage Sedan.jpg",
+                "updated": 1771630675
+            }
+        ]
+    }
+}

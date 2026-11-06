@@ -1,0 +1,1352 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Support Snapshift Puzzles</title>
+  <meta name="description" content="Support Snapshift Puzzles with monthly or annual plans for ad-free browsing, Daily archive access, exclusive themes, and early feature access." />
+  <meta name="robots" content="index,follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Support Snapshift Puzzles" />
+  <meta property="og:description" content="Ad-free browsing, Daily archive access, exclusive themes, and supporter perks." />
+  <style>
+    :root{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      --themeAlpha: 0.85;
+      --bgUrl: url("jungle_background.png");
+    }
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      color:#e8eef7;
+      background:#000000;
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
+      position:relative;
+    }
+    body.theme-on::before{
+      content:"";
+      position:fixed; inset:0;
+      z-index:0;
+      background-image: var(--bgUrl, url("jungle_background.png"));
+      background-size:cover;
+      background-position:center;
+      background-repeat:no-repeat;
+      opacity:var(--themeAlpha);
+      pointer-events:none;
+    }
+    body.theme-on::after{
+      content:"";
+      position:fixed; inset:0;
+      z-index:0;
+      background: radial-gradient(ellipse at center,
+        rgba(0,0,0,0.18) 0%,
+        rgba(0,0,0,0.58) 68%,
+        rgba(0,0,0,0.78) 100%);
+      pointer-events:none;
+    }
+    .frog{
+      position: fixed;
+      right: max(10px, env(safe-area-inset-right));
+      bottom: max(10px, env(safe-area-inset-bottom));
+      width: min(340px, 44vw);
+      height:auto;
+      z-index:0;
+      opacity:.95;
+      pointer-events:none;
+      display:none;
+      filter: drop-shadow(0 16px 30px rgba(0,0,0,.55));
+    }
+    body.theme-on.frog-on .frog{ display:block; }
+    .screen{ position:relative; z-index:1; min-height:100vh; }
+    .shell{
+      width:min(1400px, 100%);
+      margin:0 auto;
+      padding:18px;
+      box-sizing:border-box;
+    }
+    .btnSoft,
+    .btnPrimary,
+    .btnGhost{
+      border-radius:999px;
+      font-weight:900;
+      padding:11px 14px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+      cursor:pointer;
+      transition:transform .08s ease, filter .08s ease;
+      box-sizing:border-box;
+      border:1px solid rgba(42,57,82,.7);
+      min-height:44px;
+    }
+    .btnSoft,
+    .btnGhost{
+      background: rgba(15,23,42,.55);
+      color:#e8eef7;
+    }
+    .btnPrimary{
+      color:#eef6ff;
+      background: linear-gradient(135deg, rgba(65,116,255,.34), rgba(56,165,255,.20));
+      border-color: rgba(124,196,255,.40);
+      box-shadow: 0 10px 30px rgba(0,0,0,.20);
+    }
+    .btnSoft:hover,
+    .btnPrimary:hover,
+    .btnGhost:hover{ filter:brightness(1.07); transform:translateY(-1px); }
+
+    header.topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 6px 14px;
+      flex-wrap:wrap;
+    }
+    .brand{ display:flex; align-items:center; gap:12px; min-width:240px; }
+    .logoImg{
+      height:75px;
+      width:auto;
+      display:block;
+      object-fit:contain;
+      filter: drop-shadow(0 10px 26px rgba(0,0,0,.25));
+    }
+    .brandTitle{ font-weight:950; letter-spacing:.2px; font-size:16px; }
+    .brandSub{ opacity:.8; font-size:12px; margin-top:2px; }
+    .right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+
+    .railCard,
+    .heroCard,
+    .priceCard,
+    .faqCard,
+    .compareCard{
+      border-radius:18px;
+      border:1px solid rgba(36,48,69,0.85);
+      background: rgba(15,23,42,0.68);
+      backdrop-filter: blur(10px);
+      box-sizing:border-box;
+    }
+    .heroCard{
+      padding:18px;
+      display:grid;
+      grid-template-columns: 1.4fr .9fr;
+      gap:14px;
+      align-items:center;
+    }
+    @media (max-width: 900px){ .heroCard{ grid-template-columns: 1fr; } }
+    .heroTitle{ margin:0; font-size:34px; line-height:1.08; letter-spacing:.2px; }
+    .heroDesc{ margin:10px 0 0; opacity:.9; font-size:14px; font-weight:700; line-height:1.5; max-width:760px; }
+    .pillRow{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 11px; border-radius:999px;
+      border:1px solid rgba(42,57,82,.7);
+      background: rgba(0,0,0,.18);
+      font-weight:800; font-size:12px; color:#e8eef7;
+    }
+    .heroSide{
+      border-radius:16px;
+      border:1px solid rgba(42,57,82,.75);
+      background: rgba(11,18,32,.55);
+      padding:16px;
+    }
+    .heroSideTitle{ font-size:14px; font-weight:950; }
+    .heroSideList{ list-style:none; margin:12px 0 0; padding:0; display:grid; gap:10px; }
+    .heroSideList li{ display:flex; gap:10px; font-size:13px; font-weight:800; line-height:1.35; }
+    .heroSideList li::before{ content:"✦"; color:#9fd0ff; font-weight:950; }
+
+    .section{ margin-top:14px; }
+    .rowHeader{
+      display:flex; align-items:baseline; justify-content:space-between;
+      gap:10px; flex-wrap:wrap; padding:2px 2px 8px;
+    }
+    .rowTitle{ font-weight:950; font-size:15px; }
+    .rowSub{ opacity:.8; font-size:12px; font-weight:800; }
+
+    .pricingGrid{
+      display:grid;
+      grid-template-columns: 1.15fr 1.15fr .9fr;
+      gap:12px;
+    }
+    @media (max-width: 1040px){ .pricingGrid{ grid-template-columns:1fr; } }
+    .priceCard{ padding:16px; position:relative; overflow:hidden; }
+    .priceCard.featured{
+      border-color: rgba(124,196,255,.50);
+      box-shadow: 0 12px 32px rgba(0,0,0,.22);
+    }
+    .ribbon{
+      display:inline-flex;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(124,196,255,.35);
+      background: rgba(27,40,66,.75);
+      color:#dff0ff;
+      font-weight:900;
+      font-size:11px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+    .planTitle{ margin-top:12px; font-size:22px; font-weight:950; }
+    .planPrice{ margin-top:10px; display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; }
+    .planAmount{ font-size:36px; font-weight:950; line-height:1; }
+    .planTerm{ opacity:.82; font-size:13px; font-weight:800; padding-bottom:4px; }
+    .planDesc{ margin-top:10px; opacity:.92; font-size:13px; font-weight:700; line-height:1.45; }
+    .featureList{ list-style:none; margin:14px 0 0; padding:0; display:grid; gap:10px; }
+    .featureList li{ display:flex; gap:10px; font-size:13px; font-weight:800; line-height:1.35; }
+    .featureList li::before{ content:"✦"; color:#9fd0ff; font-weight:950; }
+    .cardActions{ margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; }
+    .fine{ margin-top:10px; opacity:.76; font-size:11px; font-weight:700; }
+
+    .miniCompare{ display:grid; gap:12px; }
+    .miniCard{
+      border-radius:16px;
+      border:1px solid rgba(42,57,82,.75);
+      background: rgba(11,18,32,.55);
+      padding:14px;
+    }
+    .miniTitle{ font-size:15px; font-weight:950; }
+    .miniSub{ margin-top:4px; opacity:.82; font-size:12px; font-weight:800; line-height:1.4; }
+
+    .compareCard{ padding:14px; }
+    .compareTableWrap{ overflow:auto; border-radius:14px; border:1px solid rgba(42,57,82,.65); }
+    table.compareTable{ width:100%; border-collapse:collapse; min-width:720px; }
+    .compareTable th,
+    .compareTable td{ padding:12px 14px; text-align:left; }
+    .compareTable thead th{
+      background: rgba(11,18,32,.80);
+      font-size:12px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      border-bottom:1px solid rgba(42,57,82,.7);
+    }
+    .compareTable tbody tr:nth-child(odd){ background: rgba(0,0,0,.10); }
+    .compareTable tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
+    .compareTable td{ font-size:13px; font-weight:800; border-top:1px solid rgba(42,57,82,.30); }
+    .yes{ color:#dff0ff; }
+    .muted{ opacity:.72; }
+
+    .faqGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width: 900px){ .faqGrid{ grid-template-columns:1fr; } }
+    .faqCard{ padding:15px; }
+    .faqQ{ font-size:15px; font-weight:950; }
+    .faqA{ margin-top:8px; font-size:13px; font-weight:700; line-height:1.5; opacity:.92; }
+
+    .ctaCard{
+      margin-top:14px;
+      border-radius:18px;
+      border:1px solid rgba(124,196,255,.28);
+      background: linear-gradient(135deg, rgba(15,23,42,.78), rgba(18,35,62,.76));
+      padding:18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .ctaTitle{ font-size:21px; font-weight:950; }
+    .ctaSub{ margin-top:6px; opacity:.9; font-size:13px; font-weight:700; line-height:1.45; }
+
+    footer{
+      margin-top:18px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:8px 6px 2px;
+      flex-wrap:wrap;
+      opacity:.95;
+    }
+    .notice{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(16px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      border-radius: 999px;
+      border:1px solid rgba(124,196,255,.35);
+      background: rgba(14,22,39,.92);
+      color:#eef6ff;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 900;
+      transition: opacity .18s ease, transform .18s ease;
+      box-shadow: 0 14px 30px rgba(0,0,0,.3);
+      text-align:center;
+    }
+    .notice.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+  </style>
+
+<link rel="stylesheet" href="/css/site-layout.css">
+<style id="snapshift-theme-admin-bridge">
+:root{
+  --ss-site-bg:#0B1220;
+  --ss-panel-bg:rgba(15,23,42,.72);
+  --ss-section-bg:rgba(17,27,45,.78);
+  --ss-card-bg:rgba(26,39,64,.78);
+  --ss-border:rgba(42,57,82,.85);
+  --ss-text:#E8EEF7;
+  --ss-muted:#AFC2E0;
+  --ss-accent:#36CFC9;
+  --ss-accent-2:#7CC4FF;
+  --ss-button-bg:#16335D;
+  --ss-button-text:#E8EEF7;
+  --ss-pill-bg:#142848;
+  --ss-pill-text:#E8EEF7;
+  --ss-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --ss-heading-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+body{
+  background:var(--ss-site-bg) !important;
+  color:var(--ss-text) !important;
+  font-family:var(--ss-font) !important;
+}
+h1,h2,h3,h4,h5,h6,.brandTitle,.rowTitle,.gridTitle,.catName,.name,.dailyTitle,.lbTitle,.archiveName,.unlockTitle,.hero h1,.heroSimple h1,.landingHeader h1{
+  font-family:var(--ss-heading-font) !important;
+  color:var(--ss-text);
+}
+p,.rowSub,.gridHint,.catDesc,.dailySub,.dailyIntro p,.archiveMeta,.statSub,.tiny,.muted,.lbMeta .rowSub,.unlockCopy,.rewardPlacementCopy,.rewardPlacementFine,.completionShareText,.help,.archiveCount,.monthMeta,.meta,.statusDiff{
+  color:var(--ss-muted) !important;
+}
+.hero,.heroSimple,.dailyCard,.railCard,.seoCopyCard,.categoryIntroCard,.relatedCatsCard,.boardCard,.sidebar,.helpPanel,.modalCard,.pauseCard,.lbCard,.unlockPanel,.archiveCard,.statCard,.adPlacementCard,.completionPanel,.rewardPlacement,.topbar,.hud{
+  background:var(--ss-panel-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.stat,.unlockStat,.archiveEmpty,.adPlacementFrame,.resumeMeta,.pill2,.cat,.catCard,.card,.puz,.relatedCatLink,.latestGrid .card,.lbTableWrap{
+  background:var(--ss-section-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.thumb,.dailyThumb,.catTile,.tile,.archiveThumbWrap,canvas{
+  background:var(--ss-card-bg) !important;
+}
+.btnSoft,.btnPrimary,.loadMoreBtn,.dailyBtn,.hudBtn,.rewardPlacementBtn,button,select,input[type="range"],.completionShareBtn,.modalLinkBtn,.guideLinkBtn,.archiveFilterBtn,.footerLink{
+  background:var(--ss-button-bg) !important;
+  color:var(--ss-button-text) !important;
+  border-color:var(--ss-border) !important;
+}
+.pill,.statusBadge,.lbTabBtn,.lbRankPill,.lbCountBadge,.badge,.eyebrow,.tag,.metaTag,.hudItem,.statLabel,.lockBadge,.pausePill,.statusBadge.isMedal,.badge.medal{
+  background:var(--ss-pill-bg) !important;
+  color:var(--ss-pill-text) !important;
+  border-color:var(--ss-border) !important;
+}
+a,.dailyIntro a,.relatedBrowseAll,.archiveBody a,.heroActions a,.footerLinks a{ color:var(--ss-accent-2); }
+.lbTabBtn.active,.dailyBtn.isPrimary,.btnPrimary,.statusBadge.isGold,.badge.medal.isGold,.lbMedalBadge.isGold{
+  background:linear-gradient(135deg, var(--ss-accent-2), var(--ss-accent)) !important;
+  color:var(--ss-button-text) !important;
+  border-color:color-mix(in srgb, var(--ss-accent-2) 60%, white 10%) !important;
+}
+.statusBadge.isSilver,.badge.medal.isSilver,.lbMedalBadge.isSilver{
+  background:color-mix(in srgb, var(--ss-card-bg) 72%, white 14%) !important;
+}
+.statusBadge.isBronze,.badge.medal.isBronze,.lbMedalBadge.isBronze{
+  background:color-mix(in srgb, var(--ss-card-bg) 80%, #b86b2f 22%) !important;
+}
+.adPlacementBadge,.rewardPlacementEyebrow,.completionPanelTitle,.challengeCelebrateEyebrow,.statLabel,.rowTitle,.gridTitle,.archiveDate,.unlockStatLabel{
+  color:var(--ss-accent) !important;
+}
+.topbar .pill,.topbar .btnSoft,#continueBtn,.heroActions .pill,.heroActions .btnPrimary,.archiveToolbar .btnSoft,.archiveToolbar .archiveFilterBtn,.dailyRight .pill,.dailyRight .dailyBtn,.hudItem,.hudBtn{
+  box-shadow:none;
+}
+</style>
+
+<style id="snapshift-button-admin-sync-fix">
+/* Force the exact shared header and section action button system */
+.topbar .btnSoft,
+.topbar .right > a.btnSoft,
+.homeIntroActions .btnSoft,
+.homeIntroActions a.btnSoft,
+.homeIntroActions .pill,
+.linkPills .btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  min-height:34px !important;
+  padding:7px 10px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1.1 !important;
+  text-decoration:none !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.topbar .btnSoft:hover,
+.topbar .right > a.btnSoft:hover,
+.homeIntroActions .btnSoft:hover,
+.homeIntroActions a.btnSoft:hover,
+.homeIntroActions .pill:hover,
+.linkPills .btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+</style>
+
+<style id="snapshift-topbar-homeintro-height-fix">
+/* Final normalization: topbar action controls and page link pills use one exact height */
+#authPill,
+.topbar .right > a.btnSoft,
+.topbar .right > #playBtn,
+.topbar .right > #pointsPill,
+.linkPills > a.btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+#authPill:hover,
+.topbar .right > a.btnSoft:hover,
+.topbar .right > #playBtn:hover,
+.linkPills > a.btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.topbar .right{
+  align-items:center !important;
+}
+</style>
+
+<style id="snapshift-supporter-footer-button-fix">
+/* Footer actions use the same shared button system */
+.footerLinks .footerLink{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.footerLinks .footerLink:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.footerLinks{
+  display:flex !important;
+  align-items:center !important;
+  flex-wrap:wrap !important;
+  gap:10px !important;
+}
+</style>
+<style id="snapshift-button-admin-sync-fix">
+.topbar .btnSoft,
+.topbar .right > a.btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  min-height:34px !important;
+  padding:7px 10px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1.1 !important;
+  text-decoration:none !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.topbar .btnSoft:hover,
+.topbar .right > a.btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+</style>
+
+<style id="snapshift-topbar-homeintro-height-fix">
+#authPill,
+.topbar .right > a.btnSoft,
+.topbar .right > #playBtn,
+.topbar .right > #pointsPill{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+#authPill:hover,
+.topbar .right > a.btnSoft:hover,
+.topbar .right > #playBtn:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.topbar .right{
+  align-items:center !important;
+}
+</style>
+
+<style id="snapshift-shared-footer-carryover">
+.siteFooter{
+  margin-top:18px !important;
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+  gap:10px !important;
+  padding:8px 6px 2px !important;
+  flex-wrap:wrap !important;
+  opacity:.95 !important;
+}
+.siteFooter .footerMeta{
+  opacity:.86 !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+}
+.siteFooter .footerLinks{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  flex-wrap:wrap !important;
+}
+.footerLinks .footerLink{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.footerLinks .footerLink:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+@media (max-width: 640px){
+  .siteFooter{
+    justify-content:center !important;
+    text-align:center !important;
+  }
+  .siteFooter .footerLinks{
+    justify-content:center !important;
+    width:100% !important;
+  }
+}
+</style>
+
+<style id="snapshift-topbar-first-section-spacing">
+header.topbar + section.heroSimple,
+header.topbar + section.heroCard{
+  margin-top:12px !important;
+}
+</style>
+
+<style id="snapshift-supporter-badge-css">
+#supporterBadgePill[hidden]{
+  display:none !important;
+}
+#supporterStatusSection[hidden]{
+  display:none !important;
+}
+.supporterBadgePill{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(142,240,176,.52) !important;
+  background: linear-gradient(135deg, rgba(21,76,52,.94), rgba(12,30,22,.97)) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22), 0 0 0 1px rgba(142,240,176,.14) inset !important;
+  animation: snapshiftDailyCountdownGlow 2.8s ease-in-out infinite !important;
+  color:#dcffe7 !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-size:11px !important;
+  font-weight:950 !important;
+  letter-spacing:.12em !important;
+  text-transform:uppercase !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+  text-decoration:none !important;
+  cursor:default !important;
+}
+.supporterStatusGrid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:12px;
+}
+.supporterStatusCard{
+  border-radius:16px;
+  border:1px solid rgba(42,57,82,.75);
+  background: rgba(11,18,32,.55);
+  padding:14px;
+}
+.supporterStatusLabel{ font-size:11px; opacity:.8; font-weight:900; text-transform:uppercase; letter-spacing:.5px; }
+.supporterStatusValue{ margin-top:6px; font-size:18px; font-weight:950; }
+.supporterBonusNote{ margin-top:12px; padding:12px 14px; border-radius:14px; border:1px solid rgba(124,196,255,.26); background:rgba(16,29,53,.7); color:#dfeaff; font-size:13px; font-weight:700; line-height:1.55; }
+@media (max-width: 900px){ .supporterStatusGrid{ grid-template-columns:1fr; } }
+</style>
+
+<style id="snapshift-supporter-stripe-plan-patch">
+.pricingGrid{ align-items:stretch; }
+.priceCard,
+.miniCompare{ min-height:100%; }
+.priceCard{ display:flex; flex-direction:column; }
+.priceCard .cardActions{ margin-top:auto; align-items:flex-end; }
+.stripePlanWrap{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.stripePlanWrap stripe-buy-button{ display:inline-block; }
+@media (max-width: 1040px){
+  .priceCard .cardActions{ align-items:flex-start; }
+}
+</style>
+
+<style id="snapshift-supporter-plan-spacing-fix">
+.pricingGrid{ align-items:stretch; }
+.priceCard{ display:flex; flex-direction:column; min-height:100%; }
+.priceCard .featureList{ margin:14px 0 0; }
+.priceCard .cardActions{ margin-top:auto; }
+.priceCard .fine{ margin-top:12px; }
+.stripePlanWrap{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-start;
+  min-height:64px;
+  padding-top:14px;
+}
+.stripePlanWrap stripe-buy-button{ display:inline-block; }
+/* Keep monthly and annual payment blocks visually aligned */
+#monthly-plan .stripePlanWrap,
+#annual-plan .stripePlanWrap{
+  margin-top:0;
+}
+@media (max-width: 1040px){
+  .priceCard .cardActions{ align-items:flex-start; }
+  .stripePlanWrap{ min-height:0; padding-top:12px; }
+}
+</style>
+
+<style id="snapshift-plan-preview-clean-final">
+/* Clean single-source preview + action-row alignment */
+.priceCard{
+  display:flex;
+  flex-direction:column;
+}
+.priceCard .planTitle{
+  min-height:52px;
+}
+.priceCard .planPrice{
+  min-height:62px;
+  align-items:flex-end;
+}
+.priceCard .planDesc{
+  min-height:74px;
+}
+.priceCard .featureList{
+  min-height:198px;
+}
+
+.stripeDetailsPreview{
+  margin-top:14px;
+  border-radius:18px;
+  border:1px solid rgba(42,57,82,.72);
+  background: rgba(15,23,42,.68);
+  padding:18px 16px 14px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  box-sizing:border-box;
+  min-height:520px;
+}
+.stripeDetailsPreviewLogoWrap{
+  width:min(240px, 100%);
+  aspect-ratio:1 / 1;
+  border-radius:16px;
+  background:#f6e7d8;
+  border:1px solid rgba(255,214,173,.42);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
+.stripeDetailsPreviewLogo{
+  width:72%;
+  height:auto;
+  display:block;
+  object-fit:contain;
+}
+.stripeDetailsPreviewName{
+  margin-top:16px;
+  font-size:18px;
+  font-weight:800;
+  line-height:1.12;
+  letter-spacing:-.01em;
+  min-height:40px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+.stripeDetailsPreviewPrice{
+  margin-top:8px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+  min-height:62px;
+}
+.stripeDetailsPreviewAmount{
+  font-size:34px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-.02em;
+}
+.stripeDetailsPreviewTerm{
+  font-size:14px;
+  font-weight:700;
+  line-height:1.05;
+  text-align:left;
+  padding-bottom:3px;
+}
+.stripeDetailsPreviewSub{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:700;
+  opacity:.94;
+  line-height:1.2;
+  min-height:14px;
+}
+.stripeDetailsPreviewPayRow{
+  margin-top:auto;
+  display:flex;
+  justify-content:center;
+  width:100%;
+  padding-top:12px;
+}
+.stripePaymentBanner{
+  display:block;
+  width:min(248px, 100%);
+  height:auto;
+  object-fit:contain;
+}
+
+.cardActions.stripePlanWrap{
+  margin-top:10px !important;
+  padding-top:0 !important;
+  min-height:0 !important;
+  align-items:flex-start !important;
+}
+.cardActions.stripePlanWrap stripe-buy-button{
+  margin-top:0 !important;
+  align-self:flex-start !important;
+}
+
+@media (max-width: 1040px){
+  .priceCard .planTitle,
+  .priceCard .planPrice,
+  .priceCard .planDesc,
+  .priceCard .featureList,
+  .stripeDetailsPreview{
+    min-height:0;
+  }
+}
+</style>
+
+  <link rel="stylesheet" href="/css/site_theme.css" />
+  <script src="/js/site_theme.js?v=20260421c"></script>
+  <script src="/js/site_chrome.js?v=20260421c"></script>
+</head>
+<body>
+  <img class="frog" id="frogImg" src="red_eyed_frog.png" alt="" />
+  <div class="screen">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="logoImg" src="Snapshift_Puzzles_Logo.png" onerror="this.onerror=null;this.src='PuzzleQuest_Logo.png'" alt="Snapshift Puzzles" />
+        </div>
+
+        <div class="right">
+          <a class="pill" id="authPill" href="login.php" style="text-decoration:none;">Sign in</a>
+          <a class="btnSoft" href="index.html">← Home</a>
+          <a class="btnSoft" href="/shop.html">Shop</a>
+          <a class="btnSoft" id="playBtn" href="game.html">Play</a>
+          <span class="pill" id="pointsPill">Points: 0</span>
+        </div>
+      </header>
+
+      <section class="heroCard">
+        <div>
+          <h1 class="heroTitle">Support Snapshift Puzzles</h1>
+          <div class="heroDesc">
+            Upgrade to a cleaner, more rewarding puzzle experience while helping fund new puzzle content, Daily Challenge improvements, and future site features.
+          </div>
+          <div class="pillRow">
+            <div class="pill">Ad-free browsing</div>
+            <div class="pill">Daily archive</div>
+            <div class="pill">Exclusive themes</div>
+            <div class="pill">Supporter badge</div>
+          </div>
+        </div>
+        <div class="heroSide">
+          <div class="heroSideTitle">What your support helps fund</div>
+          <ul class="heroSideList">
+            <li>Fresh puzzle collections and Daily Challenge improvements</li>
+            <li>Faster site updates, polish, and mobile quality-of-life fixes</li>
+            <li>Premium themes, stats, and future member features</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section railCard" id="supporterStatusSection" hidden>
+        <div class="rowHeader">
+          <div>
+            <div class="rowTitle">Your Supporter Status</div>
+            <div class="rowSub">Supporters earn a visible badge and a +250 point loyalty bonus every 30 days while active.</div>
+          </div>
+        </div>
+        <div class="supporterStatusGrid">
+          <div class="supporterStatusCard">
+            <div class="supporterStatusLabel">Badge</div>
+            <div class="supporterStatusValue" id="supporterBadgeValue">★ Supporter</div>
+          </div>
+          <div class="supporterStatusCard">
+            <div class="supporterStatusLabel">Plan</div>
+            <div class="supporterStatusValue" id="supporterPlanValue">Supporter</div>
+          </div>
+          <div class="supporterStatusCard">
+            <div class="supporterStatusLabel">Next loyalty bonus</div>
+            <div class="supporterStatusValue" id="supporterNextBonusValue">Every 30 days</div>
+          </div>
+        </div>
+        <div class="supporterBonusNote" id="supporterBonusNote">When supporter status is active, Snapshift awards +250 points every 30 days. Bonus awards are checked automatically when you load the site.</div>
+      </section>
+
+      <section class="section">
+        <div class="rowHeader">
+          <div>
+            <div class="rowTitle">Plans</div>
+            <div class="rowSub">Start monthly or save with annual billing</div>
+          </div>
+        </div>
+
+        <div class="pricingGrid">
+          <div class="priceCard featured" id="monthly-plan">
+            <div class="ribbon">Most Popular</div>
+            <div class="planTitle">Snapshift Supporter</div>
+            <div class="planPrice">
+              <div class="planAmount">$3.99</div>
+              <div class="planTerm">/ month</div>
+            </div>
+            <div class="planDesc">Ad-free browsing, archive access, premium themes, and a Supporter badge.</div>
+            <ul class="featureList">
+              <li>Cleaner Member Experience</li>
+              <li>Daily Challenge archive access</li>
+              <li>Exclusive site themes</li>
+              <li>Supporter profile badge</li>
+              <li>Early access to select new features</li>
+            </ul>
+
+            <div class="stripeDetailsPreview">
+              <div class="stripeDetailsPreviewLogoWrap">
+                <img class="stripeDetailsPreviewLogo" src="Snapshift-light.png" onerror="this.onerror=null;this.src='Snapshift_Puzzles_Logo.png'" alt="Snapshift Puzzles" />
+              </div>
+              <div class="stripeDetailsPreviewName">Snapshift Monthly Supporter</div>
+              <div class="stripeDetailsPreviewPrice">
+                <div class="stripeDetailsPreviewAmount">CA$3.99</div>
+                <div class="stripeDetailsPreviewTerm">per<br>month</div>
+              </div>
+              <div class="stripeDetailsPreviewSub">&nbsp;</div>
+              <div class="stripeDetailsPreviewPayTitle">Supported payment methods:</div>
+              <div class="stripeDetailsPreviewPayRow"><img class="stripePaymentBanner" src="Payment-icons.png" alt="Supported payment methods" /></div>
+            </div>
+
+            <div class="cardActions stripePlanWrap">
+              <stripe-buy-button buy-button-id="buy_btn_1TLFyNJfnRu7GcfdYKXjenyN" publishable-key="pk_live_51TJmKIJfnRu7GcfdksGGvv7FNFoa9LnnHkMlFRPFymNk9j5sk8NSwzYyWMExsPTKrRHFSo7TpditVJja9ahIn6IY00i7rXHZ8j"></stripe-buy-button>
+              <a class="btnGhost" href="#compare">Compare Plans</a>
+            </div>
+            <div class="fine">Cancel anytime.</div>
+          </div>
+
+          <div class="priceCard" id="annual-plan">
+            <div class="ribbon">Best Value</div>
+            <div class="planTitle">Annual Supporter</div>
+            <div class="planPrice">
+              <div class="planAmount">$29</div>
+              <div class="planTerm">/ year</div>
+            </div>
+            <div class="planDesc">Everything in monthly Supporter, with a lower yearly price for regular players.</div>
+            <ul class="featureList">
+              <li>Everything in monthly Supporter</li>
+              <li>Lower yearly price</li>
+              <li>Priority access to future premium features</li>
+              <li>Simple yearly billing</li>
+              <li>Great for Daily Challenge regulars</li>
+            </ul>
+
+            <div class="stripeDetailsPreview">
+              <div class="stripeDetailsPreviewLogoWrap">
+                <img class="stripeDetailsPreviewLogo" src="Snapshift-light.png" onerror="this.onerror=null;this.src='Snapshift_Puzzles_Logo.png'" alt="Snapshift Puzzles" />
+              </div>
+              <div class="stripeDetailsPreviewName">Snapshift Annual Supporter</div>
+              <div class="stripeDetailsPreviewPrice">
+                <div class="stripeDetailsPreviewAmount">CA$2.42</div>
+                <div class="stripeDetailsPreviewTerm">per<br>month</div>
+              </div>
+              <div class="stripeDetailsPreviewSub">CA$29 billed annually</div>
+              <div class="stripeDetailsPreviewPayTitle">Supported payment methods:</div>
+              <div class="stripeDetailsPreviewPayRow"><img class="stripePaymentBanner" src="Payment-icons.png" alt="Supported payment methods" /></div>
+            </div>
+
+            <div class="cardActions stripePlanWrap">
+              <stripe-buy-button buy-button-id="buy_btn_1TLFtbJfnRu7Gcfdsk298Cia" publishable-key="pk_live_51TJmKIJfnRu7GcfdksGGvv7FNFoa9LnnHkMlFRPFymNk9j5sk8NSwzYyWMExsPTKrRHFSo7TpditVJja9ahIn6IY00i7rXHZ8j"></stripe-buy-button>
+              <a class="btnGhost" href="#faq">Questions</a>
+            </div>
+            <div class="fine">Billed yearly. Renewal reminder recommended.</div>
+          </div>
+
+          <div class="miniCompare">
+            <div class="miniCard">
+              <div class="miniTitle">Free Play</div>
+              <div class="miniSub">Snapshift stays free to enjoy, with full puzzle play and Daily Challenges.</div>
+              <ul class="featureList">
+                <li>Full puzzle access</li>
+                <li>Daily Challenge</li>
+                <li>Medals, streaks, and saved progress</li>
+                <li>Optional upgrade anytime</li>
+              </ul>
+            </div>
+
+            <div class="miniCard">
+              <div class="miniTitle">Why Support?</div>
+              <div class="miniSub">Your support helps Snapshift Puzzles grow with new content, cleaner browsing, and future premium improvements.</div>
+              <ul class="featureList">
+                <li>Funds new puzzle collections and Daily Challenge updates</li>
+                <li>Helps expand supporter features, themes, and polish</li>
+                <li>Keeps free play available for everyone</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section compareCard" id="compare">
+        <div class="rowHeader">
+          <div>
+            <div class="rowTitle">Features Comparison</div>
+            <div class="rowSub">A quick look at what free and supporter plans include</div>
+          </div>
+        </div>
+        <div class="compareTableWrap">
+          <table class="compareTable">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Free</th>
+                <th>Supporter</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Full puzzle access</td>
+                <td class="yes">Included</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Daily Challenge</td>
+                <td class="yes">Included</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Saved progress and resume</td>
+                <td class="yes">Included</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Ad-free browsing</td>
+                <td class="muted">—</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Daily archive access</td>
+                <td class="muted">—</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Exclusive themes</td>
+                <td class="muted">—</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Supporter profile badge</td>
+                <td class="muted">—</td>
+                <td class="yes">Included</td>
+              </tr>
+              <tr>
+                <td>Early feature access</td>
+                <td class="muted">—</td>
+                <td class="yes">Included</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <div class="rowHeader">
+          <div>
+            <div class="rowTitle">Frequently Asked Questions</div>
+            <div class="rowSub">Simple answers for players considering a Supporter plan</div>
+          </div>
+        </div>
+        <div class="faqGrid">
+          <div class="faqCard">
+            <div class="faqQ">Why become a Supporter?</div>
+            <div class="faqA">Your support helps fund new puzzles, Daily Challenge improvements, site upgrades, and future premium features while giving you a cleaner browsing experience.</div>
+          </div>
+          <div class="faqCard">
+            <div class="faqQ">Can I cancel anytime?</div>
+            <div class="faqA">Yes. Monthly Supporter plans are intended to be cancel-anytime plans. Annual plans are best for regular players who want the lower yearly rate.</div>
+          </div>
+          <div class="faqCard">
+            <div class="faqQ">Will free play still be available?</div>
+            <div class="faqA">Yes. Snapshift Puzzles will continue to offer free play, Daily Challenges, medals, streaks, and saved progress.</div>
+          </div>
+        </div>
+      </section>
+<footer class="siteFooter">
+  <div class="footerMeta">© <span id="footerYear"></span> Snapshift Puzzles</div>
+  <div class="footerLinks">
+    <a class="footerLink" href="/about.html">About</a>
+    <a class="footerLink" href="/faq.html">FAQ</a>
+    <a class="footerLink" href="/privacy.html">Privacy</a>
+    <a class="footerLink" href="/terms.html">Terms</a>
+    <a class="footerLink" href="/contact.html">Contact</a>
+    <a class="footerLink" href="/daily-archive.html">Daily Archive</a>
+  </div>
+</footer>
+    </div>
+  </div>
+<script id="snapshift-exact-index-header-auth">
+(() => {
+  const REMEMBERED_USERNAME_COOKIE = 'snapshift_remembered_username';
+
+  function setRememberedUsername(username){
+    const value = String(username || '').trim();
+    if (!value) return;
+    try {
+      document.cookie = `${REMEMBERED_USERNAME_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=${60*60*24*365}; SameSite=Lax`;
+    } catch(e){}
+  }
+
+  function getRememberedUsername(){
+    try {
+      const m = document.cookie.match(new RegExp('(?:^|; )' + REMEMBERED_USERNAME_COOKIE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch(e){ return ''; }
+  }
+
+  function buildRememberedLoginHref(base = 'login.php'){
+    try {
+      const url = new URL(base, window.location.href);
+      const current = window.location.pathname + window.location.search + window.location.hash;
+      if (current && !/\/login\.php$/i.test(window.location.pathname)) {
+        url.searchParams.set('return', current);
+      }
+      return url.pathname + url.search + url.hash;
+    } catch(e){
+      try{
+        const current = window.location.pathname + window.location.search + window.location.hash;
+        if (current && !/\/login\.php$/i.test(window.location.pathname)) {
+          return `${base}${base.includes('?') ? '&' : '?'}return=${encodeURIComponent(current)}`;
+        }
+      }catch(err){}
+      return base;
+    }
+  }
+
+  function doLogout(ev){
+    if (ev) ev.preventDefault();
+    window.location.href = 'logout.php';
+  }
+
+  async function refreshPointsFromServer(){
+    const pill = document.getElementById('pointsPill');
+    try{
+      const r = await fetch('/api/points_get.php', { credentials:'include', cache:'no-store' });
+      const j = await r.json().catch(() => null);
+      const points = (j && j.loggedIn) ? (Number(j.points)||0) : 0;
+      if (pill) pill.textContent = `Points: ${points}`;
+      return j;
+    }catch(e){
+      if (pill && !pill.textContent.trim()) pill.textContent = 'Points: 0';
+      return null;
+    }
+  }
+
+  function ensureSupporterBadgePill(){
+    const auth = document.getElementById('authPill');
+    if (!auth || !auth.parentNode) return null;
+    let badge = document.getElementById('supporterBadgePill');
+    if (badge) return badge;
+    badge = document.createElement('span');
+    badge.id = 'supporterBadgePill';
+    badge.className = 'supporterBadgePill';
+    badge.hidden = true;
+    badge.setAttribute('aria-hidden', 'true');
+    badge.style.display = 'none';
+    badge.textContent = '★ Supporter';
+    auth.insertAdjacentElement('afterend', badge);
+    return badge;
+  }
+
+  function formatSupporterDate(value){
+    try{
+      if (!value) return 'Every 30 days';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return 'Every 30 days';
+      return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+    }catch(e){ return 'Every 30 days'; }
+  }
+
+  function renderSupporterUi(supporter){
+    const badge = ensureSupporterBadgePill();
+    const section = document.getElementById('supporterStatusSection');
+    const badgeValue = document.getElementById('supporterBadgeValue');
+    const planValue = document.getElementById('supporterPlanValue');
+    const nextValue = document.getElementById('supporterNextBonusValue');
+    const note = document.getElementById('supporterBonusNote');
+    const active = !!(supporter && supporter.active);
+
+    if (badge) {
+      badge.hidden = !active;
+      badge.setAttribute('aria-hidden', active ? 'false' : 'true');
+      badge.style.display = active ? '' : 'none';
+      if (active) badge.textContent = `★ ${String(supporter.badgeLabel || 'Supporter')}`;
+    }
+    if (section) {
+      section.hidden = !active;
+      section.setAttribute('aria-hidden', active ? 'false' : 'true');
+    }
+    if (!active) return;
+
+    if (badgeValue) badgeValue.textContent = `★ ${String(supporter.badgeLabel || 'Supporter')}`;
+    if (planValue) planValue.textContent = String(supporter.plan || 'Supporter');
+    if (nextValue) nextValue.textContent = formatSupporterDate(supporter.nextBonusAt || '');
+    if (note) {
+      const awarded = Number(supporter.bonusAwardedPoints || 0) || 0;
+      note.textContent = awarded > 0
+        ? `Supporter loyalty bonus received: +${awarded} points. Next bonus date: ${formatSupporterDate(supporter.nextBonusAt || '')}.`
+        : `Supporter loyalty bonus: +${Number(supporter.bonusAmount || 250)} points every ${Number(supporter.bonusIntervalDays || 30)} days while active.`;
+    }
+  }
+
+  async function initAuthPill(){
+    const el = document.getElementById('authPill');
+    if (!el) return;
+    try{
+      const r = await fetch('/api/me.php', { credentials:'include', cache:'no-store' });
+      const j = await r.json().catch(() => null);
+      if (j && j.loggedIn){
+        const u = j.username || 'Account';
+        setRememberedUsername(u);
+        el.textContent = `Signed in: ${u}`;
+        el.href = '#';
+        el.onclick = (ev) => doLogout(ev);
+        el.title = 'Sign out';
+        renderSupporterUi(j.supporter || null);
+        if (typeof j.points === 'number') {
+          const pill = document.getElementById('pointsPill');
+          if (pill) pill.textContent = `Points: ${Math.max(0, Number(j.points) || 0)}`;
+        } else {
+          const pj = await refreshPointsFromServer();
+          renderSupporterUi((pj && pj.supporter) ? pj.supporter : (j.supporter || null));
+        }
+      } else {
+        el.textContent = 'Sign in';
+        el.href = buildRememberedLoginHref('login.php');
+        el.onclick = null;
+        el.title = 'Sign in';
+        renderSupporterUi(null);
+        await refreshPointsFromServer();
+      }
+    }catch(e){
+      el.textContent = 'Sign in';
+      el.href = buildRememberedLoginHref('login.php');
+      el.onclick = null;
+      el.title = 'Sign in';
+      renderSupporterUi(null);
+      await refreshPointsFromServer();
+    }
+  }
+
+  initAuthPill().catch(()=>{});
+  window.addEventListener('focus', () => { initAuthPill().catch(()=>{}); });
+  window.addEventListener('pageshow', () => { initAuthPill().catch(()=>{}); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) initAuthPill().catch(()=>{}); });
+})();
+</script>
+
+<script id="supporter-theme-gate-fix">
+(() => {
+  const THEME_URL = '/theme.json';
+
+  function withCacheBust(url, bust){
+    const src = String(url || '').trim();
+    if (!src) return '';
+    return src + (src.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(String(bust || Date.now()));
+  }
+
+  async function applyThemeGate(){
+    try{
+      const bust = Date.now();
+      const r = await fetch(THEME_URL + '?t=' + bust, { cache:'no-store' });
+      if (!r.ok) throw new Error('theme.json missing');
+      const t = await r.json();
+      const enabled = (t.themeEnabled !== false);
+      const alpha = Math.max(0, Math.min(1, Number(t.themeAlpha ?? 0.85)));
+      const bg = String(t.backgroundImage ?? '').trim();
+      const frogSrc = String(t.frogImage ?? '').trim();
+      const body = document.body;
+      body.classList.toggle('theme-on', enabled && !!bg);
+      document.documentElement.style.setProperty('--themeAlpha', String(alpha));
+      document.documentElement.style.setProperty('--bgUrl', bg ? ('url("' + withCacheBust(bg, bust) + '")') : 'none');
+
+      const frog = document.getElementById('frogImg');
+      const frogOn = enabled && !!frogSrc;
+      body.classList.toggle('frog-on', frogOn);
+      if (frog){
+        if (frogOn){
+          frog.src = withCacheBust(frogSrc, bust);
+          frog.style.display = '';
+        } else {
+          frog.removeAttribute('src');
+          frog.style.display = 'none';
+        }
+      }
+    }catch(e){
+      document.body.classList.remove('theme-on', 'frog-on');
+      const frog = document.getElementById('frogImg');
+      if (frog){ frog.removeAttribute('src'); frog.style.display = 'none'; }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyThemeGate, { once:true });
+  } else {
+    applyThemeGate();
+  }
+})();
+</script>
+
+<script id="snapshift-theme-loader">
+(() => {
+  function applyAdminThemeTokens(t){
+    try{
+      const root = document.documentElement;
+      const theme = (t && typeof t === 'object') ? t : {};
+      const pick = (key, fallback) => {
+        const v = theme[key];
+        return (typeof v === 'string' && v.trim()) ? v.trim() : fallback;
+      };
+      root.style.setProperty('--ss-site-bg', pick('siteBackgroundColor', '#0B1220'));
+      root.style.setProperty('--ss-panel-bg', pick('panelBackgroundColor', 'rgba(15,23,42,.72)'));
+      root.style.setProperty('--ss-section-bg', pick('sectionBackgroundColor', 'rgba(17,27,45,.78)'));
+      root.style.setProperty('--ss-card-bg', pick('cardBackgroundColor', 'rgba(26,39,64,.78)'));
+      root.style.setProperty('--ss-border', pick('borderColor', 'rgba(42,57,82,.85)'));
+      root.style.setProperty('--ss-text', pick('textColor', '#E8EEF7'));
+      root.style.setProperty('--ss-muted', pick('mutedTextColor', '#AFC2E0'));
+      root.style.setProperty('--ss-accent', pick('accentColor', '#36CFC9'));
+      root.style.setProperty('--ss-accent-2', pick('accentSecondaryColor', '#7CC4FF'));
+      root.style.setProperty('--ss-button-bg', pick('buttonBackgroundColor', '#16335D'));
+      root.style.setProperty('--ss-button-text', pick('buttonTextColor', '#E8EEF7'));
+      root.style.setProperty('--ss-pill-bg', pick('pillBackgroundColor', '#142848'));
+      root.style.setProperty('--ss-pill-text', pick('pillTextColor', '#E8EEF7'));
+      root.style.setProperty('--ss-font', pick('fontFamily', 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'));
+      root.style.setProperty('--ss-heading-font', pick('headingFontFamily', pick('fontFamily', 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif')));
+      root.style.setProperty('--controlBg', pick('buttonBackgroundColor', 'rgba(11,18,32,0.88)'));
+      root.style.setProperty('--controlBorder', pick('borderColor', 'rgba(42,57,82,0.95)'));
+      root.style.setProperty('--controlText', pick('buttonTextColor', '#e8eef7'));
+      root.style.setProperty('--controlBgAlt', pick('sectionBackgroundColor', 'rgba(18,28,48,0.92)'));
+    }catch(e){}
+  }
+
+  async function applyThemeFromJson(){
+    try{
+      const r = await fetch('/theme.json?t=' + Date.now(), { cache:'no-store' });
+      if (!r.ok) return;
+      const t = await r.json();
+      applyAdminThemeTokens(t);
+    }catch(e){}
+  }
+  applyThemeFromJson().catch(()=>{});
+})();
+</script>
+
+<script async src="https://js.stripe.com/v3/buy-button.js"></script>
+</body>
+</html>
