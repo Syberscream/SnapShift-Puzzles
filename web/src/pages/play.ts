@@ -283,7 +283,7 @@ function showCompleted(done: Done | null) {
     h(
       'div',
       { class: 'spread' },
-      h('span', {}, h('b', {}, '✓ Completed'), ' ', done.medal ? medalBadge(done.medal) : null, summary),
+      h('span', {}, h('b', {}, '✓ Completed'), ' ', done.medal ? medalBadge(done.medal, true) : null, summary),
       h(
         'span',
         { class: 'row' },
@@ -560,7 +560,7 @@ function showResult(r: CompleteResult, guest: boolean) {
     }
   };
   const d = modal(
-    rating ? h('div', { class: 'result-medal' }, medalBadge(rating.medal)) : h('div', { class: 'result-medal', style: 'font-size:48px' }, '✓'),
+    rating ? h('div', { class: `result-medal ${rating.medal}` }, medalBadge(rating.medal), h('span', { class: 'medal-name' }, `${rating.medal} medal`)) : h('div', { class: 'result-medal', style: 'font-size:48px' }, '✓'),
     h('h2', { style: 'text-align:center' }, rating ? `${label} medal!` : 'Puzzle complete'),
     h('p', { class: 'muted', style: 'text-align:center' }, subtitle),
     rating

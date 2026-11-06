@@ -118,10 +118,26 @@ p { margin: 0 0 10px; }
 .pill.gold { background: #4a3a07; border-color: var(--gold); }
 .pill .label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; }
 
-.medal { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 13px; border: 2px solid; font-weight: 800; }
-.medal.gold { color: var(--gold); border-color: var(--gold); background: rgba(245, 197, 66, 0.12); }
-.medal.silver { color: var(--silver); border-color: var(--silver); background: rgba(201, 211, 224, 0.12); }
-.medal.bronze { color: var(--bronze); border-color: var(--bronze); background: rgba(208, 138, 78, 0.12); }
+.medal {
+  display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%;
+  font-size: 17px; line-height: 1; font-weight: 900; color: rgba(40, 24, 0, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.18), inset 0 2px 0 rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  vertical-align: middle;
+}
+.medal.gold { background: radial-gradient(circle at 35% 30%, #fff6c4 0%, #ffd84d 35%, #e0a400 75%, #a87400 100%); }
+.medal.silver { background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e2e8f0 35%, #aab6c6 75%, #6f7c8e 100%); color: rgba(20, 28, 40, 0.8); }
+.medal.bronze { background: radial-gradient(circle at 35% 30%, #ffe0c2 0%, #e59a5c 35%, #b8692c 75%, #7a4318 100%); color: rgba(50, 20, 0, 0.8); }
+.medal-tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px;
+  font-size: 13px; font-weight: 900; letter-spacing: 0.02em; color: #fff;
+  background: rgba(5, 10, 20, 0.85); border: 2px solid; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.medal-tag.gold { border-color: var(--gold); color: var(--gold); }
+.medal-tag.silver { border-color: var(--silver); color: var(--silver); }
+.medal-tag.bronze { border-color: var(--bronze); color: var(--bronze); }
+.medal-tag .medal { width: 28px; height: 28px; font-size: 15px; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), inset 0 2px 0 rgba(255, 255, 255, 0.45); }
 
 /* ---------- panels & layout ---------- */
 .panel {
@@ -231,7 +247,11 @@ body.game-page .shell { width: min(1500px, 100%); }
 .progress-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #1fa35a, #7cc4ff); width: 0; transition: width 0.25s; }
 .preview { border-radius: 12px; border: 1px solid var(--border-soft); aspect-ratio: 16 / 9; background: center / cover no-repeat; }
 .result-medal { text-align: center; margin: 6px 0 10px; }
-.result-medal .medal { width: 84px; height: 84px; font-size: 44px; border-width: 4px; }
+.result-medal .medal { width: 96px; height: 96px; font-size: 52px; border-width: 4px; }
+.result-medal .medal-name { display: block; margin-top: 8px; font-weight: 900; font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; }
+.result-medal.gold .medal-name { color: var(--gold); }
+.result-medal.silver .medal-name { color: var(--silver); }
+.result-medal.bronze .medal-name { color: var(--bronze); }
 .pill:empty { display: none; }
 .pill.warn { background: #5a1520; border-color: #ff6b6b; }
 .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; text-align: center; }

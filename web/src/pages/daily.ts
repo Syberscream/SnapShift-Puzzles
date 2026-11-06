@@ -32,7 +32,7 @@ try {
           'a',
           { class: 'card', href: `/play?daily=${d.day}` },
           h('div', { class: 'thumb wide', style: bg(d.thumb) }),
-          d.mine ? h('span', { class: 'corner' }, medalBadge(d.mine.medal)) : null,
+          d.mine ? h('span', { class: 'corner' }, medalBadge(d.mine.medal, true)) : null,
           h(
             'div',
             { class: 'meta' },

@@ -10,7 +10,7 @@ export function puzzleCard(p: PuzzleView, onChange?: () => void): HTMLElement {
       'a',
       { class: 'card', href },
       h('div', { class: 'thumb', style: bg(p.thumb) }),
-      p.bestMedal ? h('span', { class: 'corner' }, medalBadge(p.bestMedal)) : null,
+      p.bestMedal ? h('span', { class: 'corner' }, medalBadge(p.bestMedal, true)) : null,
       h(
         'div',
         { class: 'meta' },

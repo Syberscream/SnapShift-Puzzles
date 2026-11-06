@@ -54,10 +54,12 @@ export function bg(url: string): string {
   return url ? `background-image:url("${url.replace(/"/g, '%22')}")` : '';
 }
 
-export function medalBadge(medal: string | null | undefined): HTMLElement | null {
+/** A medal coin. With `named`, it sits in a pill with the medal's name (used on picture cards). */
+export function medalBadge(medal: string | null | undefined, named = false): HTMLElement | null {
   if (!medal) return null;
   const label = medal[0].toUpperCase() + medal.slice(1);
-  return h('span', { class: `medal ${medal}`, title: `${label} medal`, 'aria-label': `${label} medal` }, '★');
+  const coin = h('span', { class: `medal ${medal}`, title: `${label} medal`, 'aria-label': `${label} medal`, role: 'img' }, '★');
+  return named ? h('span', { class: `medal-tag ${medal}` }, coin, h('span', { 'aria-hidden': 'true' }, label)) : coin;
 }
 
 export function formatClock(ms: number): string {
