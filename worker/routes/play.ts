@@ -1,0 +1,306 @@
+import { Hono } from 'hono';
+import type { AppEnv, User } from '../env';
+import { requireUser } from '../lib/auth';
+import { canPlay, dailyStreak, getDaily, media, type PuzzleRow } from '../lib/catalog';
+import { balance, creditStatements, spend } from '../lib/points';
+import { body, dayKey, fail, int, now, randomId } from '../lib/util';
+import {
+  acceptedElapsed,
+  isSolved,
+  randomSeed,
+  rate,
+  replay,
+  suggestSwap,
+  winPoints,
+  type Action,
+} from '../../shared/engine';
+import {
+  DAILY_BONUS,
+  DAILY_DIFFICULTY,
+  DAILY_SWAP_HINT_COST,
+  DIFFICULTIES,
+  HINT_COOLDOWN_MS,
+  REPLAY_FACTOR,
+  RULES,
+  STREAK_MILESTONES,
+  SWAP_HINT_COST,
+  type Difficulty,
+} from '../../shared/rules';
+
+const app = new Hono<AppEnv>();
+
+interface PlayRow {
+  id: string;
+  user_id: number;
+  puzzle_id: number;
+  difficulty: Difficulty;
+  hard_mode: number;
+  daily_day: string | null;
+  seed: number;
+  actions: string;
+  elapsed_ms: number;
+  started_at: number;
+  updated_at: number;
+  last_hint_at: number | null;
+  hints_paid: number;
+  places_paid: number;
+  completed_at: number | null;
+  moves: number | null;
+  score: number | null;
+  score_pct: number | null;
+  medal: string | null;
+  points: number | null;
+}
+
+const MAX_ACTIONS = 5000;
+
+function playView(p: PlayRow) {
+  return {
+    id: p.id,
+    seed: p.seed,
+    difficulty: p.difficulty,
+    hardMode: !!p.hard_mode,
+    daily: p.daily_day,
+    actions: JSON.parse(p.actions) as Action[],
+    elapsedMs: p.elapsed_ms,
+    completed: !!p.completed_at,
+    hintsPaid: p.hints_paid,
+    placesPaid: p.places_paid,
+  };
+}
+
+async function loadPlay(c: { env: AppEnv['Bindings'] }, user: User, id: string): Promise<PlayRow> {
+  const p = await c.env.DB.prepare('SELECT * FROM plays WHERE id = ? AND user_id = ?').bind(id, user.id).first<PlayRow>();
+  if (!p) fail(404, 'Game not found.');
+  return p;
+}
+
+function parseActions(raw: unknown): Action[] {
+  if (!Array.isArray(raw) || raw.length > MAX_ACTIONS) fail(422, 'Invalid move list.');
+  return raw as Action[];
+}
+
+/**
+ * Validate a submitted move log: it must replay cleanly from the server's seed,
+ * and it can only contain as many hint/place actions as the server charged for.
+ */
+function validate(play: PlayRow, actions: Action[]) {
+  const r = replay(play.seed, play.difficulty, actions, !!play.hard_mode);
+  if (r.invalidAt !== -1) fail(422, `Move ${r.invalidAt + 1} isn't a legal move.`);
+  if (r.state.hints > play.hints_paid || r.state.places > play.places_paid) fail(422, 'Helper used without being granted.');
+  return r.state;
+}
+
+app.post('/', async (c) => {
+  const user = requireUser(c);
+  const b = await body(c);
+  const slug = String(b.puzzle ?? '');
+  const fresh = !!b.fresh;
+  const dailyDay = typeof b.daily === 'string' ? b.daily : null;
+  let difficulty = (DIFFICULTIES as string[]).includes(String(b.difficulty)) ? (b.difficulty as Difficulty) : 'easy';
+  let hardMode = !!b.hardMode;
+
+  let puzzle: PuzzleRow | null;
+  let seed: number;
+  if (dailyDay) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dailyDay)) fail(422, 'Bad day.');
+    const d = await getDaily(c.env, dailyDay);
+    if (!d) fail(404, 'No daily puzzle for that day.');
+    puzzle = d.puzzle;
+    seed = d.daily.seed;
+    difficulty = DAILY_DIFFICULTY;
+    hardMode = false;
+  } else {
+    puzzle = await c.env.DB.prepare('SELECT * FROM puzzles WHERE slug = ?').bind(slug).first<PuzzleRow>();
+    if (!puzzle) fail(404, 'Puzzle not found.');
+    if (!(await canPlay(c.env, user, puzzle))) fail(403, 'Unlock this puzzle first.');
+    seed = randomSeed();
+  }
+
+  // Resume an unfinished game of the same puzzle/difficulty/day unless asked for a fresh one.
+  const existing = await c.env.DB.prepare(
+    `SELECT * FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ? AND completed_at IS NULL
+     AND ${dailyDay ? 'daily_day = ?' : 'daily_day IS NULL AND ? IS NULL'}
+     ORDER BY updated_at DESC LIMIT 1`,
+  )
+    .bind(user.id, puzzle.id, difficulty, dailyDay)
+    .first<PlayRow>();
+  if (existing && !fresh) {
+    return c.json({ play: playView(existing), resumed: true });
+  }
+  if (existing && fresh) await c.env.DB.prepare('DELETE FROM plays WHERE id = ?').bind(existing.id).run();
+
+  const id = randomId(12);
+  const t = now();
+  await c.env.DB.prepare(
+    `INSERT INTO plays (id, user_id, puzzle_id, difficulty, hard_mode, daily_day, seed, started_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(id, user.id, puzzle.id, difficulty, hardMode ? 1 : 0, dailyDay, seed, t, t)
+    .run();
+  const play = await c.env.DB.prepare('SELECT * FROM plays WHERE id = ?').bind(id).first<PlayRow>();
+  return c.json({ play: playView(play!), resumed: false });
+});
+
+app.get('/:id', async (c) => {
+  const play = await loadPlay(c, requireUser(c), c.req.param('id'));
+  return c.json({ play: playView(play) });
+});
+
+/** Autosave: store the move log after validating it. */
+app.put('/:id', async (c) => {
+  const user = requireUser(c);
+  const play = await loadPlay(c, user, c.req.param('id'));
+  if (play.completed_at) return c.json({ ok: true, completed: true });
+  const b = await body(c);
+  const actions = parseActions(b.actions);
+  validate(play, actions);
+  const elapsed = Math.min(int(b.elapsedMs), now() - play.started_at);
+  await c.env.DB.prepare('UPDATE plays SET actions = ?, elapsed_ms = ?, updated_at = ? WHERE id = ?')
+    .bind(JSON.stringify(actions), Math.max(0, elapsed), now(), play.id)
+    .run();
+  return c.json({ ok: true });
+});
+
+/** Swap hint: charge (daily only), then reveal the best swap. */
+app.post('/:id/hint', async (c) => {
+  const user = requireUser(c);
+  const play = await loadPlay(c, user, c.req.param('id'));
+  if (play.completed_at) fail(409, 'This game is finished.');
+  const actions = parseActions((await body(c)).actions);
+  const state = validate(play, actions);
+  if (play.last_hint_at && now() - play.last_hint_at < HINT_COOLDOWN_MS) {
+    fail(429, `Hint ready in ${Math.ceil((HINT_COOLDOWN_MS - (now() - play.last_hint_at)) / 1000)}s.`);
+  }
+  const pair = suggestSwap(state);
+  if (!pair) fail(409, 'Nothing left to hint.');
+  const cost = play.daily_day ? DAILY_SWAP_HINT_COST : SWAP_HINT_COST;
+  if (!(await spend(c.env, user.id, cost, 'hint', play.id))) fail(402, `A hint costs ${cost} points.`);
+  const next = [...actions, ['hint'] as Action];
+  await c.env.DB.prepare('UPDATE plays SET actions = ?, hints_paid = hints_paid + 1, last_hint_at = ?, updated_at = ? WHERE id = ?')
+    .bind(JSON.stringify(next), now(), now(), play.id)
+    .run();
+  return c.json({ pair, cost, points: await balance(c.env, user.id), cooldownMs: HINT_COOLDOWN_MS });
+});
+
+/** "Place one tile": charge, then the client applies the suggested swap. Not on the daily. */
+app.post('/:id/place', async (c) => {
+  const user = requireUser(c);
+  const play = await loadPlay(c, user, c.req.param('id'));
+  if (play.completed_at) fail(409, 'This game is finished.');
+  if (play.daily_day) fail(403, 'Not available on the daily challenge.');
+  const actions = parseActions((await body(c)).actions);
+  const state = validate(play, actions);
+  const pair = suggestSwap(state);
+  if (!pair) fail(409, 'Nothing left to place.');
+  const cost = RULES[play.difficulty].placeCost;
+  if (!(await spend(c.env, user.id, cost, 'place', play.id))) fail(402, `Placing a tile costs ${cost} points.`);
+  const next = [...actions, ['place'] as Action];
+  await c.env.DB.prepare('UPDATE plays SET actions = ?, places_paid = places_paid + 1, updated_at = ? WHERE id = ?')
+    .bind(JSON.stringify(next), now(), play.id)
+    .run();
+  return c.json({ pair, cost, points: await balance(c.env, user.id) });
+});
+
+app.post('/:id/complete', async (c) => {
+  const user = requireUser(c);
+  const play = await loadPlay(c, user, c.req.param('id'));
+  if (play.completed_at) fail(409, 'Already finished.');
+  const b = await body(c);
+  const actions = parseActions(b.actions);
+  const state = validate(play, actions);
+  if (!isSolved(state)) fail(422, 'The puzzle is not solved yet.');
+
+  const t = now();
+  const elapsed = acceptedElapsed(int(b.elapsedMs), t - play.started_at, state.moves);
+  const rating = rate(play.difficulty, state.tiles.length, state.moves, elapsed);
+  const today = dayKey(c.env);
+  const isTodaysDaily = play.daily_day === today;
+
+  // Full points the first time a puzzle is finished on a difficulty; a share after that.
+  const prior = await c.env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ? AND completed_at IS NOT NULL',
+  )
+    .bind(user.id, play.puzzle_id, play.difficulty)
+    .first<{ n: number }>();
+  const firstClear = (prior?.n ?? 0) === 0;
+  const base = winPoints(play.difficulty, elapsed, !!play.hard_mode);
+  let points = firstClear ? base : Math.floor(base * REPLAY_FACTOR);
+
+  let dailyBonus = 0;
+  let countsForDaily = false;
+  if (isTodaysDaily) {
+    const done = await c.env.DB.prepare('SELECT 1 FROM daily_results WHERE day = ? AND user_id = ?').bind(today, user.id).first();
+    countsForDaily = !done;
+    if (countsForDaily) dailyBonus = DAILY_BONUS;
+  }
+
+  const stmts: D1PreparedStatement[] = [
+    c.env.DB.prepare(
+      `UPDATE plays SET actions = ?, elapsed_ms = ?, completed_at = ?, updated_at = ?, moves = ?, score = ?,
+       score_pct = ?, medal = ?, points = ? WHERE id = ? AND completed_at IS NULL`,
+    ).bind(JSON.stringify(actions), elapsed, t, t, state.moves, state.score, rating.scorePct, rating.medal, points + dailyBonus, play.id),
+    ...creditStatements(c.env, user.id, points, 'win', play.id),
+  ];
+  if (countsForDaily) {
+    stmts.push(
+      c.env.DB.prepare(
+        'INSERT OR IGNORE INTO daily_results (day, user_id, play_id, score_pct, elapsed_ms, moves, medal, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      ).bind(today, user.id, play.id, rating.scorePct, elapsed, state.moves, rating.medal, t),
+      ...creditStatements(c.env, user.id, dailyBonus, 'daily', today),
+    );
+  }
+  const results = await c.env.DB.batch(stmts);
+  if (!results[0].meta.changes) fail(409, 'Already finished.');
+
+  // Streak milestones (7 / 14 / 30 days) pay once per streak.
+  let streak = null;
+  let milestone = null;
+  if (countsForDaily) {
+    streak = await dailyStreak(c.env, user.id, today);
+    const hit = STREAK_MILESTONES.find((m) => m.days === streak!.current);
+    if (hit) {
+      const ins = await c.env.DB.prepare('INSERT OR IGNORE INTO streak_rewards (user_id, milestone, day, points) VALUES (?, ?, ?, ?)')
+        .bind(user.id, hit.days, today, hit.points)
+        .run();
+      if (ins.meta.changes) {
+        await c.env.DB.batch(creditStatements(c.env, user.id, hit.points, 'streak', `${hit.days}d:${today}`));
+        milestone = hit;
+      }
+    }
+  }
+
+  let rank = null;
+  if (countsForDaily) {
+    const r = await c.env.DB.prepare(
+      `SELECT COUNT(*) + 1 AS rank FROM daily_results WHERE day = ?
+       AND (score_pct > ? OR (score_pct = ? AND elapsed_ms < ?))`,
+    )
+      .bind(today, rating.scorePct, rating.scorePct, elapsed)
+      .first<{ rank: number }>();
+    rank = r?.rank ?? null;
+  }
+
+  return c.json({
+    rating,
+    elapsedMs: elapsed,
+    moves: state.moves,
+    score: state.score,
+    points,
+    firstClear,
+    dailyBonus,
+    milestone,
+    streak,
+    rank,
+    balance: await balance(c.env, user.id),
+  });
+});
+
+/** Puzzle info for the play page, including the image to slice. */
+app.get('/:id/puzzle', async (c) => {
+  const play = await loadPlay(c, requireUser(c), c.req.param('id'));
+  const p = await c.env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(play.puzzle_id).first<PuzzleRow>();
+  return c.json({ slug: p!.slug, title: p!.title, image: media(p!.image_key || p!.original_key) });
+});
+
+export default app;

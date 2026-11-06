@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>How to Play &amp; Scoring | SnapShift Puzzles</title>
+  <meta name="description" content="How SnapShift scoring, medals, points, hints and streaks work." />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta property="og:title" content="How to Play &amp; Scoring | SnapShift Puzzles" />
+  <meta property="og:description" content="How SnapShift scoring, medals, points, hints and streaks work." />
+  <meta property="og:image" content="/img/logo.png" />
+  <script type="module" src="/src/pages/static.ts"></script>
+</head>
+<body>
+  <div id="app">
+    <section class="panel prose">
+      <h1>How to play</h1>
+      <p class="muted">Swap tiles, lock them in, beat the clock.</p>
+      <h2>The basics</h2>
+      <ul>
+        <li>Drag a tile onto another to swap them, or click one tile and then another. On a keyboard, use the arrow keys and Enter.</li>
+        <li>A tile that lands in its correct place locks and can’t move again.</li>
+        <li>Pick a difficulty: <b>Easy</b> (4×6), <b>Medium</b> (6×9) or <b>Hard</b> (8×12).</li>
+        <li><b>Hard mode</b> hides the green “correct” outline and pays ×1.45 points.</li>
+      </ul>
+      <h2>Score and streak</h2>
+      <p>Each tile you lock in adds to your score. Locking tiles on consecutive moves builds a streak that makes each one worth more; a swap that fixes two tiles at once earns a bonus. A swap that fixes nothing resets the streak.</p>
+      <h2>Medals</h2>
+      <p>When you finish, your run is rated on <b>move efficiency</b> (72%: the fewest swaps possible is one per tile) and <b>speed</b> (28%: against a par time per tile).</p>
+      <ul>
+        <li>★★★ <b>Gold</b> – 90% or better</li>
+        <li>★★ <b>Silver</b> – 76% or better</li>
+        <li>★ <b>Bronze</b> – any finish</li>
+      </ul>
+      <h2>Points</h2>
+      <p>Finishing a puzzle pays a base amount for the difficulty (40 / 60 / 80) plus a speed bonus. You get full points the first time you finish a puzzle on a difficulty and a quarter after that. The daily challenge adds a 50-point bonus, and daily streaks pay extra at 7, 14 and 30 days.</p>
+      <p>Spend points to unlock puzzles (the first in every category is free) and on helpers.</p>
+      <h2>Helpers</h2>
+      <ul>
+        <li><b>Swap hint</b> highlights a good swap. Free on normal puzzles, 60 points on the daily, with a 15-second cooldown.</li>
+        <li><b>Place 1 tile</b> makes the best swap for you (30 / 45 / 60 points by difficulty). Not available on the daily.</li>
+      </ul>
+      <h2>Daily challenge</h2>
+      <p>Always Hard (8×12), and everyone gets the same shuffle. Your first finish of the day counts for the leaderboard and your streak; you can replay as often as you like.</p>
+    </section>
+  </div>
+</body>
+</html>
