@@ -728,7 +728,7 @@ async function site() {
 }
 
 interface BillingInfo {
-  settings: Record<'monthlyPriceId' | 'yearlyPriceId' | 'lifetimePriceId' | 'monthlyLabel' | 'yearlyLabel' | 'lifetimeLabel', string>;
+  settings: Record<'monthlyPriceId' | 'yearlyPriceId' | 'lifetimePriceId' | 'monthlyLabel' | 'yearlyLabel' | 'lifetimeLabel' | 'promoEnabled' | 'promoTitle' | 'promoText', string>;
   stripeKey: boolean;
   stripeTestMode: boolean;
   webhookSecret: boolean;
@@ -752,6 +752,26 @@ async function membership() {
     ),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save plans'),
   );
+  const promoOn = h('input', { type: 'checkbox', checked: b.settings.promoEnabled !== '0' }) as HTMLInputElement;
+  const promo = h(
+    'form',
+    { class: 'panel' },
+    h('h2', {}, 'Plus section on the site'),
+    h('p', { class: 'muted small' }, 'A section about Plus on the home page, plus a short line on category and daily archive pages. Only guests and free players see it.'),
+    h('label', { class: 'check' }, promoOn, 'Show it'),
+    h('div', { class: 'field' }, h('label', {}, 'Heading'), h('input', { name: 'promoTitle', value: b.settings.promoTitle, maxlength: 120 })),
+    h('div', { class: 'field' }, h('label', {}, 'Text'), h('textarea', { name: 'promoText', rows: 2, maxlength: 300 }, b.settings.promoText)),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'submit' }, 'Save section'), h('a', { class: 'btn', href: '/', target: '_blank' }, 'View home page')),
+  );
+  promo.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api.put('/admin/billing', { ...Object.fromEntries(new FormData(promo)), promoEnabled: promoOn.checked ? '1' : '0' });
+      toast('Saved', '', 'good');
+    } catch (x) {
+      toast('Could not save', errorText(x), 'bad', 6000);
+    }
+  });
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -786,6 +806,7 @@ async function membership() {
       h('p', { class: 'muted small' }, 'Events to send: checkout.session.completed, customer.subscription.created, customer.subscription.updated, customer.subscription.deleted, invoice.paid, charge.refunded.'),
     ),
     f,
+    promo,
   );
 }
 

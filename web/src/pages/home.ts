@@ -2,6 +2,7 @@ import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag } from '../lib/ui';
 import { puzzleCard } from './shared';
+import { plusSection } from '../lib/plus-promo';
 
 interface Home {
   today: string;
@@ -17,12 +18,12 @@ interface Home {
 const main = await shell({ title: 'Free Picture Tile Puzzles & Daily Challenge' });
 try {
   const d = await api.get<Home>('/home');
-  render(d);
+  await render(d);
 } catch (e) {
   showError(main, errorText(e));
 }
 
-function render(d: Home) {
+async function render(d: Home) {
   const user = me();
   const cd = h('span', { class: 'countdown' });
   const hero = h(
@@ -133,5 +134,5 @@ function render(d: Home) {
     ),
   );
 
-  mount(main, hero, cont, ta, cats, latest);
+  mount(main, hero, cont, await plusSection(), ta, cats, latest);
 }

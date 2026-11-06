@@ -572,6 +572,26 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('points: gifts don’t count on the points leaderboard', lbAfter && lbAfter.earned < before + 350);
 }
 
+// ---------- Plus section for free players ----------
+{
+  const gp = await gCtx.newPage();
+  await gp.goto(BASE + '/');
+  await gp.waitForSelector('.plus-promo', { timeout: 10000 });
+  check('promo: guests see the Plus section on the home page', (await gp.locator('.plus-promo .promo-price').count()) === 3);
+  await gp.screenshot({ path: `${OUT}/19-promo-phone.png`, fullPage: true });
+  await gp.close();
+  await player.goto(BASE + '/');
+  await player.waitForSelector('text=Categories');
+  check('promo: members do not see it', (await player.locator('.plus-promo').count()) === 0);
+  await admin.request.put(BASE + '/api/admin/billing', { data: { promoEnabled: '0' } });
+  const gp2 = await gCtx.newPage();
+  await gp2.goto(BASE + '/');
+  await gp2.waitForSelector('text=Categories');
+  check('promo: admin can turn it off', (await gp2.locator('.plus-promo').count()) === 0);
+  await gp2.close();
+  await admin.request.put(BASE + '/api/admin/billing', { data: { promoEnabled: '1', promoTitle: 'Get more out of SnapShift' } });
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

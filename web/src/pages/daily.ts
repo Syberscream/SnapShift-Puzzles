@@ -1,4 +1,5 @@
 import { api } from '../lib/api';
+import { plusStrip } from '../lib/plus-promo';
 import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, medalBadge, mount, plusTag } from '../lib/ui';
 
@@ -77,7 +78,8 @@ try {
         h('div', { class: 'art', style: bg(t.puzzle?.thumb ?? '') }),
       ),
     ),
-    h('section', { class: 'panel' }, h('h2', {}, 'Archive'), h('p', { class: 'muted' }, 'Replay past dailies any time. Archive runs earn normal puzzle points.', me()?.member ? '' : [' Free players can play the last 7 days; ', h('a', { href: '/plus' }, 'SnapShift Plus'), ' opens the whole archive.']), grid, h('div', { class: 'row', style: 'margin-top:12px' }, more)),
+    h('section', { class: 'panel' }, h('h2', {}, 'Archive'), h('p', { class: 'muted' }, 'Replay past dailies any time. Archive runs earn normal puzzle points.', me()?.member ? '' : [' Free players can play the last 7 days; ', h('a', { href: '/plus' }, 'SnapShift Plus'), ' opens the whole archive.']), grid,
+      await plusStrip('Plus opens the whole daily archive, back to day one.'), h('div', { class: 'row', style: 'margin-top:12px' }, more)),
   );
   countdown(cd, t.nextDailyInMs, () => location.reload());
   addDays(a.days);

@@ -23,6 +23,10 @@ export interface BillingSettings {
   monthlyLabel: string;
   yearlyLabel: string;
   lifetimeLabel: string;
+  /** The Plus section shown to free players on the home page and elsewhere ("1" = on). */
+  promoEnabled: string;
+  promoTitle: string;
+  promoText: string;
 }
 export const BILLING_DEFAULTS: BillingSettings = {
   monthlyPriceId: '',
@@ -31,6 +35,9 @@ export const BILLING_DEFAULTS: BillingSettings = {
   monthlyLabel: '$2.99 / month',
   yearlyLabel: '$24.99 / year',
   lifetimeLabel: '$49 once',
+  promoEnabled: '1',
+  promoTitle: 'Get more out of SnapShift',
+  promoText: 'Unlock every puzzle, skip the ads and play new pictures first. Plus helps pay for fresh puzzles every week.',
 };
 
 export const getBilling = async (env: Env) => ({ ...BILLING_DEFAULTS, ...(await getSetting<Partial<BillingSettings>>(env, 'billing', {})) });
@@ -44,6 +51,7 @@ app.get('/plans', async (c) => {
   return c.json({
     enabled: on && !!(b.monthlyPriceId || b.yearlyPriceId || b.lifetimePriceId),
     plans: PLANS.map((p) => ({ id: p, label: b[`${p}Label`], available: on && !!b[`${p}PriceId`] })),
+    promo: { enabled: b.promoEnabled !== '0', title: b.promoTitle, text: b.promoText },
   });
 });
 

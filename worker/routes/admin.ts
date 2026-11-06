@@ -418,7 +418,7 @@ app.put('/billing', async (c) => {
   const next = { ...cur };
   for (const k of Object.keys(BILLING_DEFAULTS) as (keyof BillingSettings)[]) {
     if (b[k] === undefined) continue;
-    const v = str(b[k], 120);
+    const v = str(b[k], k === 'promoText' ? 300 : 120);
     if (k.endsWith('PriceId') && v && !/^price_[A-Za-z0-9]+$/.test(v)) fail(422, 'Price ids look like price_1Abc… (copy them from the Stripe dashboard).');
     next[k] = v;
   }

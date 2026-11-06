@@ -2,6 +2,7 @@ import { api, type Category, type PuzzleView } from '../lib/api';
 import { shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, mount, plural, plusTag, qs } from '../lib/ui';
 import { puzzleCard } from './shared';
+import { plusStrip } from '../lib/plus-promo';
 
 const main = await shell({ title: 'Puzzles' });
 const id = qs('c');
@@ -78,6 +79,7 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
         ),
         h('div', { class: 'row', style: 'margin-bottom:12px' }, h('span', { class: 'muted small' }, 'Show'), filterBtn('all', 'All'), filterBtn('unlocked', 'Unlocked'), filterBtn('locked', 'Locked')),
         grid,
+        d.unlockedCount < d.puzzles.length ? await plusStrip('Plus members can play every puzzle here right away, no points needed.') : null,
       );
       countdown(cd, d.nextDailyInMs);
       draw();
