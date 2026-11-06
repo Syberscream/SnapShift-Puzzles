@@ -233,6 +233,7 @@ body.game-page .shell { width: min(1500px, 100%); }
 .result-medal { text-align: center; margin: 6px 0 10px; }
 .result-medal .medal { width: 84px; height: 84px; font-size: 44px; border-width: 4px; }
 .pill:empty { display: none; }
+.pill.warn { background: #5a1520; border-color: #ff6b6b; }
 .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; text-align: center; }
 @media (max-width: 860px) {
   .game { grid-template-columns: 1fr; }

@@ -7,6 +7,7 @@ import catalog from './routes/catalog';
 import play from './routes/play';
 import stats from './routes/stats';
 import admin from './routes/admin';
+import timeAttack from './routes/timeattack';
 import { runPipeline } from './pipeline/pipeline';
 
 const app = new Hono<AppEnv>();
@@ -20,6 +21,7 @@ app.use('/api/*', loadUser);
 app.route('/api/auth', auth);
 app.route('/api/plays', play);
 app.route('/api/admin', admin);
+app.route('/api/time-attack', timeAttack);
 app.route('/api', catalog);
 app.route('/api', stats);
 

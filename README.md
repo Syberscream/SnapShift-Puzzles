@@ -58,6 +58,7 @@ Guests can play the daily and the free puzzle in each category; their games are 
 | Points | ×1 | ×1.5 | ×2.5 |
 
 - Modes: **Classic**; **Zen** (untimed, no medal, fully assisted, 10 pts once); **Rotation** (tiles also turned, tap to rotate, square tiles, ×1.25).
+- **Time Attack** (`/time-attack`): 3 minutes, 3×4 boards that glow and lock, 100 per solve + up to 50 for few moves. The server picks the puzzles and seeds and replays every move list; weekly leaderboard (best run, Monday–Sunday); 10 pts per solve, max 200 a day.
 - Every new board shows the picture for 2.5 s before the clock starts.
 - Medal = 72% move efficiency (against the fewest moves that solve that board) + 28% speed → Gold ≥ 90%, Silver ≥ 76%.
 - Win points = (40/60/80 + 600 ÷ seconds) × multiplier. Replays pay 25%.

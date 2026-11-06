@@ -3,9 +3,10 @@
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 
-export type Mode = 'classic' | 'zen' | 'rotation';
+export type Mode = 'classic' | 'zen' | 'rotation' | 'timeattack';
+/** Modes you can pick on a puzzle's page (Time Attack has its own page). */
 export const MODES: Mode[] = ['classic', 'zen', 'rotation'];
-export const MODE_LABELS: Record<Mode, string> = { classic: 'Classic', zen: 'Zen', rotation: 'Rotation' };
+export const MODE_LABELS: Record<Mode, string> = { classic: 'Classic', zen: 'Zen', rotation: 'Rotation', timeattack: 'Time Attack' };
 
 /**
  * Engine version stored with every game so old games keep replaying the same way.
@@ -67,6 +68,28 @@ export const PEEK_COOLDOWN_MS = 10_000;
 export const ZEN_POINTS = 10;
 /** Rotation mode pays a bit more. Rotating a tile counts as a move. */
 export const ROTATION_BONUS = 1.25;
+
+/** Time Attack: as many small puzzles as you can in the time limit. */
+export const TIME_ATTACK = {
+  durationMs: 180_000,
+  rows: 3,
+  cols: 4,
+  /** Puzzles handed out per run (more than anyone can solve in time). */
+  puzzles: 40,
+  /** Score per solved puzzle, plus up to `efficiencyBonus` for using few moves. */
+  perSolve: 100,
+  efficiencyBonus: 50,
+  /** Points added to the player's balance per solved puzzle, capped per day. */
+  pointsPerSolve: 10,
+  dailyPointsCap: 200,
+  /** Extra time allowed for the finish request to arrive. */
+  graceMs: 20_000,
+};
+
+/** Score for one solved Time Attack puzzle: base plus a bonus for using few moves. */
+export function timeAttackScore(par: number, moves: number): number {
+  return TIME_ATTACK.perSolve + Math.round(TIME_ATTACK.efficiencyBonus * Math.min(1, Math.max(1, par) / Math.max(1, moves)));
+}
 
 /** Win points also get floor(WIN_TIME_FACTOR / seconds) as a speed bonus. */
 export const WIN_TIME_FACTOR = 600;
@@ -134,6 +157,8 @@ export interface GameRules {
   timed: boolean;
 }
 
+export const TIME_ATTACK_SETUP: GameSetup = { version: 2, difficulty: 'easy', mode: 'timeattack', daily: false, hardMode: false };
+
 export function gameRules(g: GameSetup): GameRules {
   const r = RULES[g.difficulty];
   if (g.version === 1) {
@@ -142,6 +167,12 @@ export function gameRules(g: GameSetup): GameRules {
       scoreMultiplier: g.hardMode ? V1_HARD_MODE_MULTIPLIER : 1,
       hintCost: g.daily ? V1_DAILY_SWAP_HINT_COST : V1_SWAP_HINT_COST, hintCooldownMs: V1_HINT_COOLDOWN_MS,
       placeAllowed: !g.daily, placeCost: r.placeCost, timed: true,
+    };
+  }
+  if (g.mode === 'timeattack') {
+    return {
+      rows: TIME_ATTACK.rows, cols: TIME_ATTACK.cols, lock: true, glow: true, preview: 'always', scramble: 'mixed', rotation: false, square: false,
+      scoreMultiplier: 1, hintCost: 0, hintCooldownMs: 0, placeAllowed: false, placeCost: 0, timed: true,
     };
   }
   const zen = g.mode === 'zen';

@@ -15,7 +15,7 @@ interface DailyRow {
 
 const main = await shell({ title: 'Leaderboard' });
 const body = h('div');
-let tab: 'daily' | 'points' = qs('tab') === 'points' ? 'points' : 'daily';
+let tab: 'daily' | 'timeattack' | 'points' = qs('tab') === 'points' ? 'points' : qs('tab') === 'timeattack' ? 'timeattack' : 'daily';
 
 async function draw() {
   try {
@@ -50,11 +50,37 @@ async function draw() {
             )
           : h('p', {}, 'No finishes yet. ', h('a', { href: `/play?daily=${d.day}` }, 'Be the first!')),
       );
+    } else if (tab === 'timeattack') {
+      const d = await api.get<{
+        week: string;
+        weekEnds: string;
+        rows: { rank: number; username: string; score: number; solved: number; runs: number; isMe: boolean }[];
+        me: { score: number; rank: number | null } | null;
+      }>(`/time-attack/leaderboard${qs('week') ? `?week=${qs('week')}` : ''}`);
+      mount(
+        body,
+        h('p', { class: 'muted' }, `Time Attack · week of ${d.week} to ${d.weekEnds}. Each player's best run of the week.`),
+        d.me ? h('div', { class: 'notice' }, `Your best: ${d.me.score}${d.me.rank ? ` (#${d.me.rank})` : ''}.`) : null,
+        d.rows.length
+          ? h(
+              'table',
+              {},
+              h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Player'), h('th', { class: 'num' }, 'Score'), h('th', { class: 'num' }, 'Solved'), h('th', { class: 'num' }, 'Runs'))),
+              h(
+                'tbody',
+                {},
+                d.rows.map((r) =>
+                  h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved), h('td', { class: 'num' }, r.runs)),
+                ),
+              ),
+            )
+          : h('p', {}, 'No runs yet this week. ', h('a', { href: '/time-attack' }, 'Set the first score!')),
+      );
     } else {
       const d = await api.get<{ rows: { rank: number; username: string; earned: number; golds: number; isMe: boolean }[] }>('/leaderboard/points');
       mount(
         body,
-        h('p', { class: 'muted' }, 'All-time points earned from puzzles, dailies and streaks (spending points doesn’t lower your rank).'),
+        h('p', { class: 'muted' }, 'All-time points earned from puzzles, dailies, streaks and Time Attack (spending points doesn’t lower your rank).'),
         h(
           'table',
           {},
@@ -88,5 +114,5 @@ const tabBtn = (key: typeof tab, label: string) =>
     label,
   );
 
-mount(main, h('section', { class: 'panel' }, h('h1', {}, 'Leaderboard'), h('div', { class: 'tabs' }, tabBtn('daily', 'Today’s daily'), tabBtn('points', 'All-time points')), body));
+mount(main, h('section', { class: 'panel' }, h('h1', {}, 'Leaderboard'), h('div', { class: 'tabs' }, tabBtn('daily', 'Today’s daily'), tabBtn('timeattack', 'Time Attack (week)'), tabBtn('points', 'All-time points')), body));
 await draw();

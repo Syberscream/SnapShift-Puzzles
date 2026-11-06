@@ -31,6 +31,7 @@ function header(user: Me | null): HTMLElement {
     h('a', { class: 'btn', href: '/' }, 'Home'),
     h('a', { class: 'btn', href: '/categories' }, 'Play'),
     h('a', { class: 'btn', href: '/daily' }, 'Daily'),
+    h('a', { class: 'btn', href: '/time-attack' }, 'Time Attack'),
     h('a', { class: 'btn', href: '/leaderboard' }, 'Leaderboard'),
     user?.role === 'admin' ? h('a', { class: 'btn green', href: '/admin' }, 'Admin') : null,
     user ? pointsPill : null,

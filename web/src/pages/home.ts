@@ -121,5 +121,16 @@ function render(d: Home) {
     ? h('section', { class: 'panel' }, h('div', { class: 'panel-head' }, h('h2', {}, 'New puzzles')), h('div', { class: 'grid' }, d.latest.map((p) => puzzleCard(p))))
     : null;
 
-  mount(main, hero, cont, cats, latest);
+  const ta = h(
+    'section',
+    { class: 'panel' },
+    h(
+      'div',
+      { class: 'panel-head' },
+      h('div', {}, h('h2', {}, 'Time Attack'), h('p', { class: 'muted small' }, '3 minutes. As many quick 3×4 puzzles as you can solve. New weekly leaderboard every Monday.')),
+      h('div', { class: 'row' }, h('a', { class: 'btn primary', href: '/time-attack' }, 'Play Time Attack'), h('a', { class: 'btn', href: '/leaderboard?tab=timeattack' }, 'This week')),
+    ),
+  );
+
+  mount(main, hero, cont, ta, cats, latest);
 }

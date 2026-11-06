@@ -56,6 +56,11 @@ export class Board {
     new ResizeObserver(() => this.resize()).observe(canvas.parentElement!);
   }
 
+  /** Use a different picture (call setState afterwards). */
+  setImage(img: HTMLImageElement) {
+    this.image = img;
+  }
+
   setState(s: GameState) {
     this.state = s;
     this.cursor = Math.min(this.cursor, s.tiles.length - 1);

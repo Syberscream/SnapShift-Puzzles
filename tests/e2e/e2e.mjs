@@ -347,6 +347,76 @@ check('guest game restored after reload', /Moves: 1/.test(await guest.locator('.
 }
 await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
 
+// ---------- Time Attack ----------
+{
+  const TA = { version: 2, difficulty: 'easy', mode: 'timeattack', daily: false, hardMode: false };
+  const solveLog = (seed) => {
+    const g = E.newGame(seed, TA);
+    const log = [];
+    for (let m = E.suggest(g); m && !E.isSolved(g); m = E.suggest(g)) {
+      log.push([m.a, m.b]);
+      E.applySuggestion(g, m);
+    }
+    return log;
+  };
+  const dailySlug = pub.puzzles.find((p) => p.categoryId === 'daily')?.slug;
+  const st = await (await player.request.post(BASE + '/api/time-attack/start')).json();
+  check('time attack: run handed out', !!st.runId && st.puzzles.length === 40 && st.rows === 3 && st.cols === 4, `${st.puzzles?.length} ${st.rows}x${st.cols}`);
+  check('time attack: no daily-category puzzles', !st.puzzles.some((p) => p.slug === dailySlug));
+  const logs = st.puzzles.slice(0, 3).map((p) => solveLog(p.seed));
+  logs.push([]); // 4th puzzle opened, no moves
+  const nMoves = logs.reduce((n, l) => n + l.length, 0);
+  const tooFast = await player.request.post(BASE + `/api/time-attack/${st.runId}/finish`, { data: { results: logs } });
+  check('time attack: inhumanly fast run rejected', tooFast.status() === 422, (await tooFast.json()).error);
+  await player.waitForTimeout(nMoves * 150 + 200);
+  const bad = await player.request.post(BASE + `/api/time-attack/${st.runId}/finish`, { data: { results: [[[0, 0]]] } });
+  check('time attack: illegal move rejected', bad.status() === 422);
+  const before = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
+  const fin = await (await player.request.post(BASE + `/api/time-attack/${st.runId}/finish`, { data: { results: logs } })).json();
+  check('time attack: 3 solved, perfect score 450, +30 points', fin.solved === 3 && fin.score === 450 && fin.points === 30 && fin.balance === before + 30, JSON.stringify(fin));
+  const again = await player.request.post(BASE + `/api/time-attack/${st.runId}/finish`, { data: { results: logs } });
+  check('time attack: cannot finish twice', again.status() === 409);
+  const lb = await (await player.request.get(BASE + '/api/time-attack/leaderboard')).json();
+  check('time attack: weekly leaderboard shows the run', lb.rows[0]?.score === 450 && lb.rows[0].isMe && lb.me?.rank === 1, JSON.stringify(lb.rows[0]));
+  await player.goto(BASE + '/leaderboard?tab=timeattack');
+  await player.waitForSelector('text=Time Attack · week of');
+  check('time attack: leaderboard tab', (await player.locator('tbody tr').count()) === 1);
+
+  // Guest plays through the UI.
+  const gp = await gCtx.newPage();
+  const gErr = [];
+  gp.on('pageerror', (e) => gErr.push(String(e)));
+  await gp.goto(BASE + '/time-attack');
+  const startResp = gp.waitForResponse((r) => r.url().endsWith('/api/time-attack/start'));
+  await gp.click('#ta-start');
+  const run = await (await startResp).json();
+  check('time attack: guest run has no id', run.runId === null && run.puzzles.length === 40);
+  // Wait for the 3-2-1 countdown to finish.
+  await gp.waitForFunction(() => document.querySelector('.memorize-note')?.textContent === 'Go!', null, { timeout: 10000 });
+  await gp.waitForFunction(() => document.querySelector('.memorize-note')?.hidden === true, null, { timeout: 10000 });
+  const box = await gp.locator('#board').boundingBox();
+  const at = (p) => [box.x + ((p % 4) + 0.5) * (box.width / 4), box.y + (Math.floor(p / 4) + 0.5) * (box.height / 3)];
+  for (const [a, b] of solveLog(run.puzzles[0].seed)) {
+    await gp.mouse.click(...at(a));
+    await gp.mouse.click(...at(b));
+  }
+  await gp.waitForFunction(() => /#2 ·/.test(document.querySelector('.hud')?.textContent || ''), null, { timeout: 5000 });
+  check('time attack: solving moves to the next puzzle', /Solved: 1/.test(await gp.locator('.hud').innerText()) && /Score: 150/.test(await gp.locator('.hud').innerText()));
+  await gp.click('text=Skip puzzle');
+  await gp.waitForFunction(() => /#3 ·/.test(document.querySelector('.hud')?.textContent || ''), null, { timeout: 5000 });
+  check('time attack: skip', true);
+  await gp.waitForTimeout(1500);
+  const clock1 = await gp.locator('.pill.gold').innerText();
+  check('time attack: clock counting down', /^2:[0-5]\d$/.test(clock1), clock1);
+  await gp.screenshot({ path: `${OUT}/13-time-attack.png` });
+  await gp.click('text=Finish now');
+  await gp.waitForSelector('dialog.modal');
+  const res = await gp.locator('dialog.modal').innerText();
+  check('time attack: guest result', /Solved\s*1/.test(res) && /150/.test(res) && /Create a free account/.test(res), res.replace(/\s+/g, ' '));
+  check('no JS errors (time attack)', gErr.length === 0, gErr.join(' | '));
+  await gp.close();
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

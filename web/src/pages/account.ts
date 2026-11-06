@@ -100,7 +100,7 @@ async function profileView(user: Me) {
     completed: number;
     ledger: { delta: number; reason: string; ref: string | null; created_at: number }[];
   }>('/me/summary');
-  const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment' };
+  const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', timeattack: 'Time Attack', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment' };
   const pw = form(
     'Change password',
     [field('Current password', 'current', 'password', { autocomplete: 'current-password' }), field('New password', 'next', 'password', { autocomplete: 'new-password', minlength: '8' })],

@@ -95,3 +95,9 @@ export async function putSetting(env: Env, key: string, value: unknown): Promise
     .bind(key, JSON.stringify(value))
     .run();
 }
+
+/** Monday (YYYY-MM-DD) of the week containing `day`. */
+export function weekOf(day: string): string {
+  const back = (new Date(day + 'T12:00:00Z').getUTCDay() + 6) % 7; // Monday = 0
+  return addDays(day, -back);
+}

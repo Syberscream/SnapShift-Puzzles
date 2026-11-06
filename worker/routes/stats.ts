@@ -127,7 +127,7 @@ app.get('/leaderboard/points', async (c) => {
     `SELECT u.username, u.id, SUM(l.delta) AS earned,
        (SELECT COUNT(*) FROM plays p WHERE p.user_id = u.id AND p.medal = 'gold') AS golds
      FROM points_ledger l JOIN users u ON u.id = l.user_id
-     WHERE l.reason IN ('win', 'daily', 'streak')
+     WHERE l.reason IN ('win', 'daily', 'streak', 'timeattack')
      GROUP BY u.id ORDER BY earned DESC LIMIT 50`,
   ).all<{ username: string; id: number; earned: number; golds: number }>();
   return c.json({ rows: results.map((r, i) => ({ rank: i + 1, username: r.username, earned: r.earned, golds: r.golds, isMe: r.id === user?.id })) });
