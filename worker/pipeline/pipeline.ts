@@ -13,7 +13,7 @@ import { rng, randomSeed } from '../../shared/engine';
 import { dayKey, getSetting, now, randomId, slugify } from '../lib/util';
 import { DAILY_CATEGORY, dailyPoolLeft } from '../lib/catalog';
 import { createImage, ElevenLabsError, getImage } from './elevenlabs';
-import { pickIdea } from './prompts';
+import { pickIdea, uniqueTitle } from './prompts';
 
 export interface GenerationSettings {
   /** Automatic generation on the cron schedule. */
@@ -57,11 +57,31 @@ interface JobRow {
   created_at: number;
 }
 
+/**
+ * Lower-case titles already used in a category: puzzles in any state (published,
+ * waiting for review, rejected-but-kept) plus generations that haven't failed.
+ */
+export async function takenTitles(env: Env, categoryId: string | null): Promise<Set<string>> {
+  const { results } = await env.DB.prepare(
+    `SELECT LOWER(title) AS t FROM puzzles WHERE category_id IS ?
+     UNION SELECT LOWER(title) FROM generation_jobs WHERE category_id IS ? AND status != 'failed'`,
+  )
+    .bind(categoryId, categoryId)
+    .all<{ t: string }>();
+  return new Set(results.map((r) => r.t));
+}
+
+/**
+ * Queue a generation. Pass `reserved: true` when the title came from pickIdea with a
+ * set from takenTitles (already unique); otherwise it's made unique here ("Red Fox 2").
+ */
 export async function queueJob(
   env: Env,
   settings: GenerationSettings,
   job: { categoryId: string | null; title: string; prompt: string },
+  reserved = false,
 ): Promise<string> {
+  if (!reserved) job = { ...job, title: uniqueTitle(job.title, await takenTitles(env, job.categoryId)) };
   const id = randomId(10);
   await env.DB.prepare(
     `INSERT INTO generation_jobs (id, status, category_id, title, prompt, model, options, created_at, updated_at)
@@ -90,10 +110,6 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
      FROM categories c WHERE c.generate = 1 ORDER BY pending ASC, RANDOM()`,
   ).all<{ id: string; prompt_hint: string; pending: number }>();
   const rand = rng(randomSeed());
-  const titlesIn = async (categoryId: string) =>
-    new Set(
-      (await env.DB.prepare('SELECT LOWER(title) AS t FROM puzzles WHERE category_id = ?').bind(categoryId).all<{ t: string }>()).results.map((r) => r.t),
-    );
 
   // The daily challenge pool comes first: keep dailyPoolTarget unused puzzles ready
   // (counting ones waiting for review and generations already running).
@@ -106,9 +122,10 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
       .first<{ n: number }>();
     const short = s.dailyPoolTarget - (await dailyPoolLeft(env)) - (waiting?.n ?? 0);
     const hint = cats.find((c) => c.id === DAILY_CATEGORY)?.prompt_hint ?? '';
+    const taken = await takenTitles(env, DAILY_CATEGORY);
     for (let i = 0; i < short && room > 0; i++, room--) {
-      const idea = pickIdea(DAILY_CATEGORY, rand, hint, await titlesIn(DAILY_CATEGORY));
-      await queueJob(env, s, { categoryId: DAILY_CATEGORY, ...idea });
+      const idea = pickIdea(DAILY_CATEGORY, rand, hint, taken);
+      await queueJob(env, s, { categoryId: DAILY_CATEGORY, ...idea }, true);
       log.push(`queued daily pool: ${idea.title}`);
     }
   }
@@ -116,8 +133,8 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
   const allowed = cats.filter((c) => c.id !== DAILY_CATEGORY && (s.categories.length === 0 || s.categories.includes(c.id)));
   for (const cat of allowed) {
     if (room-- <= 0) break;
-    const idea = pickIdea(cat.id, rand, cat.prompt_hint, await titlesIn(cat.id));
-    await queueJob(env, s, { categoryId: cat.id, ...idea });
+    const idea = pickIdea(cat.id, rand, cat.prompt_hint, await takenTitles(env, cat.id));
+    await queueJob(env, s, { categoryId: cat.id, ...idea }, true);
     log.push(`queued ${cat.id}: ${idea.title}`);
   }
 }

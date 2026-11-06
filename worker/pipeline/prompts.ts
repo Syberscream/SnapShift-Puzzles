@@ -58,9 +58,20 @@ const SUBJECTS: Record<string, string[]> = {
   ],
 };
 
-const SETTINGS = [
-  'at golden hour', 'in soft morning light', 'under dramatic clouds', 'in vivid colour', 'on a crisp winter day',
-  'in warm sunset light', 'after rain', 'in rich autumn tones', 'in bright midday sun', 'at blue hour',
+/** Lighting/mood for the prompt, with a short form used in titles. */
+const SETTINGS: [phrase: string, title: string][] = [
+  ['at golden hour', 'Golden Hour'],
+  ['in soft morning light', 'Morning Light'],
+  ['under dramatic clouds', 'Storm Clouds'],
+  ['in vivid colour', 'Vivid'],
+  ['on a crisp winter day', 'Winter'],
+  ['in warm sunset light', 'Sunset'],
+  ['after rain', 'After Rain'],
+  ['in rich autumn tones', 'Autumn'],
+  ['in bright midday sun', 'Midday'],
+  ['at blue hour', 'Blue Hour'],
+  ['under a starry night sky', 'Starlight'],
+  ['in spring bloom', 'Spring'],
 ];
 
 const STYLES: Record<string, string> = {
@@ -75,23 +86,53 @@ export const PUZZLE_SUFFIX =
   'Detailed throughout the whole frame with varied colours and textures, a clear focal subject, ' +
   'no large blank areas, no text, no letters, no watermark, no border.';
 
-export function pickIdea(categoryId: string, rand: () => number, hint = '', avoidTitles: Set<string> = new Set()): PromptIdea {
+const pick = <T>(list: T[], rand: () => number): T => list[Math.floor(rand() * list.length)];
+
+/**
+ * A new idea whose title isn't in `taken` (lower-case titles already used in the
+ * category, including ones waiting for review or still generating). Plain subjects
+ * are used first ("Red Fox"), then subject + mood ("Red Fox, Winter").
+ * The chosen title is added to `taken` so a batch never repeats itself.
+ */
+export function pickIdea(categoryId: string, rand: () => number, hint = '', taken: Set<string> = new Set()): PromptIdea {
   // The daily pool mixes every theme so each day feels different.
-  if (categoryId === 'daily') {
-    const themes = Object.keys(SUBJECTS);
-    return pickIdea(themes[Math.floor(rand() * themes.length)], rand, hint, avoidTitles);
-  }
-  const subjects = SUBJECTS[categoryId] ?? ['Scenic View'];
-  const fresh = subjects.filter((s) => !avoidTitles.has(s.toLowerCase()));
-  const pool = fresh.length ? fresh : subjects;
-  const subject = pool[Math.floor(rand() * pool.length)];
-  const setting = SETTINGS[Math.floor(rand() * SETTINGS.length)];
-  const style = STYLES[categoryId] ?? 'high-resolution photograph';
+  const theme = categoryId === 'daily' ? pick(Object.keys(SUBJECTS), rand) : categoryId;
+  const subjects = categoryId === 'daily' ? Object.values(SUBJECTS).flat() : (SUBJECTS[theme] ?? ['Scenic View']);
+  const style = STYLES[theme] ?? 'high-resolution photograph';
   const extra = hint ? ` Theme: ${hint}.` : '';
-  return {
-    title: subject,
-    prompt: `${subject} ${setting}, ${style}.${extra} ${PUZZLE_SUFFIX}`,
-  };
+
+  let subject: string;
+  let setting: [string, string];
+  let title: string;
+  const plain = subjects.filter((s) => !taken.has(s.toLowerCase()));
+  if (plain.length) {
+    subject = pick(plain, rand);
+    setting = pick(SETTINGS, rand);
+    title = subject;
+  } else {
+    const combos = subjects.flatMap((s) => SETTINGS.map((st) => [s, st] as const)).filter(([s, st]) => !taken.has(`${s}, ${st[1]}`.toLowerCase()));
+    if (combos.length) {
+      const [s, st] = pick(combos, rand);
+      subject = s;
+      setting = st;
+      title = `${s}, ${st[1]}`;
+    } else {
+      subject = pick(subjects, rand);
+      setting = pick(SETTINGS, rand);
+      title = uniqueTitle(`${subject}, ${setting[1]}`, taken);
+    }
+  }
+  taken.add(title.toLowerCase());
+  const subjectStyle = categoryId === 'daily' ? STYLES[Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? ''] ?? style : style;
+  return { title, prompt: `${subject} ${setting[0]}, ${subjectStyle}.${extra} ${PUZZLE_SUFFIX}` };
+}
+
+/** "Title", then "Title 2", "Title 3"… until it isn't taken. Adds the result to `taken`. */
+export function uniqueTitle(title: string, taken: Set<string>): string {
+  let t = title;
+  for (let n = 2; taken.has(t.toLowerCase()); n++) t = `${title} ${n}`;
+  taken.add(t.toLowerCase());
+  return t;
 }
 
 /** Title for a custom prompt: first few meaningful words, title-cased. */

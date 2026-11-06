@@ -5,7 +5,7 @@ import { dailyPoolLeft, media, type PuzzleRow } from '../lib/catalog';
 import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
 import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
-import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, type GenerationSettings } from '../pipeline/pipeline';
+import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, takenTitles, type GenerationSettings } from '../pipeline/pipeline';
 import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX } from '../pipeline/prompts';
 import { rng, randomSeed } from '../../shared/engine';
 
@@ -215,13 +215,15 @@ app.post('/generate', async (c) => {
   if (custom) {
     const title = str(b.title, 80) || titleFromPrompt(custom);
     const prompt = b.addPuzzleGuidance === false ? custom : `${custom} ${PUZZLE_SUFFIX}`;
+    // Several copies of a custom prompt become "Title", "Title 2", … (queueJob makes each unique).
     for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, title, prompt }));
   } else {
     if (!categoryId) fail(422, 'Pick a category or write a prompt.');
     const cat = await c.env.DB.prepare('SELECT prompt_hint FROM categories WHERE id = ?').bind(categoryId).first<{ prompt_hint: string }>();
     if (!cat) fail(404, 'Unknown category.');
     const rand = rng(randomSeed());
-    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint) }));
+    const taken = await takenTitles(c.env, categoryId);
+    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint, taken) }, true));
   }
   const log = await runPipeline(c.env);
   return c.json({ jobs: ids, log });
