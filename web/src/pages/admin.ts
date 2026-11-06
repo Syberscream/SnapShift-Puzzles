@@ -47,6 +47,7 @@ interface GenSettings {
   model: string;
   options: Record<string, unknown>;
   categories: string[];
+  dailyPoolTarget: number;
 }
 
 const main = await shell({ title: 'Admin' });
@@ -85,6 +86,9 @@ async function overview() {
     body,
     !o.elevenlabsConfigured ? h('div', { class: 'notice warn' }, 'ELEVENLABS_API_KEY is not set, so automatic puzzle generation is off. Add it with: npx wrangler secret put ELEVENLABS_API_KEY') : null,
     !o.emailConfigured ? h('div', { class: 'notice warn' }, 'RESEND_API_KEY is not set, so verification and password-reset emails are not sent.') : null,
+    Number(o.dailyPoolLeft) < 7
+      ? h('div', { class: 'notice warn' }, `Only ${o.dailyPoolLeft} unused puzzle(s) left in "Puzzles of the Day". Publish more to that category (or let automatic generation top it up), otherwise older puzzles get reused as dailies.`)
+      : null,
     h(
       'section',
       { class: 'panel' },
@@ -99,6 +103,7 @@ async function overview() {
         stat('Waiting for review', o.pending),
         stat('Generations running', o.jobsInFlight),
         stat('Failed generations (24h)', o.jobsFailed24h),
+        stat('Daily pool (unused)', o.dailyPoolLeft),
         stat('Unread messages', o.unreadMessages),
       ),
     ),
@@ -213,10 +218,12 @@ async function generate() {
     h('div', { class: 'row' },
       h('div', { class: 'field' }, h('label', {}, 'Images per 24 hours'), h('input', { type: 'number', name: 'perDay', min: 0, max: 100, value: s.perDay })),
       h('div', { class: 'field' }, h('label', {}, 'Pause when this many are waiting'), h('input', { type: 'number', name: 'maxPending', min: 1, max: 500, value: s.maxPending })),
+      h('div', { class: 'field' }, h('label', {}, 'Keep this many daily puzzles ready'), h('input', { type: 'number', name: 'dailyPoolTarget', min: 0, max: 365, value: s.dailyPoolTarget })),
     ),
+    h('p', { class: 'muted small' }, 'Daily puzzles are generated first, into "Puzzles of the Day", whenever fewer than that many unused ones are published or waiting.'),
     h('div', { class: 'field' }, h('label', {}, 'Model'), h('input', { name: 'model', value: s.model, list: 'models' }), h('datalist', { id: 'models' }, ['gemini-3-pro-image', 'gemini-3.1-flash-image', 'gpt-image-2', 'gpt-image-1.5', 'bytedance-seedream-5-pro'].map((m) => h('option', { value: m })))),
     h('div', { class: 'field' }, h('label', {}, 'Extra model options (JSON)'), h('input', { name: 'options', value: JSON.stringify(s.options) }), h('span', { class: 'small muted' }, 'Sent with every request, e.g. {"aspect_ratio":"16:9","resolution":"2K"}. Each model accepts different fields.')),
-    h('div', { class: 'field' }, h('label', {}, 'Only these categories (leave all unticked for every category)'), h('div', { class: 'row' }, cats.map((c) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'cat', value: c.id, checked: s.categories.includes(c.id) }), c.name)))),
+    h('div', { class: 'field' }, h('label', {}, 'Only these categories (leave all unticked for every category)'), h('div', { class: 'row' }, cats.filter((c) => c.id !== 'daily').map((c) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'cat', value: c.id, checked: s.categories.includes(c.id) }), c.name)))),
     h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'submit' }, 'Save settings'), h('button', { class: 'btn', type: 'button', onclick: async () => showLog((await api.post<{ log: string[] }>('/admin/generation/run')).log) }, 'Run now')),
   );
   settingsForm.addEventListener('submit', async (e) => {
@@ -235,6 +242,7 @@ async function generate() {
       model: f.get('model'),
       options,
       categories: f.getAll('cat'),
+      dailyPoolTarget: Number(f.get('dailyPoolTarget')),
     });
     toast('Saved', '', 'good');
   });
@@ -320,9 +328,9 @@ async function categories() {
 }
 
 async function daily() {
-  const d = await api.get<{ today: string; days: { day: string; puzzle_id: number; title: string; players: number }[] }>('/admin/daily');
+  const d = await api.get<{ today: string; poolLeft: number; days: { day: string; puzzle_id: number; title: string; players: number }[] }>('/admin/daily');
   const { puzzles } = await api.get<{ puzzles: AdminPuzzle[] }>('/admin/puzzles?status=published');
-  const f = h('form', { class: 'row' }, h('input', { type: 'date', name: 'day', min: d.today, value: d.today, required: true, style: 'max-width:180px' }), h('select', { name: 'puzzleId' }, puzzles.map((p) => h('option', { value: p.id }, `${p.title} (${p.categoryId})`))), h('button', { class: 'btn', type: 'submit' }, 'Schedule'));
+  const f = h('form', { class: 'row' }, h('input', { type: 'date', name: 'day', min: d.today, value: d.today, required: true, style: 'max-width:180px' }), h('select', { name: 'puzzleId' }, [...puzzles].sort((a, b) => Number(b.categoryId === 'daily') - Number(a.categoryId === 'daily')).map((p) => h('option', { value: p.id }, `${p.title} (${p.categoryId})`))), h('button', { class: 'btn', type: 'submit' }, 'Schedule'));
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const v = new FormData(f);
@@ -336,7 +344,13 @@ async function daily() {
   });
   mount(
     body,
-    h('section', { class: 'panel' }, h('h2', {}, 'Choose a daily'), h('p', { class: 'muted' }, 'Days without a choice get a published puzzle automatically (one that has not been a daily in the last 60 days).'), f),
+    h(
+      'section',
+      { class: 'panel' },
+      h('h2', {}, 'Choose a daily'),
+      h('p', { class: 'muted' }, `Days without a choice automatically use the next unused puzzle in "Puzzles of the Day" (${d.poolLeft} left; change their order with the sort number in Published). If that runs out, a puzzle from the other categories is reused.`),
+      f,
+    ),
     h('section', { class: 'panel' }, h('h2', {}, 'Recent dailies'), h('table', {}, h('tbody', {}, d.days.map((x) => h('tr', {}, h('td', {}, x.day), h('td', {}, x.title), h('td', { class: 'num' }, `${x.players} players`)))))),
   );
 }

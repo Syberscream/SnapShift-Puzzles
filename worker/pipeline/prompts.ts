@@ -76,6 +76,11 @@ export const PUZZLE_SUFFIX =
   'no large blank areas, no text, no letters, no watermark, no border.';
 
 export function pickIdea(categoryId: string, rand: () => number, hint = '', avoidTitles: Set<string> = new Set()): PromptIdea {
+  // The daily pool mixes every theme so each day feels different.
+  if (categoryId === 'daily') {
+    const themes = Object.keys(SUBJECTS);
+    return pickIdea(themes[Math.floor(rand() * themes.length)], rand, hint, avoidTitles);
+  }
   const subjects = SUBJECTS[categoryId] ?? ['Scenic View'];
   const fresh = subjects.filter((s) => !avoidTitles.has(s.toLowerCase()));
   const pool = fresh.length ? fresh : subjects;

@@ -23,6 +23,9 @@ export interface PuzzleRow {
   published_at: number | null;
 }
 
+/** Category whose puzzles are only played as daily challenges. */
+export const DAILY_CATEGORY = 'daily';
+
 export const media = (key: string | null | undefined) => (key ? `/media/${key}` : '');
 
 export interface PuzzleView {
@@ -101,6 +104,7 @@ export function toView(
 export async function canPlay(env: Env, user: User | null, p: PuzzleRow): Promise<boolean> {
   if (p.status !== 'published' || !p.category_id) return user?.role === 'admin';
   if (user?.role === 'admin') return true;
+  if (p.category_id === DAILY_CATEGORY) return false; // played through the daily / archive only
   const idx = (await categoryIndexes(env, p.category_id)).get(p.id) ?? 0;
   if (unlockCost(idx) === 0) return true;
   if (!user) return false;
@@ -115,34 +119,54 @@ export interface DailyRow {
 }
 
 /**
- * The daily puzzle for a day. Today's (and past days') pick is made on first
- * request: a published puzzle that hasn't been a daily in the last 60 days,
- * chosen deterministically from the date.
+ * The daily puzzle for a day, picked on first request (never ahead of time):
+ *   1. the next unused puzzle in the "Puzzles of the Day" category (in its sort order),
+ *   2. otherwise a daily-category puzzle not used in the last 60 days,
+ *   3. otherwise any published puzzle not used in the last 60 days, then any at all.
+ * Admins can also choose a specific puzzle for a day in Admin → Daily schedule.
  */
 export async function getDaily(env: Env, day: string): Promise<{ daily: DailyRow; puzzle: PuzzleRow } | null> {
   let daily = await env.DB.prepare('SELECT * FROM daily_puzzles WHERE day = ?').bind(day).first<DailyRow>();
   if (!daily) {
     if (day > dayKey(env)) return null; // never reveal future dailies
-    const { results } = await env.DB.prepare(
-      `SELECT id FROM puzzles WHERE status = 'published' AND id NOT IN
-         (SELECT puzzle_id FROM daily_puzzles WHERE day > date(?, '-60 days'))
-       ORDER BY id`,
-    )
-      .bind(day)
-      .all<{ id: number }>();
-    let pool = results;
-    if (pool.length === 0) {
-      pool = (await env.DB.prepare("SELECT id FROM puzzles WHERE status = 'published' ORDER BY id").all<{ id: number }>()).results;
-    }
-    if (pool.length === 0) return null;
     const seed = seedFromString('daily:' + day);
-    const pick = pool[seed % pool.length].id;
+    const ids = async (sql: string, ...args: unknown[]) =>
+      (await env.DB.prepare(sql).bind(...args).all<{ id: number }>()).results.map((r) => r.id);
+    const recent = "id NOT IN (SELECT puzzle_id FROM daily_puzzles WHERE day > date(?, '-60 days'))";
+    let pick: number | undefined = (
+      await ids(
+        `SELECT id FROM puzzles WHERE status = 'published' AND category_id = ?
+         AND id NOT IN (SELECT puzzle_id FROM daily_puzzles) ORDER BY sort, id LIMIT 1`,
+        DAILY_CATEGORY,
+      )
+    )[0];
+    for (const [sql, args] of [
+      [`SELECT id FROM puzzles WHERE status = 'published' AND category_id = ? AND ${recent} ORDER BY id`, [DAILY_CATEGORY, day]],
+      [`SELECT id FROM puzzles WHERE status = 'published' AND ${recent} ORDER BY id`, [day]],
+      ["SELECT id FROM puzzles WHERE status = 'published' ORDER BY id", []],
+    ] as [string, unknown[]][]) {
+      if (pick !== undefined) break;
+      const pool = await ids(sql, ...args);
+      if (pool.length) pick = pool[seed % pool.length];
+    }
+    if (pick === undefined) return null;
     await env.DB.prepare('INSERT OR IGNORE INTO daily_puzzles (day, puzzle_id, seed) VALUES (?, ?, ?)').bind(day, pick, seed).run();
     daily = await env.DB.prepare('SELECT * FROM daily_puzzles WHERE day = ?').bind(day).first<DailyRow>();
     if (!daily) return null;
   }
   const puzzle = await env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(daily.puzzle_id).first<PuzzleRow>();
   return puzzle ? { daily, puzzle } : null;
+}
+
+/** How many daily-category puzzles are published and haven't been used as a daily yet. */
+export async function dailyPoolLeft(env: Env): Promise<number> {
+  const r = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM puzzles WHERE status = 'published' AND category_id = ?
+     AND id NOT IN (SELECT puzzle_id FROM daily_puzzles)`,
+  )
+    .bind(DAILY_CATEGORY)
+    .first<{ n: number }>();
+  return r?.n ?? 0;
 }
 
 /** Current daily streak: consecutive days with a result, ending today or yesterday. */

@@ -3,6 +3,7 @@ import type { AppEnv } from '../env';
 import { requireUser } from '../lib/auth';
 import {
   canPlay,
+  DAILY_CATEGORY,
   categoryIndexes,
   dailyStreak,
   getDaily,
@@ -39,12 +40,12 @@ app.get('/home', async (c) => {
   const user = c.get('user');
   const today = dayKey(c.env);
   const [cats, counts, latest, daily] = await Promise.all([
-    c.env.DB.prepare('SELECT * FROM categories ORDER BY sort, name').all<CategoryRow>(),
+    c.env.DB.prepare('SELECT * FROM categories WHERE id != ? ORDER BY sort, name').bind(DAILY_CATEGORY).all<CategoryRow>(),
     c.env.DB.prepare("SELECT category_id, COUNT(*) AS n FROM puzzles WHERE status = 'published' GROUP BY category_id").all<{
       category_id: string;
       n: number;
     }>(),
-    c.env.DB.prepare("SELECT * FROM puzzles WHERE status = 'published' ORDER BY published_at DESC LIMIT 8").all<PuzzleRow>(),
+    c.env.DB.prepare("SELECT * FROM puzzles WHERE status = 'published' AND category_id != ? ORDER BY published_at DESC LIMIT 8").bind(DAILY_CATEGORY).all<PuzzleRow>(),
     getDaily(c.env, today),
   ]);
   const countMap = new Map(counts.results.map((r) => [r.category_id, r.n]));
@@ -111,15 +112,17 @@ app.get('/home', async (c) => {
 app.get('/categories', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT c.*, (SELECT COUNT(*) FROM puzzles p WHERE p.category_id = c.id AND p.status = 'published') AS count
-     FROM categories c ORDER BY c.sort, c.name`,
-  ).all<CategoryRow & { count: number }>();
+     FROM categories c WHERE c.id != ? ORDER BY c.sort, c.name`,
+  )
+    .bind(DAILY_CATEGORY)
+    .all<CategoryRow & { count: number }>();
   return c.json({ categories: results.map((r) => ({ id: r.id, name: r.name, description: r.description, tile: r.tile_url, count: r.count })) });
 });
 
 app.get('/categories/:id', async (c) => {
   const user = c.get('user');
   const cat = await c.env.DB.prepare('SELECT * FROM categories WHERE id = ?').bind(c.req.param('id')).first<CategoryRow>();
-  if (!cat) fail(404, 'Category not found.');
+  if (!cat || (cat.id === DAILY_CATEGORY && user?.role !== 'admin')) fail(404, 'Category not found.');
   const { results } = await c.env.DB.prepare(
     "SELECT * FROM puzzles WHERE category_id = ? AND status = 'published' ORDER BY sort, id",
   )
@@ -139,6 +142,7 @@ app.get('/puzzles/:slug', async (c) => {
   const user = c.get('user');
   const p = await c.env.DB.prepare('SELECT * FROM puzzles WHERE slug = ?').bind(c.req.param('slug')).first<PuzzleRow>();
   if (!p || (p.status !== 'published' && user?.role !== 'admin')) fail(404, 'Puzzle not found.');
+  if (p.category_id === DAILY_CATEGORY && user?.role !== 'admin') fail(404, 'This picture is a daily puzzle. Find it in the Daily archive.');
   const indexes = p.category_id ? await categoryIndexes(c.env, p.category_id) : new Map<number, number>();
   const idx = indexes.get(p.id) ?? 0;
   const state = await userPuzzleState(c.env, user, [p.id]);

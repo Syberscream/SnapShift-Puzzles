@@ -63,7 +63,7 @@ await admin.screenshot({ path: `${OUT}/01-home-empty.png`, fullPage: true });
 await admin.goto(BASE + '/admin#generate');
 await admin.waitForSelector('text=Generate now');
 // Generate 3 animals + 2 space from built-in ideas, and one custom prompt that the fake API rejects.
-for (const [cat, count] of [['animals', 3], ['space', 2], ['fractals', 1]]) {
+for (const [cat, count] of [['animals', 3], ['space', 2], ['fractals', 1], ['daily', 1]]) {
   const form = admin.locator('form', { hasText: 'Generate now' });
   await form.locator('select[name=categoryId]').selectOption(cat);
   await form.locator('input[name=count]').fill(String(count));
@@ -84,7 +84,7 @@ for (let i = 0; i < 3; i++) await admin.request.post(BASE + '/api/admin/generati
 const gen = await (await admin.request.get(BASE + '/api/admin/generation')).json();
 const done = gen.jobs.filter((j) => j.status === 'done').length;
 const failed = gen.jobs.filter((j) => j.status === 'failed');
-check('6 generations completed', done === 6, `done=${done}`);
+check('7 generations completed', done === 7, `done=${done}`);
 check('rejected prompt recorded as failed with the API error', failed.length === 1 && /prompt rejected/.test(failed[0].error || ''), failed[0]?.error);
 await admin.goto(BASE + '/admin#generate');
 await admin.waitForSelector('text=Recent generations');
@@ -93,7 +93,7 @@ await admin.screenshot({ path: `${OUT}/02-admin-generate.png`, fullPage: true })
 await admin.goto(BASE + '/admin#queue');
 await admin.waitForSelector('.queue-card');
 const queued = await admin.locator('.queue-card').count();
-check('review queue shows generated images', queued === 6, `count=${queued}`);
+check('review queue shows generated images', queued === 7, `count=${queued}`);
 await admin.screenshot({ path: `${OUT}/03-admin-queue.png`, fullPage: true });
 // Rename the first one, then publish all.
 await admin.locator('.queue-card').first().locator('input').first().fill('Renamed Test Puzzle');
@@ -102,7 +102,7 @@ for (let i = 0; i < queued; i++) {
   await admin.waitForFunction((n) => document.querySelectorAll('.queue-card').length === n, queued - i - 1, { timeout: 20000 });
 }
 const pub = await (await admin.request.get(BASE + '/api/admin/puzzles?status=published')).json();
-check('all 6 published', pub.puzzles.length === 6);
+check('all 7 published', pub.puzzles.length === 7);
 check('published puzzles have web copy + thumbnail', pub.puzzles.every((p) => p.image.endsWith('.webp') && p.thumb.endsWith('.webp')));
 check('rename kept', pub.puzzles.some((p) => p.title === 'Renamed Test Puzzle'));
 const img = await admin.request.get(BASE + pub.puzzles[0].image);
@@ -132,6 +132,14 @@ await player.click('button[type=submit]');
 await player.waitForURL(BASE + '/');
 await player.waitForSelector('text=Daily Challenge');
 check('home shows daily puzzle', await player.locator('a', { hasText: 'Play today’s puzzle' }).isVisible());
+{
+  const dailyPuzzle = pub.puzzles.find((p) => p.categoryId === 'daily');
+  const t = await (await player.request.get(BASE + '/api/daily/today')).json();
+  check('daily comes from the Puzzles of the Day category', t.puzzle && t.puzzle.slug === dailyPuzzle.slug, `${t.puzzle?.slug} vs ${dailyPuzzle?.slug}`);
+  const cats = (await (await player.request.get(BASE + '/api/categories')).json()).categories.map((c) => c.id);
+  check('daily category hidden from browsing', !cats.includes('daily'));
+  check('daily puzzle not playable outside the daily', (await player.request.get(BASE + `/api/puzzles/${dailyPuzzle.slug}`)).status() === 404);
+}
 await player.screenshot({ path: `${OUT}/04-home.png`, fullPage: true });
 
 await player.goto(BASE + '/category?c=animals');

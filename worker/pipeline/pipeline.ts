@@ -11,6 +11,7 @@
 import type { Env } from '../env';
 import { rng, randomSeed } from '../../shared/engine';
 import { dayKey, getSetting, now, randomId, slugify } from '../lib/util';
+import { DAILY_CATEGORY, dailyPoolLeft } from '../lib/catalog';
 import { createImage, ElevenLabsError, getImage } from './elevenlabs';
 import { pickIdea } from './prompts';
 
@@ -26,6 +27,8 @@ export interface GenerationSettings {
   options: Record<string, unknown>;
   /** Restrict automatic generation to these categories (empty = all with "generate" on). */
   categories: string[];
+  /** Keep at least this many unused puzzles ready for the daily challenge (0 = off). */
+  dailyPoolTarget: number;
 }
 
 export const GENERATION_DEFAULTS: GenerationSettings = {
@@ -35,6 +38,7 @@ export const GENERATION_DEFAULTS: GenerationSettings = {
   model: 'gemini-3-pro-image',
   options: { aspect_ratio: '16:9', resolution: '2K' },
   categories: [],
+  dailyPoolTarget: 14,
 };
 
 const MAX_ATTEMPTS = 3;
@@ -85,14 +89,34 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
        (SELECT COUNT(*) FROM puzzles p WHERE p.category_id = c.id AND p.status = 'pending') AS pending
      FROM categories c WHERE c.generate = 1 ORDER BY pending ASC, RANDOM()`,
   ).all<{ id: string; prompt_hint: string; pending: number }>();
-  const allowed = cats.filter((c) => s.categories.length === 0 || s.categories.includes(c.id));
   const rand = rng(randomSeed());
+  const titlesIn = async (categoryId: string) =>
+    new Set(
+      (await env.DB.prepare('SELECT LOWER(title) AS t FROM puzzles WHERE category_id = ?').bind(categoryId).all<{ t: string }>()).results.map((r) => r.t),
+    );
+
+  // The daily challenge pool comes first: keep dailyPoolTarget unused puzzles ready
+  // (counting ones waiting for review and generations already running).
+  if (s.dailyPoolTarget > 0) {
+    const waiting = await env.DB.prepare(
+      `SELECT (SELECT COUNT(*) FROM puzzles WHERE status = 'pending' AND category_id = ?) +
+              (SELECT COUNT(*) FROM generation_jobs WHERE category_id = ? AND status IN ('queued','submitting','submitted','downloading')) AS n`,
+    )
+      .bind(DAILY_CATEGORY, DAILY_CATEGORY)
+      .first<{ n: number }>();
+    const short = s.dailyPoolTarget - (await dailyPoolLeft(env)) - (waiting?.n ?? 0);
+    const hint = cats.find((c) => c.id === DAILY_CATEGORY)?.prompt_hint ?? '';
+    for (let i = 0; i < short && room > 0; i++, room--) {
+      const idea = pickIdea(DAILY_CATEGORY, rand, hint, await titlesIn(DAILY_CATEGORY));
+      await queueJob(env, s, { categoryId: DAILY_CATEGORY, ...idea });
+      log.push(`queued daily pool: ${idea.title}`);
+    }
+  }
+
+  const allowed = cats.filter((c) => c.id !== DAILY_CATEGORY && (s.categories.length === 0 || s.categories.includes(c.id)));
   for (const cat of allowed) {
     if (room-- <= 0) break;
-    const { results: titles } = await env.DB.prepare('SELECT LOWER(title) AS t FROM puzzles WHERE category_id = ?')
-      .bind(cat.id)
-      .all<{ t: string }>();
-    const idea = pickIdea(cat.id, rand, cat.prompt_hint, new Set(titles.map((r) => r.t)));
+    const idea = pickIdea(cat.id, rand, cat.prompt_hint, await titlesIn(cat.id));
     await queueJob(env, s, { categoryId: cat.id, ...idea });
     log.push(`queued ${cat.id}: ${idea.title}`);
   }

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireAdmin } from '../lib/auth';
-import { media, type PuzzleRow } from '../lib/catalog';
+import { dailyPoolLeft, media, type PuzzleRow } from '../lib/catalog';
 import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
 import { SITE_DEFAULTS } from './catalog';
@@ -63,6 +63,7 @@ app.get('/overview', async (c) => {
     jobsInFlight: queued?.n,
     jobsFailed24h: failed?.n,
     unreadMessages: messages?.n,
+    dailyPoolLeft: await dailyPoolLeft(c.env),
     elevenlabsConfigured: !!c.env.ELEVENLABS_API_KEY,
     emailConfigured: !!c.env.RESEND_API_KEY,
   });
@@ -197,6 +198,7 @@ app.put('/generation', async (c) => {
     model: str(b.model, 60) || cur.model,
     options: b.options && typeof b.options === 'object' && !Array.isArray(b.options) ? b.options : cur.options,
     categories: Array.isArray(b.categories) ? b.categories.map((x) => str(x, 40)).filter(Boolean) : cur.categories,
+    dailyPoolTarget: b.dailyPoolTarget !== undefined ? Math.max(0, Math.min(365, int(b.dailyPoolTarget, cur.dailyPoolTarget))) : cur.dailyPoolTarget,
   };
   await putSetting(c.env, 'generation', next);
   return c.json({ settings: next });
@@ -268,7 +270,7 @@ app.get('/daily', async (c) => {
        (SELECT COUNT(*) FROM daily_results r WHERE r.day = d.day) AS players
      FROM daily_puzzles d JOIN puzzles p ON p.id = d.puzzle_id ORDER BY d.day DESC LIMIT 60`,
   ).all();
-  return c.json({ today: dayKey(c.env), days: results });
+  return c.json({ today: dayKey(c.env), days: results, poolLeft: await dailyPoolLeft(c.env) });
 });
 
 /** Choose a specific puzzle for a future (or today's, if nobody has played it yet) daily. */
