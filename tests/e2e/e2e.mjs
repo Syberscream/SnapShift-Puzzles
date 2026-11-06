@@ -22,15 +22,27 @@ async function newCtx(mobile = false) {
 }
 
 /** Solve the board on screen by clicking tiles, using the engine to plan moves. */
-async function solveByClicking(page, seed, difficulty, existing = []) {
-  const g = E.replay(seed, difficulty, existing).state;
+const setup = (difficulty, mode = 'classic', daily = false) => ({ version: 2, difficulty, mode, daily, hardMode: false });
+/** Wait until the start-of-game "memorize" preview is over. */
+const ready = (page) => page.waitForFunction(() => document.querySelector('.memorize-note')?.hidden !== false, null, { timeout: 8000 });
+
+/** Solve the board on screen with real input, using the engine to plan moves. */
+async function solveByClicking(page, seed, difficulty, existing = [], mode = 'classic') {
+  await ready(page);
+  const g = E.replay(seed, setup(difficulty, mode), existing).state;
   const box = await page.locator('#board').boundingBox();
   const at = (p) => [box.x + ((p % g.cols) + 0.5) * (box.width / g.cols), box.y + (Math.floor(p / g.cols) + 0.5) * (box.height / g.rows)];
   let n = 0;
   while (!E.isSolved(g)) {
-    const [a, b] = E.suggestSwap(g);
-    E.swap(g, a, b);
-    if (n % 2 === 0) {
+    const m = E.suggest(g);
+    E.applySuggestion(g, m);
+    if (m.kind === 'rotate') {
+      await page.mouse.click(...at(m.p)); // tap = rotate
+      n++;
+      continue;
+    }
+    const [a, b] = [m.a, m.b];
+    if (n % 2 === 0 && mode !== 'rotation') {
       await page.mouse.click(...at(a));
       await page.mouse.click(...at(b));
     } else {
@@ -57,7 +69,7 @@ await admin.fill('#password', 'adminpass123');
 await admin.click('button[type=submit]');
 await admin.waitForURL(BASE + '/', { timeout: 10000 });
 check('admin signup redirects home', true);
-check('admin sees Admin link', await admin.locator('a[href="/admin"]').isVisible());
+check('admin sees Admin link', !!(await admin.waitForSelector('a[href="/admin"]', { timeout: 8000 }).catch(() => null)));
 await admin.screenshot({ path: `${OUT}/01-home-empty.png`, fullPage: true });
 
 await admin.goto(BASE + '/admin#generate');
@@ -182,6 +194,9 @@ check('points credited', me1.points > 0, `points=${me1.points} after ${swaps} sw
 // Unlock: not enough points yet -> error; admin grants points -> unlock works.
 const animals = (await (await player.request.get(BASE + '/api/categories/animals')).json()).puzzles;
 const lockedP = [...animals].reverse().find((p) => !p.unlocked); // most expensive
+// Bring the balance below the unlock cost first (fast bot solves earn a lot).
+const pf = (await (await admin.request.get(BASE + '/api/admin/users?q=PuzzleFan')).json()).users[0];
+if (pf.points >= lockedP.unlockCost) await admin.request.post(BASE + `/api/admin/users/${pf.id}/points`, { data: { delta: -(pf.points - 10), note: 'test' } });
 const r1 = await player.request.post(BASE + `/api/puzzles/${lockedP.slug}/unlock`);
 check('unlock refused without enough points', r1.status() === 402, (await r1.json()).error);
 const users = (await (await admin.request.get(BASE + '/api/admin/users?q=PuzzleFan')).json()).users;
@@ -205,16 +220,16 @@ check('illegal move rejected', c3.status() === 422);
 const before = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
 const pl = await (await player.request.post(BASE + `/api/plays/${pid}/place`, { data: { actions: [] } })).json();
 const hi = await (await player.request.post(BASE + `/api/plays/${pid}/hint`, { data: { actions: [['place']] } })).json();
-check('place charges 45 on medium; hint free', before - pl.points === 45 && hi.points === pl.points, `before=${before} afterPlace=${pl.points} afterHint=${hi.points}`);
+check('medium: place costs 45, hint costs 25', before - pl.points === 45 && pl.points - hi.points === 25, `before=${before} afterPlace=${pl.points} afterHint=${hi.points}`);
 const hint2 = await player.request.post(BASE + `/api/plays/${pid}/hint`, { data: { actions: [['place'], ['hint']] } });
 check('hint cooldown enforced', hint2.status() === 429);
 {
   const acts = [['place'], ['hint']];
-  const g = E.replay(fresh.play.seed, 'medium', acts).state;
+  const g = E.replay(fresh.play.seed, setup('medium'), acts).state;
   while (!E.isSolved(g)) {
-    const p = E.suggestSwap(g);
-    E.swap(g, p[0], p[1]);
-    acts.push(p);
+    const m = E.suggest(g);
+    E.applySuggestion(g, m);
+    acts.push([m.a, m.b]);
   }
   const fin = await (await player.request.post(BASE + `/api/plays/${pid}/complete`, { data: { actions: acts, elapsedMs: 10 } })).json();
   check('impossibly fast time is clamped', fin.elapsedMs >= g.moves * 250, `elapsed=${fin.elapsedMs} moves=${g.moves}`);
@@ -228,15 +243,65 @@ const daily = await (await player.request.post(BASE + '/api/plays', { data: { da
 check('daily is hard with the shared seed', daily.play.difficulty === 'hard' && daily.play.seed === E.seedFromString('daily:' + today));
 {
   const acts = [];
-  const g = E.newGame(daily.play.seed, 'hard');
+  const g = E.newGame(daily.play.seed, setup('hard', 'classic', true));
   while (!E.isSolved(g)) {
-    const p = E.suggestSwap(g);
-    E.swap(g, p[0], p[1]);
-    acts.push(p);
+    const m = E.suggest(g);
+    E.applySuggestion(g, m);
+    acts.push([m.a, m.b]);
   }
   await new Promise((r) => setTimeout(r, 1200));
   const fin = await (await player.request.post(BASE + `/api/plays/${daily.play.id}/complete`, { data: { actions: acts, elapsedMs: 60000 } })).json();
   check('daily completion gives bonus and rank 1', fin.dailyBonus === 50 && fin.rank === 1 && fin.streak.current === 1, JSON.stringify({ b: fin.dailyBonus, r: fin.rank, s: fin.streak }));
+}
+// ---------- modes ----------
+{
+  const animalsNow = (await (await player.request.get(BASE + '/api/categories/animals')).json()).puzzles;
+  const free = animalsNow[0];
+  // Rotation: real taps and drags on the board.
+  await player.goto(BASE + `/play?p=${free.slug}&d=easy&m=rotation`);
+  await player.waitForSelector('#board');
+  const rot = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'easy', mode: 'rotation' } })).json();
+  check('rotation play uses the square grid', rot.play.mode === 'rotation' && rot.play.engine === 2);
+  const box = await player.locator('#board').boundingBox();
+  check('rotation board is square-tiled (7:4)', Math.abs(box.width / box.height - 7 / 4) < 0.03, `${box.width}x${box.height}`);
+  await solveByClicking(player, rot.play.seed, 'easy', rot.play.actions, 'rotation');
+  await player.waitForSelector('dialog.modal', { timeout: 10000 });
+  check('rotation puzzle completes with a medal', /medal/i.test(await player.locator('dialog.modal').innerText()));
+  await player.screenshot({ path: `${OUT}/09b-rotation-done.png` });
+  await player.locator('dialog.modal button', { hasText: 'Play again' }).click();
+  await ready(player);
+  await player.screenshot({ path: `${OUT}/09c-rotation-start.png` });
+
+  // Zen: no timer, no medal, 10 points the first time.
+  const before = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
+  await player.goto(BASE + `/play?p=${free.slug}&d=easy&m=zen`);
+  await player.waitForSelector('#board');
+  await player.waitForSelector('.pill:has-text("Zen")');
+  check('zen hides the timer', !(await player.locator('.pill', { hasText: 'Time:' }).isVisible()));
+  const zen = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'easy', mode: 'zen' } })).json();
+  await solveByClicking(player, zen.play.seed, 'easy', zen.play.actions, 'zen');
+  await player.waitForSelector('dialog.modal', { timeout: 10000 });
+  const zt = await player.locator('dialog.modal').innerText();
+  const after = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
+  check('zen finish: no medal, +10 points', /Puzzle complete/.test(zt) && after - before === 10, `${after - before} pts`);
+
+  // Hard: tiles don't lock.
+  const hard = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'hard' } })).json();
+  const hg = E.newGame(hard.play.seed, setup('hard'));
+  const m = E.suggest(hg);
+  E.applySuggestion(hg, m);
+  const correct = hg.tiles.findIndex((t, i) => t === i);
+  const other = hg.tiles.findIndex((t, i) => t !== i);
+  const r = await player.request.put(BASE + `/api/plays/${hard.play.id}`, { data: { actions: [[m.a, m.b], [correct, other]], elapsedMs: 5000 } });
+  check('hard: a correct tile can be moved again', r.ok());
+  const easyPlay = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'easy', fresh: true } })).json();
+  const eg = E.newGame(easyPlay.play.seed, setup('easy'));
+  const em = E.suggest(eg);
+  E.applySuggestion(eg, em);
+  const ec = eg.tiles.findIndex((t, i) => t === i);
+  const eo = eg.tiles.findIndex((t, i) => t !== i);
+  const er = await player.request.put(BASE + `/api/plays/${easyPlay.play.id}`, { data: { actions: [[em.a, em.b], [ec, eo]], elapsedMs: 5000 } });
+  check('easy: a locked tile can not be moved', er.status() === 422);
 }
 await player.goto(BASE + '/leaderboard');
 await player.waitForSelector('table');
@@ -260,7 +325,7 @@ await guest.screenshot({ path: `${OUT}/11-mobile-home.png`, fullPage: true });
 const firstSpace = (await (await guest.request.get(BASE + '/api/categories/space')).json()).puzzles[0];
 await guest.goto(BASE + `/play?p=${firstSpace.slug}`);
 await guest.waitForSelector('#board');
-await guest.waitForTimeout(600);
+await ready(guest);
 const box = await guest.locator('#board').boundingBox();
 await guest.touchscreen.tap(box.x + box.width * 0.08, box.y + box.height * 0.12);
 await guest.touchscreen.tap(box.x + box.width * 0.92, box.y + box.height * 0.88);

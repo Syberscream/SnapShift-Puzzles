@@ -1,17 +1,21 @@
-// Canvas board: draws the sliced image and turns clicks, drags and keys into swaps.
+// Canvas board: draws the sliced image and turns clicks, drags and keys into moves.
+//   Classic / Zen: drag a tile onto another, or click two tiles, to swap.
+//   Rotation:      drag to swap, tap a tile to turn it a quarter turn clockwise (or press R).
 
 import type { GameState } from '@shared/engine';
 
 export interface BoardOptions {
-  /** Show the green "correct" outline on locked tiles (off in hard mode). */
+  /** Show the green "correct" outline on locked tiles. */
   showCorrect: boolean;
   onSwap: (a: number, b: number) => void;
+  onRotate: (p: number) => void;
 }
 
 interface Anim {
   from: number;
   to: number;
   tile: number;
+  rot: number;
   start: number;
 }
 
@@ -24,15 +28,21 @@ export class Board {
   private cursor = 0;
   private hover = -1;
   private dragFrom = -1;
+  private dragStart: { x: number; y: number } | null = null;
   private dragPoint: { x: number; y: number } | null = null;
-  private hint: { pair: [number, number]; until: number } | null = null;
+  private hint: { positions: number[]; until: number } | null = null;
   private anims: Anim[] = [];
-  private flashes = new Map<number, number>(); // pos -> start time
+  private turns = new Map<number, { from: number; start: number }>(); // pos -> rotation animation
+  private flashes = new Map<number, number>();
   private raf = 0;
   private keyboardUsed = false;
+  /** Source rectangle of the picture (centre-cropped for square tiles). */
+  private src = { x: 0, y: 0, w: 1, h: 1 };
   paused = false;
   /** Finished: draw the whole picture with no grid and ignore input. */
   private completed = false;
+  /** Temporarily show the whole picture (memorize at start, peek). */
+  private revealed = false;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -49,7 +59,27 @@ export class Board {
   setState(s: GameState) {
     this.state = s;
     this.cursor = Math.min(this.cursor, s.tiles.length - 1);
+    this.selected = -1;
+    this.hint = null;
+    const W = this.image.naturalWidth;
+    const H = this.image.naturalHeight;
+    if (s.rules.square) {
+      const aspect = s.cols / s.rows;
+      if (W / H > aspect) this.src = { x: (W - H * aspect) / 2, y: 0, w: H * aspect, h: H };
+      else this.src = { x: 0, y: (H - W / aspect) / 2, w: W, h: W / aspect };
+    } else this.src = { x: 0, y: 0, w: W, h: H };
+    this.canvas.setAttribute(
+      'aria-label',
+      s.rules.rotation
+        ? 'Puzzle board. Drag to swap tiles, tap a tile to rotate it. Keyboard: arrows to move, Enter to pick up and swap, R to rotate.'
+        : 'Puzzle board. Drag or click two tiles to swap them. Keyboard: arrows to move, Enter to pick up a tile and Enter again to swap.',
+    );
     this.resize();
+  }
+
+  setShowCorrect(v: boolean) {
+    this.opts.showCorrect = v;
+    this.request();
   }
 
   setCompleted(v: boolean) {
@@ -60,22 +90,35 @@ export class Board {
     this.request();
   }
 
-  setShowCorrect(v: boolean) {
-    this.opts.showCorrect = v;
+  setRevealed(v: boolean) {
+    this.revealed = v;
+    this.selected = -1;
     this.request();
   }
 
-  showHint(pair: [number, number]) {
-    this.hint = { pair, until: performance.now() + 4000 };
+  showHint(positions: number[]) {
+    this.hint = { positions, until: performance.now() + 4000 };
     this.request();
   }
 
   /** Animate a swap that the controller already applied to the state. */
   animateSwap(a: number, b: number, newlyCorrect: number[]) {
     const t = performance.now();
-    this.anims.push({ from: b, to: a, tile: this.state.tiles[a], start: t }, { from: a, to: b, tile: this.state.tiles[b], start: t });
+    this.anims.push(
+      { from: b, to: a, tile: this.state.tiles[a], rot: this.state.rot[a], start: t },
+      { from: a, to: b, tile: this.state.tiles[b], rot: this.state.rot[b], start: t },
+    );
     for (const p of newlyCorrect) this.flashes.set(p, t + ANIM_MS);
-    if (this.hint && (this.hint.pair.includes(a) || this.hint.pair.includes(b))) this.hint = null;
+    if (this.hint && (this.hint.positions.includes(a) || this.hint.positions.includes(b))) this.hint = null;
+    this.request();
+  }
+
+  /** Animate a quarter turn that the controller already applied. */
+  animateRotate(p: number, newlyCorrect: boolean) {
+    const t = performance.now();
+    this.turns.set(p, { from: (this.state.rot[p] + 3) % 4, start: t });
+    if (newlyCorrect) this.flashes.set(p, t + ANIM_MS);
+    if (this.hint?.positions.includes(p)) this.hint = null;
     this.request();
   }
 
@@ -90,15 +133,17 @@ export class Board {
   private get cols() {
     return this.state.cols;
   }
+  private get inputOff() {
+    return this.paused || this.completed || this.revealed || !this.state;
+  }
 
   private resize() {
     if (!this.state) return;
     const parent = this.canvas.parentElement!;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const aspect = this.image.naturalWidth / this.image.naturalHeight || 16 / 9;
+    const aspect = this.src.w / this.src.h || 16 / 9;
     let cssW = parent.clientWidth;
     let cssH = cssW / aspect;
-    // In fullscreen / short windows, fit the height too.
     const maxH = document.fullscreenElement ? window.innerHeight - 24 : Math.max(320, window.innerHeight - 140);
     if (cssH > maxH) {
       cssH = maxH;
@@ -119,21 +164,37 @@ export class Board {
     return row * this.cols + col;
   }
 
+  /** Click/tap on a tile: rotate (rotation mode) or pick up / swap (classic). */
+  private tap(p: number) {
+    if (this.state.rules.rotation) {
+      this.selected = -1;
+      this.opts.onRotate(p);
+      return;
+    }
+    if (this.selected === -1) this.selected = p;
+    else if (this.selected === p) this.selected = -1;
+    else {
+      const a = this.selected;
+      this.selected = -1;
+      this.opts.onSwap(a, p);
+    }
+  }
+
   private bind() {
     const c = this.canvas;
     c.tabIndex = 0;
     c.setAttribute('role', 'application');
     c.setAttribute('aria-roledescription', 'puzzle board');
-    c.setAttribute('aria-label', 'Puzzle board. Use arrow keys to move, Enter to pick up a tile and Enter again to swap.');
 
     c.addEventListener('pointerdown', (e) => {
-      if (this.paused || this.completed) return;
+      if (this.inputOff) return;
       const p = this.posAt(e.clientX, e.clientY);
       if (p < 0 || this.state.locked[p]) return;
       this.keyboardUsed = false;
       c.setPointerCapture(e.pointerId);
       this.dragFrom = p;
-      this.dragPoint = { x: e.clientX, y: e.clientY };
+      this.dragStart = { x: e.clientX, y: e.clientY };
+      this.dragPoint = null;
       this.request();
     });
     c.addEventListener('pointermove', (e) => {
@@ -142,9 +203,12 @@ export class Board {
         this.hover = p;
         this.request();
       }
-      if (this.dragFrom >= 0) {
-        this.dragPoint = { x: e.clientX, y: e.clientY };
-        this.request();
+      if (this.dragFrom >= 0 && this.dragStart) {
+        // Only start showing a drag once the pointer has really moved.
+        if (this.dragPoint || Math.hypot(e.clientX - this.dragStart.x, e.clientY - this.dragStart.y) > 6) {
+          this.dragPoint = { x: e.clientX, y: e.clientY };
+          this.request();
+        }
       }
     });
     c.addEventListener('pointerleave', () => {
@@ -154,22 +218,16 @@ export class Board {
     const end = (e: PointerEvent) => {
       if (this.dragFrom < 0) return;
       const from = this.dragFrom;
+      const dragged = !!this.dragPoint;
       const to = this.posAt(e.clientX, e.clientY);
       this.dragFrom = -1;
       this.dragPoint = null;
+      this.dragStart = null;
       if (to >= 0 && to !== from && !this.state.locked[to]) {
-        // Dragged onto another tile: swap.
         this.selected = -1;
         this.opts.onSwap(from, to);
-      } else if (to === from) {
-        // Click: select, or swap with the selected tile.
-        if (this.selected === -1) this.selected = from;
-        else if (this.selected === from) this.selected = -1;
-        else {
-          const a = this.selected;
-          this.selected = -1;
-          this.opts.onSwap(a, from);
-        }
+      } else if (to === from && !dragged) {
+        this.tap(from);
       }
       this.request();
     };
@@ -177,11 +235,12 @@ export class Board {
     c.addEventListener('pointercancel', () => {
       this.dragFrom = -1;
       this.dragPoint = null;
+      this.dragStart = null;
       this.request();
     });
 
     c.addEventListener('keydown', (e) => {
-      if (this.paused || this.completed || !this.state) return;
+      if (this.inputOff) return;
       const { rows, cols } = this;
       let r = Math.floor(this.cursor / cols);
       let col = this.cursor % cols;
@@ -190,10 +249,15 @@ export class Board {
       else if (k === 'ArrowRight') col = (col + 1) % cols;
       else if (k === 'ArrowUp') r = (r - 1 + rows) % rows;
       else if (k === 'ArrowDown') r = (r + 1) % rows;
-      else if (k === 'Enter' || k === ' ') {
+      else if ((k === 'r' || k === 'R') && this.state.rules.rotation) {
+        e.preventDefault();
+        if (!this.state.locked[this.cursor]) this.opts.onRotate(this.cursor);
+        return;
+      } else if (k === 'Enter' || k === ' ') {
         e.preventDefault();
         const p = this.cursor;
         if (this.state.locked[p]) return;
+        // Keyboard always picks up and swaps (R rotates in rotation mode).
         if (this.selected === -1) this.selected = p;
         else if (this.selected === p) this.selected = -1;
         else {
@@ -227,12 +291,21 @@ export class Board {
     return { x: (pos % this.cols) * w, y: Math.floor(pos / this.cols) * hgt, w, h: hgt };
   }
 
-  private drawTile(tile: number, x: number, y: number, w: number, hgt: number) {
-    const sw = this.image.naturalWidth / this.cols;
-    const sh = this.image.naturalHeight / this.rows;
-    const sx = (tile % this.cols) * sw;
-    const sy = Math.floor(tile / this.cols) * sh;
-    this.ctx.drawImage(this.image, sx, sy, sw, sh, x, y, w, hgt);
+  /** Draw a tile (by id) into a cell, turned `quarter` quarter turns clockwise. */
+  private drawTile(tile: number, x: number, y: number, w: number, hgt: number, quarter = 0) {
+    const sw = this.src.w / this.cols;
+    const sh = this.src.h / this.rows;
+    const sx = this.src.x + (tile % this.cols) * sw;
+    const sy = this.src.y + Math.floor(tile / this.cols) * sh;
+    if (!quarter) {
+      this.ctx.drawImage(this.image, sx, sy, sw, sh, x, y, w, hgt);
+      return;
+    }
+    this.ctx.save();
+    this.ctx.translate(x + w / 2, y + hgt / 2);
+    this.ctx.rotate((quarter * Math.PI) / 2);
+    this.ctx.drawImage(this.image, sx, sy, sw, sh, -w / 2, -hgt / 2, w, hgt);
+    this.ctx.restore();
   }
 
   private draw(now: number) {
@@ -241,27 +314,38 @@ export class Board {
     const ctx = this.ctx;
     const dpr = this.canvas.width / this.canvas.getBoundingClientRect().width || 1;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    ctx.fillStyle = '#0b1424';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (this.completed && !this.anims.some((a) => now - a.start < ANIM_MS)) {
+    const settling = this.anims.some((a) => now - a.start < ANIM_MS) || [...this.turns.values()].some((t) => now - t.start < ANIM_MS);
+    if ((this.completed && !settling) || this.revealed) {
       // The finished picture, in one piece.
-      ctx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height);
-      this.anims = [];
-      this.flashes.clear();
+      ctx.drawImage(this.image, this.src.x, this.src.y, this.src.w, this.src.h, 0, 0, this.canvas.width, this.canvas.height);
+      if (this.completed) {
+        this.anims = [];
+        this.turns.clear();
+        this.flashes.clear();
+      }
       return;
     }
 
+    ctx.fillStyle = '#0b1424';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.anims = this.anims.filter((a) => now - a.start < ANIM_MS);
     const moving = new Set(this.anims.map((a) => a.to));
     const n = this.state.tiles.length;
 
     for (let p = 0; p < n; p++) {
-      if (moving.has(p) || p === this.dragFrom) continue;
+      if (moving.has(p) || (p === this.dragFrom && this.dragPoint)) continue;
       const r = this.rect(p);
-      this.drawTile(this.state.tiles[p], r.x, r.y, r.w, r.h);
+      let quarter = this.state.rot[p];
+      const turn = this.turns.get(p);
+      if (turn) {
+        const k = Math.min(1, (now - turn.start) / ANIM_MS);
+        if (k >= 1) this.turns.delete(p);
+        else quarter = turn.from + (1 - Math.pow(1 - k, 3));
+      }
+      this.drawTile(this.state.tiles[p], r.x, r.y, r.w, r.h, quarter);
     }
-    // Grid lines between unlocked tiles.
+    // Grid lines between tiles that can still move.
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     ctx.lineWidth = Math.max(1, dpr);
     for (let p = 0; p < n; p++) {
@@ -293,7 +377,7 @@ export class Board {
       const e = 1 - Math.pow(1 - k, 3);
       const f = this.rect(a.from);
       const t = this.rect(a.to);
-      this.drawTile(a.tile, f.x + (t.x - f.x) * e, f.y + (t.y - f.y) * e, t.w, t.h);
+      this.drawTile(a.tile, f.x + (t.x - f.x) * e, f.y + (t.y - f.y) * e, t.w, t.h, a.rot);
     }
     // Hint.
     if (this.hint) {
@@ -302,7 +386,7 @@ export class Board {
         const pulse = 0.55 + 0.45 * Math.sin(now / 140);
         ctx.strokeStyle = `rgba(245, 197, 66, ${pulse})`;
         ctx.lineWidth = 4 * dpr;
-        for (const p of this.hint.pair) {
+        for (const p of this.hint.positions) {
           const r = this.rect(p);
           ctx.strokeRect(r.x + 2 * dpr, r.y + 2 * dpr, r.w - 4 * dpr, r.h - 4 * dpr);
         }
@@ -330,12 +414,12 @@ export class Board {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.6)';
       ctx.shadowBlur = 18 * dpr;
-      this.drawTile(this.state.tiles[this.dragFrom], x, y, r.w * 1.06, r.h * 1.06);
+      this.drawTile(this.state.tiles[this.dragFrom], x, y, r.w * 1.06, r.h * 1.06, this.state.rot[this.dragFrom]);
       ctx.restore();
       ctx.strokeStyle = '#7cc4ff';
       ctx.lineWidth = 3 * dpr;
       ctx.strokeRect(x, y, r.w * 1.06, r.h * 1.06);
     }
-    if (this.anims.length || this.hint || this.flashes.size || this.completed) this.request();
+    if (this.anims.length || this.turns.size || this.hint || this.flashes.size || this.completed) this.request();
   }
 }

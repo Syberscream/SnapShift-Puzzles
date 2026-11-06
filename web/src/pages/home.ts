@@ -9,7 +9,7 @@ interface Home {
   daily: { day: string; slug: string; title: string; thumb: string; categoryId: string } | null;
   dailyResult: { score_pct: number; elapsed_ms: number; moves: number; medal: string } | null;
   streak: { current: number; best: number; doneToday: boolean } | null;
-  continue: { playId: string; slug: string; title: string; difficulty: string; daily: string | null; thumb: string }[];
+  continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; thumb: string }[];
   categories: Category[];
   latest: PuzzleView[];
 }
@@ -87,9 +87,9 @@ function render(d: Home) {
           d.continue.map((c) =>
             h(
               'a',
-              { class: 'card', href: c.daily ? `/play?daily=${c.daily}` : `/play?p=${c.slug}&d=${c.difficulty}` },
+              { class: 'card', href: c.daily ? `/play?daily=${c.daily}` : `/play?p=${c.slug}&d=${c.difficulty}&m=${c.mode}` },
               h('div', { class: 'thumb wide', style: bg(c.thumb) }),
-              h('div', { class: 'meta' }, h('b', {}, c.title), h('span', { class: 'muted small' }, c.daily ? `Daily ${c.daily}` : c.difficulty)),
+              h('div', { class: 'meta' }, h('b', {}, c.title), h('span', { class: 'muted small' }, c.daily ? `Daily ${c.daily}` : `${c.difficulty} · ${c.mode}`)),
             ),
           ),
         ),

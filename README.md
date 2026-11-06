@@ -46,14 +46,24 @@ unsolved boards are rejected, and the time used for medals is clamped between a 
 
 Guests can play the daily and the free puzzle in each category; their games are saved in the browser.
 
-### Game rules (same as the original site)
+### Game rules
 
-- Easy 4×6, Medium 6×9, Hard 8×12. Correct tiles lock in place.
-- Medal = 72% move efficiency + 28% speed against par → Gold ≥ 90%, Silver ≥ 76%, else Bronze.
-- Win points = 40/60/80 + 600 ÷ seconds; Hard mode ×1.45. Replays pay 25%.
-- Swap hint free (60 pts on the daily), 15 s cooldown. Place-a-tile 30/45/60 pts, not on the daily.
-- Daily: always Hard, same seed for everyone, +50 bonus, streak rewards at 7/14/30 days.
+| | Easy | Medium | Hard |
+|---|---|---|---|
+| Grid (Rotation mode) | 4×6 (4×7) | 6×9 (6×10) | 8×12 (8×14) |
+| Correct tiles | glow + lock | lock | don't lock |
+| Picture | always shown | Peek button | only at the start |
+| Shuffle | pairs | mixed | long chains |
+| Hint | free | 25 pts | 60 pts |
+| Points | ×1 | ×1.5 | ×2.5 |
+
+- Modes: **Classic**; **Zen** (untimed, no medal, fully assisted, 10 pts once); **Rotation** (tiles also turned, tap to rotate, square tiles, ×1.25).
+- Every new board shows the picture for 2.5 s before the clock starts.
+- Medal = 72% move efficiency (against the fewest moves that solve that board) + 28% speed → Gold ≥ 90%, Silver ≥ 76%.
+- Win points = (40/60/80 + 600 ÷ seconds) × multiplier. Replays pay 25%.
+- Daily: always Hard Classic, same seed for everyone, +50 bonus, streak rewards at 7/14/30 days.
 - Unlocks: first puzzle in a category free, then 100 + 40 × position.
+- Every game stores its engine version, so games started under older rules replay and score the same.
 
 All of these numbers live in `shared/rules.ts`.
 

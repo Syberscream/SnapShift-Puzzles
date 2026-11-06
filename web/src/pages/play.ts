@@ -4,22 +4,41 @@ import { bg, errorText, h, medalBadge, modal, mount, qs, store, toast } from '..
 import { Board } from '../game/board';
 import { isMuted, setMuted, sfx } from '../game/sound';
 import {
+  applySuggestion,
   correctCount,
   formatTime,
+  isCorrect,
   isSolved,
-  newGame,
   randomSeed,
   rate,
   replay,
+  rotate,
   seedFromString,
-  suggestSwap,
+  suggest,
   swap,
   winPoints,
   type Action,
   type GameState,
   type Rating,
+  type Suggestion,
 } from '@shared/engine';
-import { DAILY_SWAP_HINT_COST, DIFFICULTIES, HINT_COOLDOWN_MS, RULES, SWAP_HINT_COST, type Difficulty } from '@shared/rules';
+import {
+  DIFFICULTIES,
+  ENGINE_VERSION,
+  gameRules,
+  MEMORIZE_MS,
+  MODE_LABELS,
+  MODES,
+  PEEK_COOLDOWN_MS,
+  PEEK_MS,
+  RULES,
+  ZEN_POINTS,
+  type Difficulty,
+  type EngineVersion,
+  type GameRules,
+  type GameSetup,
+  type Mode,
+} from '@shared/rules';
 
 interface PuzzleInfo {
   slug: string;
@@ -32,20 +51,30 @@ interface PuzzleInfo {
   next: { slug: string; title: string } | null;
 }
 
+interface Done {
+  medal: string | null;
+  scorePct: number | null;
+  moves: number;
+  elapsedMs: number;
+}
+
 interface ServerPlay {
   id: string;
   seed: number;
   difficulty: Difficulty;
+  mode: Mode;
+  engine: EngineVersion;
   hardMode: boolean;
   daily: string | null;
   actions: Action[];
   elapsedMs: number;
   completed: boolean;
-  result: { medal: string; scorePct: number; moves: number; elapsedMs: number; points: number; score: number; completedAt: number } | null;
+  result: (Done & { points: number; score: number; completedAt: number }) | null;
 }
 
 interface CompleteResult {
-  rating: Rating;
+  rating: Rating | null;
+  zen: boolean;
   elapsedMs: number;
   moves: number;
   score: number;
@@ -58,22 +87,26 @@ interface CompleteResult {
   balance: number;
 }
 
-const main = await shell({ bodyClass: 'game-page' });
-const user = me();
-const dailyDay = qs('daily');
-const slug = qs('p');
-const prefs = store('ss_play_prefs', { difficulty: 'easy' as Difficulty, hardMode: false });
 interface GuestSave {
   seed: number;
   actions: Action[];
   elapsedMs: number;
-  completed?: { medal: string; scorePct: number; moves: number; elapsedMs: number };
+  version?: EngineVersion;
+  completed?: Done;
 }
+
+const main = await shell({ bodyClass: 'game-page' });
+const user = me();
+const dailyDay = qs('daily');
+const slug = qs('p');
+const prefs = store('ss_play_prefs', { difficulty: 'easy' as Difficulty, mode: 'classic' as Mode });
 const guestSaves = store<Record<string, GuestSave>>('ss_guest_games', {});
 
 let puzzle!: PuzzleInfo;
-let difficulty: Difficulty = dailyDay ? 'hard' : (DIFFICULTIES.includes(qs('d') as Difficulty) ? (qs('d') as Difficulty) : prefs.get().difficulty);
-let hardMode = dailyDay ? false : prefs.get().hardMode;
+let difficulty: Difficulty = dailyDay ? 'hard' : DIFFICULTIES.includes(qs('d') as Difficulty) ? (qs('d') as Difficulty) : prefs.get().difficulty;
+let mode: Mode = dailyDay ? 'classic' : MODES.includes(qs('m') as Mode) ? (qs('m') as Mode) : (prefs.get().mode ?? 'classic');
+let setup: GameSetup = { version: ENGINE_VERSION, difficulty, mode, daily: !!dailyDay, hardMode: false };
+let rules: GameRules = gameRules(setup);
 let seed = 0;
 let play: ServerPlay | null = null;
 let state: GameState;
@@ -82,28 +115,40 @@ let elapsedBase = 0;
 let runningSince = 0;
 let paused = false;
 let finished = false;
+let memorizing = 0;
 let saveTimer = 0;
 let lastHintAt = 0;
+let lastPeekAt = 0;
 let board: Board;
 let image: HTMLImageElement;
 
 // ---------- UI elements ----------
 const timeEl = h('span', { class: 'pill' }, 'Time: 00:00.0');
+const modeEl = h('span', { class: 'pill' }, '');
 const scoreEl = h('span', { class: 'pill' }, 'Score: 0');
 const streakEl = h('span', { class: 'pill' }, 'Streak: 0');
 const movesEl = h('span', { class: 'pill dark' }, 'Moves: 0');
 const saveEl = h('span', { class: 'pill dark small' }, '');
 const progressFill = h('i');
 const canvas = h('canvas', { id: 'board' }) as HTMLCanvasElement;
-const wrap = h('div', { class: 'board-wrap' }, canvas, h('div', { class: 'pause-cover' }, h('button', { class: 'btn big primary', onclick: () => togglePause(false) }, 'Resume')));
-const diffSel = h('select', { 'aria-label': 'Difficulty' }, DIFFICULTIES.map((d) => h('option', { value: d }, `${RULES[d].label} (${RULES[d].rows}×${RULES[d].cols})`))) as HTMLSelectElement;
-const hintBtn = h('button', { class: 'btn' }, 'Swap hint');
+const memorizeNote = h('div', { class: 'memorize-note', hidden: true }, 'Memorize the picture…');
+const wrap = h(
+  'div',
+  { class: 'board-wrap' },
+  canvas,
+  memorizeNote,
+  h('div', { class: 'pause-cover' }, h('button', { class: 'btn big primary', onclick: () => togglePause(false) }, 'Resume')),
+);
+const diffSel = h('select', { 'aria-label': 'Difficulty' }) as HTMLSelectElement;
+const modeSel = h('select', { 'aria-label': 'Mode' }, MODES.map((m) => h('option', { value: m }, `${MODE_LABELS[m]} mode`))) as HTMLSelectElement;
+const hintBtn = h('button', { class: 'btn' }, 'Hint');
 const placeBtn = h('button', { class: 'btn' }, 'Place 1 tile');
-const hardBtn = h('button', { class: 'btn', 'aria-pressed': 'false', title: 'No correct-tile glow, ×1.45 points' }, 'Hard mode');
+const peekBtn = h('button', { class: 'btn', title: 'Show the finished picture for a moment' }, 'Peek');
 const pauseBtn = h('button', { class: 'btn', onclick: () => togglePause() }, 'Pause');
 const muteBtn = h('button', { class: 'btn', 'aria-pressed': String(isMuted()) }, isMuted() ? 'Sound off' : 'Sound on');
 const preview = h('div', { class: 'preview', title: 'The finished picture' });
 const doneBar = h('div', { class: 'notice done-bar', hidden: true });
+const helpText = h('p', { class: 'small muted', style: 'margin-top:8px' });
 
 async function loadPuzzle(): Promise<void> {
   if (dailyDay) {
@@ -132,46 +177,63 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-const guestKey = () => `${dailyDay ? 'daily:' + dailyDay : slug}:${difficulty}:${hardMode ? 'h' : 'n'}`;
+const guestBase = () => (dailyDay ? 'daily:' + dailyDay : slug);
+const guestKey = () => `${guestBase()}:${difficulty}:${mode}:v2`;
+
+/** Guest save for the current difficulty/mode, including games saved before modes existed. */
+function guestSave(): (GuestSave & { key: string }) | null {
+  const saves = guestSaves.get();
+  const v2 = saves[guestKey()];
+  if (v2) return { ...v2, version: 2, key: guestKey() };
+  const old = mode === 'classic' ? saves[`${guestBase()}:${difficulty}:n`] : undefined;
+  return old ? { ...old, version: 1, key: `${guestBase()}:${difficulty}:n` } : null;
+}
 
 /** Start or resume a game (server-backed when signed in, local for guests). */
 async function startGame(fresh = false): Promise<void> {
   finished = false;
   lastHintAt = 0;
+  stopMemorize();
+  let done: Done | null = null;
   if (user) {
     const r = await api.post<{ play: ServerPlay; resumed: boolean }>('/plays', {
       puzzle: puzzle.slug,
       difficulty,
-      hardMode,
+      mode,
       daily: dailyDay || undefined,
       fresh,
     });
     play = r.play;
     seed = play.seed;
     difficulty = play.difficulty;
-    hardMode = play.hardMode;
+    mode = play.mode;
+    setup = { version: play.engine, difficulty, mode, daily: !!play.daily, hardMode: play.hardMode };
     actions = play.actions;
     elapsedBase = play.elapsedMs;
+    done = play.completed ? play.result : null;
     if (r.resumed && actions.length) toast('Welcome back', 'Picked up where you left off.');
   } else {
-    const saves = guestSaves.get();
-    const saved = fresh ? undefined : saves[guestKey()];
-    if (!dailyDay) seed = saved?.seed ?? randomSeed();
-    else seed = seedFromString('daily:' + dailyDay);
+    const saved = fresh ? null : guestSave();
+    if (fresh) {
+      const saves = guestSaves.get();
+      delete saves[guestKey()];
+      guestSaves.set(saves);
+    }
+    seed = dailyDay ? seedFromString('daily:' + dailyDay) : (saved?.seed ?? randomSeed());
+    setup = { version: saved?.version ?? ENGINE_VERSION, difficulty, mode, daily: !!dailyDay, hardMode: false };
     actions = saved?.actions ?? [];
     elapsedBase = saved?.elapsedMs ?? 0;
+    done = saved?.completed ?? null;
   }
-  let done: { medal: string; scorePct: number; moves: number; elapsedMs: number } | null = null;
-  if (user) done = play!.completed ? play!.result : null;
-  else if (!fresh) done = guestSaves.get()[guestKey()]?.completed ?? null;
-  const r = replay(seed, difficulty, actions, hardMode);
+  rules = gameRules(setup);
+  const r = replay(seed, setup, actions);
   if (r.invalidAt !== -1) {
     actions = actions.slice(0, r.invalidAt);
-    state = replay(seed, difficulty, actions, hardMode).state;
+    state = replay(seed, setup, actions).state;
   } else state = r.state;
   runningSince = 0;
   board.setState(state);
-  board.setShowCorrect(!hardMode);
+  board.setShowCorrect(rules.glow);
   syncControls();
   if (done && isSolved(state)) {
     showCompleted(done);
@@ -180,14 +242,32 @@ async function startGame(fresh = false): Promise<void> {
   }
   showCompleted(null);
   updateHud();
-  if (!paused) runningSince = performance.now();
+  // A brand-new board: show the finished picture first, then start the clock.
+  if (state.moves === 0 && actions.length === 0) startMemorize();
+  else if (!paused) runningSince = performance.now();
+}
+
+function startMemorize() {
+  board.setRevealed(true);
+  memorizeNote.hidden = false;
+  memorizing = window.setTimeout(() => {
+    stopMemorize();
+    if (!paused && !finished) runningSince = performance.now();
+  }, MEMORIZE_MS);
+}
+
+function stopMemorize() {
+  if (memorizing) clearTimeout(memorizing);
+  memorizing = 0;
+  memorizeNote.hidden = true;
+  board?.setRevealed(false);
 }
 
 /** Show (or clear) the finished state: whole picture, a "Completed" bar and Play again. */
-function showCompleted(done: { medal: string; scorePct: number; moves: number; elapsedMs: number } | null) {
+function showCompleted(done: Done | null) {
   finished = !!done;
   board.setCompleted(!!done);
-  for (const b of [hintBtn, placeBtn, pauseBtn]) b.toggleAttribute('disabled', !!done);
+  for (const b of [hintBtn, placeBtn, pauseBtn, peekBtn]) b.toggleAttribute('disabled', !!done);
   if (!done) {
     doneBar.hidden = true;
     return;
@@ -195,16 +275,19 @@ function showCompleted(done: { medal: string; scorePct: number; moves: number; e
   elapsedBase = done.elapsedMs;
   runningSince = 0;
   const label = done.medal ? done.medal[0].toUpperCase() + done.medal.slice(1) : '';
+  const summary = rules.timed
+    ? ` ${label} · ${done.scorePct}% overall · ${done.moves} moves · ${formatTime(done.elapsedMs)}`
+    : ` ${MODE_LABELS[mode]} · ${done.moves} moves`;
   mount(
     doneBar,
     h(
       'div',
       { class: 'spread' },
-      h('span', {}, h('b', {}, '✓ Completed'), ' ', medalBadge(done.medal), ` ${label} · ${done.scorePct}% overall · ${done.moves} moves · ${formatTime(done.elapsedMs)}`),
+      h('span', {}, h('b', {}, '✓ Completed'), ' ', done.medal ? medalBadge(done.medal) : null, summary),
       h(
         'span',
         { class: 'row' },
-        puzzle.next && !dailyDay ? h('a', { class: 'btn', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}` }, 'Next puzzle →') : null,
+        puzzle.next && !dailyDay ? h('a', { class: 'btn', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}&m=${mode}` }, 'Next puzzle →') : null,
         h('button', { class: 'btn primary', onclick: () => void restart(true) }, 'Play again'),
       ),
     ),
@@ -221,24 +304,35 @@ function updateHud() {
   scoreEl.textContent = `Score: ${state.score}`;
   streakEl.textContent = `Streak: ${state.streak}`;
   movesEl.textContent = `Moves: ${state.moves}`;
-  const pct = (correctCount(state) / state.tiles.length) * 100;
-  progressFill.style.width = `${pct}%`;
+  progressFill.style.width = `${(correctCount(state) / state.tiles.length) * 100}%`;
 }
 
 function tick() {
-  if (state && runningSince && !finished) timeEl.textContent = `Time: ${formatTime(elapsed())}`;
+  if (state && runningSince && !finished && rules.timed) timeEl.textContent = `Time: ${formatTime(elapsed())}`;
   requestAnimationFrame(tick);
 }
 
 function syncControls() {
-  diffSel.value = difficulty;
+  const r = (d: Difficulty) => gameRules({ ...setup, difficulty: d });
+  mount(
+    diffSel,
+    DIFFICULTIES.map((d) => h('option', { value: d, selected: d === difficulty }, `${RULES[d].label} (${r(d).rows}×${r(d).cols})`)),
+  );
   diffSel.disabled = !!dailyDay;
-  hardBtn.setAttribute('aria-pressed', String(hardMode));
-  hardBtn.hidden = !!dailyDay;
-  placeBtn.hidden = !!dailyDay;
-  const hintCost = dailyDay ? DAILY_SWAP_HINT_COST : SWAP_HINT_COST;
-  hintBtn.textContent = hintCost ? `Swap hint (${hintCost} pts)` : 'Swap hint (free)';
-  placeBtn.textContent = `Place 1 tile (${RULES[difficulty].placeCost} pts)`;
+  modeSel.value = mode;
+  modeSel.hidden = !!dailyDay || setup.version === 1;
+  placeBtn.hidden = !rules.placeAllowed;
+  peekBtn.hidden = rules.preview !== 'peek';
+  pauseBtn.hidden = !rules.timed;
+  preview.hidden = rules.preview !== 'always';
+  for (const el of [timeEl, scoreEl, streakEl]) el.hidden = !rules.timed;
+  modeEl.textContent = dailyDay ? `Daily · ${dailyDay}` : `${puzzle.categoryName || 'Puzzle'} · ${MODE_LABELS[mode]}`;
+  hintBtn.textContent = rules.hintCost ? `Hint (${rules.hintCost} pts)` : 'Hint (free)';
+  placeBtn.textContent = rules.placeCost ? `Place 1 tile (${rules.placeCost} pts)` : 'Place 1 tile (free)';
+  const lockText = rules.lock ? 'Tiles lock when they land in the right place.' : 'Tiles do not lock on this difficulty: a correct tile can be swapped out again.';
+  helpText.textContent = rules.rotation
+    ? `Drag a tile onto another to swap them; tap a tile to turn it. A tile is right when it's in place and upright. ${lockText} Keyboard: arrows, Enter to swap, R to rotate.`
+    : `Drag a tile onto another to swap them, or click two tiles. ${lockText} Keyboard: arrows + Enter.`;
 }
 
 function scheduleSave(now = false) {
@@ -255,7 +349,8 @@ function scheduleSave(now = false) {
       }
     } else {
       const saves = guestSaves.get();
-      saves[guestKey()] = { seed, actions, elapsedMs: Math.round(elapsed()) };
+      const key = setup.version === 1 ? `${guestBase()}:${difficulty}:n` : guestKey();
+      saves[key] = { seed, actions, elapsedMs: Math.round(elapsed()), version: setup.version };
       guestSaves.set(saves);
       saveEl.textContent = 'Saved on this device';
     }
@@ -264,18 +359,7 @@ function scheduleSave(now = false) {
   else saveTimer = window.setTimeout(doSave, 1500);
 }
 
-function onSwap(a: number, b: number) {
-  if (finished || paused) return;
-  if (!runningSince) runningSince = performance.now();
-  const before = state.tiles.map((t, i) => t === i);
-  const r = swap(state, a, b, hardMode);
-  if (!r.ok) {
-    sfx.denied();
-    return;
-  }
-  actions.push([a, b]);
-  const newly = [a, b].filter((p) => !before[p] && state.tiles[p] === p);
-  board.animateSwap(a, b, newly);
+function afterMove(r: { ok: boolean; newlyCorrect: number }) {
   if (r.newlyCorrect) sfx.correct(r.newlyCorrect);
   else sfx.swap();
   updateHud();
@@ -283,28 +367,63 @@ function onSwap(a: number, b: number) {
   else scheduleSave();
 }
 
+function beginClock() {
+  if (memorizing) stopMemorize();
+  if (!runningSince && !paused) runningSince = performance.now();
+}
+
+function onSwap(a: number, b: number) {
+  if (finished || paused) return;
+  beginClock();
+  const before = state.tiles.map((_, p) => isCorrect(state, p));
+  const r = swap(state, a, b);
+  if (!r.ok) {
+    sfx.denied();
+    return;
+  }
+  actions.push([a, b]);
+  board.animateSwap(a, b, [a, b].filter((p) => !before[p] && isCorrect(state, p)));
+  afterMove(r);
+}
+
+function onRotate(p: number) {
+  if (finished || paused) return;
+  beginClock();
+  const before = isCorrect(state, p);
+  const r = rotate(state, p);
+  if (!r.ok) {
+    sfx.denied();
+    return;
+  }
+  actions.push(['r', p]);
+  board.animateRotate(p, !before && isCorrect(state, p));
+  afterMove(r);
+}
+
+const hintPositions = (m: Suggestion) => (m.kind === 'swap' ? [m.a, m.b] : [m.p]);
+
 async function useHint() {
   if (finished) return;
-  if (Date.now() - lastHintAt < HINT_COOLDOWN_MS) {
-    toast('Hint cooling down', `Ready in ${Math.ceil((HINT_COOLDOWN_MS - (Date.now() - lastHintAt)) / 1000)}s.`);
+  if (Date.now() - lastHintAt < rules.hintCooldownMs) {
+    toast('Hint cooling down', `Ready in ${Math.ceil((rules.hintCooldownMs - (Date.now() - lastHintAt)) / 1000)}s.`);
     return;
   }
   if (!user) {
-    if (dailyDay) return signInPrompt('use hints on the daily challenge');
-    const pair = suggestSwap(state);
-    if (pair) {
+    if (rules.hintCost > 0) return signInPrompt(`use hints on ${dailyDay ? 'the daily challenge' : `${RULES[difficulty].label}`} (they cost points)`);
+    const m = suggest(state);
+    if (m) {
       actions.push(['hint']);
       state.hints++;
-      board.showHint(pair);
+      board.showHint(hintPositions(m));
       lastHintAt = Date.now();
     }
     return;
   }
   try {
-    const r = await api.post<{ pair: [number, number]; cost: number; points: number }>(`/plays/${play!.id}/hint`, { actions });
+    const r = await api.post<{ move: Suggestion; cost: number; points: number }>(`/plays/${play!.id}/hint`, { actions });
     actions.push(['hint']);
     state.hints++;
-    board.showHint(r.pair);
+    board.showHint(hintPositions(r.move));
     lastHintAt = Date.now();
     setPoints(r.points);
     if (r.cost) toast('Hint used', `−${r.cost} points`);
@@ -314,24 +433,44 @@ async function useHint() {
 }
 
 async function placeTile() {
-  if (finished || dailyDay) return;
-  if (!user) return signInPrompt('use the place-a-tile helper (it costs points)');
-  try {
-    const r = await api.post<{ pair: [number, number]; cost: number; points: number }>(`/plays/${play!.id}/place`, { actions });
-    const before = state.tiles.map((t, i) => t === i);
-    swap(state, r.pair[0], r.pair[1], hardMode);
-    state.places++;
-    actions.push(['place']);
-    board.animateSwap(r.pair[0], r.pair[1], r.pair.filter((p) => !before[p] && state.tiles[p] === p));
-    setPoints(r.points);
-    sfx.correct(1);
-    updateHud();
-    toast('Tile placed', `−${r.cost} points`);
-    if (isSolved(state)) void finish();
-    else scheduleSave(true);
-  } catch (e) {
-    toast('Could not place a tile', errorText(e), 'bad');
+  if (finished || !rules.placeAllowed) return;
+  if (!user && rules.placeCost > 0) return signInPrompt('use the place-a-tile helper (it costs points)');
+  beginClock();
+  let move: Suggestion | null;
+  let cost = 0;
+  if (user) {
+    try {
+      const r = await api.post<{ move: Suggestion; cost: number; points: number }>(`/plays/${play!.id}/place`, { actions });
+      move = r.move;
+      cost = r.cost;
+      setPoints(r.points);
+    } catch (e) {
+      toast('Could not place a tile', errorText(e), 'bad');
+      return;
+    }
+  } else move = suggest(state);
+  if (!move) return;
+  const before = state.tiles.map((_, p) => isCorrect(state, p));
+  const r = applySuggestion(state, move);
+  state.places++;
+  actions.push(['place']);
+  if (move.kind === 'swap') board.animateSwap(move.a, move.b, [move.a, move.b].filter((p) => !before[p] && isCorrect(state, p)));
+  else board.animateRotate(move.p, !before[move.p] && isCorrect(state, move.p));
+  if (cost) toast('Tile placed', `−${cost} points`);
+  afterMove(r);
+  scheduleSave(true);
+}
+
+function peek() {
+  if (finished || memorizing) return;
+  const wait = lastPeekAt + PEEK_COOLDOWN_MS - Date.now();
+  if (wait > 0) {
+    toast('Peek cooling down', `Ready in ${Math.ceil(wait / 1000)}s.`);
+    return;
   }
+  lastPeekAt = Date.now();
+  board.setRevealed(true);
+  setTimeout(() => board.setRevealed(false), PEEK_MS);
 }
 
 function signInPrompt(what: string) {
@@ -343,7 +482,7 @@ function signInPrompt(what: string) {
 }
 
 function togglePause(force?: boolean) {
-  if (finished) return;
+  if (finished || !rules.timed) return;
   const next = force ?? !paused;
   if (next === paused) return;
   paused = next;
@@ -351,7 +490,7 @@ function togglePause(force?: boolean) {
     elapsedBase = elapsed();
     runningSince = 0;
     scheduleSave(true);
-  } else runningSince = performance.now();
+  } else if (!memorizing) runningSince = performance.now();
   board.paused = paused;
   wrap.classList.toggle('paused', paused);
   pauseBtn.textContent = paused ? 'Resume' : 'Pause';
@@ -364,37 +503,37 @@ async function finish() {
   updateHud();
   timeEl.textContent = `Time: ${formatTime(elapsedBase)}`;
   if (!user) {
-    const rating = rate(difficulty, state.tiles.length, state.moves, elapsedBase);
+    const rating = rules.timed ? rate(difficulty, state, elapsedBase) : null;
+    const done: Done = { medal: rating?.medal ?? null, scorePct: rating?.scorePct ?? null, moves: state.moves, elapsedMs: Math.round(elapsedBase) };
     const saves = guestSaves.get();
-    saves[guestKey()] = {
-      seed,
-      actions,
-      elapsedMs: Math.round(elapsedBase),
-      completed: { medal: rating.medal, scorePct: rating.scorePct, moves: state.moves, elapsedMs: Math.round(elapsedBase) },
-    };
+    saves[setup.version === 1 ? `${guestBase()}:${difficulty}:n` : guestKey()] = { seed, actions, elapsedMs: done.elapsedMs, version: setup.version, completed: done };
     guestSaves.set(saves);
-    showCompleted(saves[guestKey()].completed!);
-    sfx.win(rating.medal);
-    showResult({
-      rating,
-      elapsedMs: elapsedBase,
-      moves: state.moves,
-      score: state.score,
-      points: winPoints(difficulty, elapsedBase, hardMode),
-      firstClear: true,
-      dailyBonus: 0,
-      milestone: null,
-      streak: null,
-      rank: null,
-      balance: 0,
-    }, true);
+    showCompleted(done);
+    sfx.win(rating?.medal ?? 'silver');
+    showResult(
+      {
+        rating,
+        zen: !rules.timed,
+        elapsedMs: elapsedBase,
+        moves: state.moves,
+        score: state.score,
+        points: rules.timed ? winPoints(difficulty, elapsedBase, rules) : ZEN_POINTS,
+        firstClear: true,
+        dailyBonus: 0,
+        milestone: null,
+        streak: null,
+        rank: null,
+        balance: 0,
+      },
+      true,
+    );
     return;
   }
   try {
     const r = await api.post<CompleteResult>(`/plays/${play!.id}/complete`, { actions, elapsedMs: Math.round(elapsedBase) });
     setPoints(r.balance);
-    showCompleted({ medal: r.rating.medal, scorePct: r.rating.scorePct, moves: r.moves, elapsedMs: r.elapsedMs });
-    sfx.win(r.rating.medal);
+    showCompleted({ medal: r.rating?.medal ?? null, scorePct: r.rating?.scorePct ?? null, moves: r.moves, elapsedMs: r.elapsedMs });
+    sfx.win(r.rating?.medal ?? 'silver');
     showResult(r, false);
   } catch (e) {
     toast('Could not record your finish', errorText(e), 'bad');
@@ -402,9 +541,14 @@ async function finish() {
 }
 
 function showResult(r: CompleteResult, guest: boolean) {
-  const label = r.rating.medal[0].toUpperCase() + r.rating.medal.slice(1);
+  const rating = r.rating;
+  const label = rating ? rating.medal[0].toUpperCase() + rating.medal.slice(1) : '';
+  const subtitle = `${puzzle.title} · ${RULES[difficulty].label} · ${MODE_LABELS[mode]}`;
   const share = async () => {
-    const text = `I solved ${dailyDay ? `the SnapShift daily (${dailyDay})` : `“${puzzle.title}” on SnapShift`} in ${formatTime(r.elapsedMs)} — ${label} medal, ${r.rating.scorePct}%. ${location.origin}${dailyDay ? '/daily' : ''}`;
+    const what = dailyDay ? `the SnapShift daily (${dailyDay})` : `“${puzzle.title}” on SnapShift (${RULES[difficulty].label}, ${MODE_LABELS[mode]})`;
+    const text = rating
+      ? `I solved ${what} in ${formatTime(r.elapsedMs)}: ${label} medal, ${rating.scorePct}%. ${location.origin}${dailyDay ? '/daily' : ''}`
+      : `I solved ${what}. ${location.origin}`;
     try {
       if (navigator.share) await navigator.share({ text });
       else {
@@ -416,23 +560,25 @@ function showResult(r: CompleteResult, guest: boolean) {
     }
   };
   const d = modal(
-    h('div', { class: 'result-medal' }, medalBadge(r.rating.medal)),
-    h('h2', { style: 'text-align:center' }, `${label} medal!`),
-    h('p', { class: 'muted', style: 'text-align:center' }, `${puzzle.title} · ${RULES[difficulty].label}${hardMode ? ' · Hard mode' : ''}`),
-    h(
-      'div',
-      { class: 'result-grid' },
-      h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Overall'), h('b', {}, `${r.rating.scorePct}%`)),
-      h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Moves'), h('b', {}, `${r.moves}`), h('span', { class: 'small muted' }, `${r.rating.moveEffPct}% efficient`)),
-      h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Time'), h('b', {}, formatTime(r.elapsedMs)), h('span', { class: 'small muted' }, `${r.rating.speedEffPct}% speed`)),
-    ),
+    rating ? h('div', { class: 'result-medal' }, medalBadge(rating.medal)) : h('div', { class: 'result-medal', style: 'font-size:48px' }, '✓'),
+    h('h2', { style: 'text-align:center' }, rating ? `${label} medal!` : 'Puzzle complete'),
+    h('p', { class: 'muted', style: 'text-align:center' }, subtitle),
+    rating
+      ? h(
+          'div',
+          { class: 'result-grid' },
+          h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Overall'), h('b', {}, `${rating.scorePct}%`)),
+          h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Moves'), h('b', {}, `${r.moves}`), h('span', { class: 'small muted' }, `${rating.moveEffPct}% efficient`)),
+          h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Time'), h('b', {}, formatTime(r.elapsedMs)), h('span', { class: 'small muted' }, `${rating.speedEffPct}% speed`)),
+        )
+      : h('p', { style: 'text-align:center' }, `${r.moves} moves. Nicely done.`),
     guest
       ? h('div', { class: 'notice' }, `That run would have earned ${r.points} points. `, h('a', { href: `/account?next=${encodeURIComponent(location.pathname + location.search)}` }, 'Create a free account'), ' to keep points, unlock puzzles and join the leaderboard.')
       : h(
           'div',
           { class: 'notice' },
           h('b', {}, `+${r.points + r.dailyBonus} points`),
-          r.firstClear ? '' : ' (replay rate)',
+          r.firstClear ? '' : r.zen ? ' (Zen pays once per puzzle)' : ' (replay rate)',
           r.dailyBonus ? ` including a ${r.dailyBonus}-point daily bonus` : '',
           '.',
           r.rank ? ` You're #${r.rank} on today's leaderboard.` : '',
@@ -445,7 +591,9 @@ function showResult(r: CompleteResult, guest: boolean) {
       h('button', { class: 'btn', onclick: share }, 'Share'),
       dailyDay ? h('a', { class: 'btn', href: `/leaderboard?day=${dailyDay}` }, 'Leaderboard') : null,
       h('button', { class: 'btn', onclick: () => { d.close(); void restart(true); } }, 'Play again'),
-      puzzle.next ? h('a', { class: 'btn primary', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}` }, 'Next puzzle →') : h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'More puzzles'),
+      puzzle.next
+        ? h('a', { class: 'btn primary', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}&m=${mode}` }, 'Next puzzle →')
+        : h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'More puzzles'),
     ),
   );
 }
@@ -464,6 +612,26 @@ async function restart(fresh: boolean) {
   } catch (e) {
     toast('Could not start', errorText(e), 'bad');
   }
+}
+
+/** Switch difficulty or mode: keeps any game already saved for that combination. */
+async function switchTo(next: { difficulty?: Difficulty; mode?: Mode }) {
+  if (state.moves > 0 && !finished && !confirm('Switch? This game stays saved and you can come back to it.')) {
+    syncControls();
+    return;
+  }
+  scheduleSave(true);
+  difficulty = next.difficulty ?? difficulty;
+  mode = next.mode ?? mode;
+  setup = { ...setup, version: ENGINE_VERSION, difficulty, mode, hardMode: false };
+  prefs.set({ difficulty, mode });
+  const url = new URL(location.href);
+  if (!dailyDay) {
+    url.searchParams.set('d', difficulty);
+    url.searchParams.set('m', mode);
+    history.replaceState(null, '', url);
+  }
+  await restart(false);
 }
 
 // ---------- page ----------
@@ -496,12 +664,12 @@ try {
           h('a', { class: 'btn', href: puzzle.categoryId && !dailyDay ? `/category?c=${puzzle.categoryId}` : '/' }, '← Back'),
           h('b', { class: 'sidebar-title' }, puzzle.title),
           preview,
-          h('label', { class: 'sr-only', for: 'diff' }, 'Difficulty'),
           diffSel,
+          modeSel,
           h('button', { class: 'btn', onclick: () => restart(true) }, 'Shuffle / restart'),
           hintBtn,
+          peekBtn,
           placeBtn,
-          hardBtn,
           pauseBtn,
           h('button', { class: 'btn', onclick: () => (document.fullscreenElement ? document.exitFullscreen() : wrap.requestFullscreen?.()) }, 'Full screen'),
           muteBtn,
@@ -510,43 +678,20 @@ try {
         h(
           'section',
           { class: 'panel' },
-          h(
-            'div',
-            { class: 'hud' },
-            h('div', { class: 'row' }, timeEl, h('span', { class: 'pill' }, dailyDay ? `Daily · ${dailyDay}` : puzzle.categoryName || 'Puzzle'), scoreEl, streakEl, movesEl),
-            h('div', { class: 'row' }, saveEl),
-          ),
+          h('div', { class: 'hud' }, h('div', { class: 'row' }, timeEl, modeEl, scoreEl, streakEl, movesEl), h('div', { class: 'row' }, saveEl)),
           doneBar,
           wrap,
           h('div', { class: 'progress-bar', role: 'progressbar', 'aria-label': 'Tiles in place' }, progressFill),
-          h('p', { class: 'small muted', style: 'margin-top:8px' }, 'Drag a tile onto another to swap them, or click two tiles. Tiles lock when they land in the right place. Keyboard: arrows + Enter.'),
+          helpText,
         ),
       ),
     );
-    board = new Board(canvas, image, { showCorrect: !hardMode, onSwap });
-    diffSel.addEventListener('change', async () => {
-      const prev = difficulty;
-      difficulty = diffSel.value as Difficulty;
-      prefs.set({ ...prefs.get(), difficulty });
-      if (state.moves > 0 && !finished && !confirm('Switch difficulty? This starts a new board.')) {
-        difficulty = prev;
-        diffSel.value = prev;
-        return;
-      }
-      await restart(false);
-    });
-    hardBtn.addEventListener('click', async () => {
-      const prev = hardMode;
-      hardMode = !hardMode;
-      if (state.moves > 0 && !finished && !confirm('Switch hard mode? This starts a new board.')) {
-        hardMode = prev;
-        return;
-      }
-      prefs.set({ ...prefs.get(), hardMode });
-      await restart(false);
-    });
+    board = new Board(canvas, image, { showCorrect: rules.glow, onSwap, onRotate });
+    diffSel.addEventListener('change', () => void switchTo({ difficulty: diffSel.value as Difficulty }));
+    modeSel.addEventListener('change', () => void switchTo({ mode: modeSel.value as Mode }));
     hintBtn.addEventListener('click', useHint);
     placeBtn.addEventListener('click', placeTile);
+    peekBtn.addEventListener('click', peek);
     muteBtn.addEventListener('click', () => {
       setMuted(!isMuted());
       muteBtn.textContent = isMuted() ? 'Sound off' : 'Sound on';
@@ -556,6 +701,7 @@ try {
       if (document.hidden && !finished) togglePause(true);
     });
     window.addEventListener('pagehide', () => scheduleSave(true));
+    syncControls(); // show the right controls for the chosen mode straight away
     await startGame(false);
     requestAnimationFrame(tick);
   }

@@ -60,7 +60,7 @@ app.get('/home', async (c) => {
       .bind(today, user.id)
       .first();
     const { results } = await c.env.DB.prepare(
-      `SELECT pl.id, pl.difficulty, pl.daily_day, pl.updated_at, p.slug, p.title, p.thumb_key, p.image_key, p.original_key
+      `SELECT pl.id, pl.difficulty, pl.mode, pl.daily_day, pl.updated_at, p.slug, p.title, p.thumb_key, p.image_key, p.original_key
        FROM plays pl JOIN puzzles p ON p.id = pl.puzzle_id
        WHERE pl.user_id = ? AND pl.completed_at IS NULL AND pl.actions != '[]'
        ORDER BY pl.updated_at DESC LIMIT 3`,
@@ -72,6 +72,7 @@ app.get('/home', async (c) => {
       slug: r.slug,
       title: r.title,
       difficulty: r.difficulty,
+      mode: r.mode,
       daily: r.daily_day,
       thumb: media(r.thumb_key || r.image_key || r.original_key),
     }));
