@@ -1,0 +1,215 @@
+:root{
+  --ss-site-bg:#0B1220;
+  --ss-panel-bg:rgba(15,23,42,.72);
+  --ss-section-bg:rgba(17,27,45,.78);
+  --ss-card-bg:rgba(26,39,64,.78);
+  --ss-border:rgba(42,57,82,.85);
+  --ss-text:#E8EEF7;
+  --ss-muted:#AFC2E0;
+  --ss-accent:#36CFC9;
+  --ss-accent-2:#7CC4FF;
+  --ss-button-bg:#16335D;
+  --ss-button-text:#E8EEF7;
+  --ss-pill-bg:#142848;
+  --ss-pill-text:#E8EEF7;
+  --ss-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --ss-heading-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+body{
+  background:var(--ss-site-bg) !important;
+  color:var(--ss-text) !important;
+  font-family:var(--ss-font) !important;
+}
+h1,h2,h3,h4,h5,h6,.brandTitle,.rowTitle,.gridTitle,.catName,.name,.dailyTitle,.lbTitle,.archiveName,.unlockTitle,.hero h1,.heroSimple h1,.landingHeader h1{
+  font-family:var(--ss-heading-font) !important;
+  color:var(--ss-text);
+}
+p,.rowSub,.gridHint,.catDesc,.dailySub,.dailyIntro p,.archiveMeta,.statSub,.tiny,.muted,.lbMeta .rowSub,.unlockCopy,.rewardPlacementCopy,.rewardPlacementFine,.completionShareText,.help,.archiveCount,.monthMeta,.meta,.statusDiff{
+  color:var(--ss-muted) !important;
+}
+.hero,.heroSimple,.dailyCard,.railCard,.seoCopyCard,.categoryIntroCard,.relatedCatsCard,.boardCard,.sidebar,.helpPanel,.modalCard,.pauseCard,.lbCard,.unlockPanel,.archiveCard,.statCard,.adPlacementCard,.completionPanel,.rewardPlacement,.topbar,.hud{
+  background:var(--ss-panel-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.stat,.unlockStat,.archiveEmpty,.adPlacementFrame,.resumeMeta,.pill2,.cat,.catCard,.card,.puz,.relatedCatLink,.latestGrid .card,.lbTableWrap{
+  background:var(--ss-section-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.thumb,.dailyThumb,.catTile,.tile,.archiveThumbWrap,canvas{
+  background:var(--ss-card-bg) !important;
+}
+.btnSoft,.btnPrimary,.loadMoreBtn,.dailyBtn,.hudBtn,.rewardPlacementBtn,button,select,input[type="range"],.completionShareBtn,.modalLinkBtn,.guideLinkBtn,.archiveFilterBtn,.footerLink{
+  background:var(--ss-button-bg) !important;
+  color:var(--ss-button-text) !important;
+  border-color:var(--ss-border) !important;
+}
+.pill,.statusBadge,.lbTabBtn,.lbRankPill,.lbCountBadge,.badge,.eyebrow,.tag,.metaTag,.hudItem,.statLabel,.lockBadge,.pausePill,.statusBadge.isMedal,.badge.medal{
+  background:var(--ss-pill-bg) !important;
+  color:var(--ss-pill-text) !important;
+  border-color:var(--ss-border) !important;
+}
+a,.dailyIntro a,.relatedBrowseAll,.archiveBody a,.heroActions a,.footerLinks a{ color:var(--ss-accent-2); }
+.lbTabBtn.active,.dailyBtn.isPrimary,.btnPrimary,.statusBadge.isGold,.badge.medal.isGold,.lbMedalBadge.isGold{
+  background:linear-gradient(135deg, var(--ss-accent-2), var(--ss-accent)) !important;
+  color:var(--ss-button-text) !important;
+  border-color:color-mix(in srgb, var(--ss-accent-2) 60%, white 10%) !important;
+}
+.statusBadge.isSilver,.badge.medal.isSilver,.lbMedalBadge.isSilver{
+  background:color-mix(in srgb, var(--ss-card-bg) 72%, white 14%) !important;
+}
+.statusBadge.isBronze,.badge.medal.isBronze,.lbMedalBadge.isBronze{
+  background:color-mix(in srgb, var(--ss-card-bg) 80%, #b86b2f 22%) !important;
+}
+.adPlacementBadge,.rewardPlacementEyebrow,.completionPanelTitle,.challengeCelebrateEyebrow,.statLabel,.rowTitle,.gridTitle,.archiveDate,.unlockStatLabel{
+  color:var(--ss-accent) !important;
+}
+.topbar .pill,.topbar .btnSoft,#continueBtn,.heroActions .pill,.heroActions .btnPrimary,.archiveToolbar .btnSoft,.archiveToolbar .archiveFilterBtn,.dailyRight .pill,.dailyRight .dailyBtn,.hudItem,.hudBtn{
+  box-shadow:none;
+}
+
+/* Force the exact shared header and section action button system */
+.topbar .btnSoft,
+.topbar .right > a.btnSoft,
+.homeIntroActions .btnSoft,
+.homeIntroActions a.btnSoft,
+.homeIntroActions .pill,
+.linkPills .btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  min-height:34px !important;
+  padding:7px 10px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1.1 !important;
+  text-decoration:none !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.topbar .btnSoft:hover,
+.topbar .right > a.btnSoft:hover,
+.homeIntroActions .btnSoft:hover,
+.homeIntroActions a.btnSoft:hover,
+.homeIntroActions .pill:hover,
+.linkPills .btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+
+/* Final normalization: topbar action controls and page link pills use one exact height */
+#authPill,
+.topbar .right > a.btnSoft,
+.topbar .right > #playBtn,
+.topbar .right > #pointsPill,
+.linkPills > a.btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+#authPill:hover,
+.topbar .right > a.btnSoft:hover,
+.topbar .right > #playBtn:hover,
+.linkPills > a.btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.topbar .right{
+  align-items:center !important;
+}
+
+/* Footer actions use the same shared button system */
+.footerLinks .footerLink{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.footerLinks .footerLink:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.footerLinks{
+  display:flex !important;
+  align-items:center !important;
+  flex-wrap:wrap !important;
+  gap:10px !important;
+}
+
+html, body{
+  max-width:100%;
+  overflow-x:hidden;
+}
+body{
+  min-height:100dvh;
+  scrollbar-gutter: stable both-edges;
+}
+header.topbar + .heroSimple{
+  margin-top:12px !important;
+}
+
+#supporterPill[hidden]{
+  display:none !important;
+}
+
+#supporterPill{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(142,240,176,.52) !important;
+  background: linear-gradient(135deg, rgba(21,76,52,.94), rgba(12,30,22,.97)) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22), 0 0 0 1px rgba(142,240,176,.14) inset !important;
+  animation: snapshiftDailyCountdownGlow 2.8s ease-in-out infinite !important;
+  color:#dcffe7 !important;
+  font-size:11px !important;
+  font-weight:950 !important;
+  letter-spacing:.12em !important;
+  text-transform:uppercase !important;
+  white-space:nowrap !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  cursor:default !important;
+}

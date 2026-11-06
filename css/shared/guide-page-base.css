@@ -1,0 +1,161 @@
+    :root{ font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      color:#e8eef7;
+      background:#000000;
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
+      position:relative;
+    }
+
+    .screen{ position:relative; z-index:1; min-height:100vh; }
+    .shell{
+      width:min(1400px, 100%);
+      margin:0 auto;
+      padding:18px;
+      box-sizing:border-box;
+    }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:7px 10px; border-radius:999px;
+      border:1px solid rgba(42,57,82,.7);
+      background: rgba(0,0,0,.18);
+      font-weight:800;
+      font-size:12px;
+      white-space:nowrap;
+      color:#e8eef7;
+      text-decoration:none;
+    }
+    .pill.active{ background: rgba(124,196,255,.14); border-color: rgba(124,196,255,.45); }
+    .btnSoft{
+      border-radius:999px;
+      border:1px solid rgba(42,57,82,.7);
+      background: rgba(15,23,42,.55);
+      color:#e8eef7;
+      font-weight:900;
+      padding:10px 12px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .btnSoft:hover, .pill:hover{ filter:brightness(1.08); }
+
+    header.topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 6px 14px;
+      flex-wrap:wrap;
+    }
+    .brand{ display:flex; align-items:center; gap:12px; min-width:240px; }
+    .logoImg{
+      height:75px;
+      width:auto;
+      display:block;
+      object-fit:contain;
+      filter: drop-shadow(0 10px 26px rgba(0,0,0,.25));
+    }
+    .right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+
+    .heroSimple{
+      border-radius:18px;
+      border:1px solid rgba(36,48,69,0.85);
+      background: rgba(15,23,42,0.72);
+      padding:16px;
+      backdrop-filter:blur(10px);
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .heroSimple h1{ margin:0; font-size:30px; letter-spacing:.2px; }
+    .heroSimple p{ margin:6px 0 0; opacity:.88; font-weight:700; }
+
+    .railCard{
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(36,48,69,0.85);
+      background: rgba(15,23,42,0.60);
+      padding:16px;
+      backdrop-filter:blur(10px);
+    }
+    .rowHeader{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:2px 2px 10px;
+    }
+    .rowTitle{ font-weight:950; font-size:14px; }
+    .rowSub{ opacity:.8; font-size:12px; font-weight:800; }
+
+    .contentGrid{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); gap:12px; }
+    .contentBlock{
+      border-radius:16px;
+      border:1px solid rgba(36,48,69,0.8);
+      background: rgba(11,18,32,0.55);
+      padding:16px;
+    }
+    .contentBlock h2{ margin:0 0 10px; font-size:20px; }
+    .contentBlock h3{ margin:0 0 8px; font-size:17px; }
+    .contentBlock p{ margin:0 0 12px; line-height:1.65; color:#dbe6ff; }
+    .contentBlock ul{ margin:0; padding-left:18px; color:#dbe6ff; line-height:1.65; }
+    .contentBlock li{ margin:0 0 8px; }
+    .twoCol{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .guidePills{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .callout{
+      margin-top:12px;
+      padding:14px 16px;
+      border-radius:14px;
+      border:1px solid rgba(124,196,255,.28);
+      background:rgba(16,29,53,.7);
+      color:#dfeaff;
+      line-height:1.6;
+      font-weight:700;
+    }
+
+    .siteFooter{
+      margin-top:18px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:8px 6px 2px;
+      flex-wrap:wrap;
+      opacity:.95;
+    }
+    .siteFooter .footerMeta{ opacity:.86; font-size:12px; font-weight:800; }
+    .siteFooter .footerLinks{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .siteFooter .footerLink{
+      border-radius:999px;
+      border:1px solid rgba(42,57,82,.7);
+      background: rgba(0,0,0,.18);
+      color:#e8eef7;
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:.2px;
+      padding:7px 10px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      text-decoration:none;
+    }
+
+    @media (max-width: 800px){
+      .contentGrid, .twoCol{ grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px){
+      .shell{ padding:14px; }
+      .heroSimple h1{ font-size:24px; }
+      .right{ width:100%; justify-content:flex-start; }
+      .siteFooter{ justify-content:center; text-align:center; }
+      .siteFooter .footerLinks{ justify-content:center; width:100%; }
+    }
+  

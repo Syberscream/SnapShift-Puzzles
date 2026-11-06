@@ -248,18 +248,6 @@ function pq_bootstrap_files(): void {
     }
 }
 
-function pq_global_value(array $names) {
-    foreach ($names as $name) {
-        if (array_key_exists($name, $GLOBALS) && $GLOBALS[$name] !== null && $GLOBALS[$name] !== '') {
-            return $GLOBALS[$name];
-        }
-        if (defined($name)) {
-            return constant($name);
-        }
-    }
-
-    return null;
-}
 
 function pq_user_id(): int {
     static $cached = null;
@@ -320,25 +308,21 @@ function pq_db() {
         }
     }
 
-    $host = pq_global_value(['DB_HOST', 'DB_SERVER', 'MYSQL_HOST', 'db_host']);
-    $name = pq_global_value(['DB_NAME', 'DB_DATABASE', 'MYSQL_DATABASE', 'db_name']);
-    $user = pq_global_value(['DB_USER', 'DB_USERNAME', 'MYSQL_USER', 'db_user']);
-    $pass = pq_global_value(['DB_PASS', 'DB_PASSWORD', 'MYSQL_PASSWORD', 'db_pass', 'db_password']);
-    $charset = pq_global_value(['DB_CHARSET', 'MYSQL_CHARSET', 'db_charset']) ?: 'utf8mb4';
-
-    if ($host && $name && $user !== null) {
-        return new PDO(
-            "mysql:host={$host};dbname={$name};charset={$charset}",
-            (string)$user,
-            (string)$pass,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
-        );
-    }
-
-    throw new RuntimeException('Database connection not available');
+    // Credentials come from the shared site config (config.local.php / env).
+    // Emulated prepares are kept (PDO default) because the reward code was
+    // written against this connection's behaviour.
+    require_once __DIR__ . '/site_config.php';
+    $config = snapshift_db_config();
+    snapshift_assert_db_config($config);
+    return new PDO(
+        "mysql:host={$config['host']};dbname={$config['name']};charset={$config['charset']}",
+        $config['user'],
+        $config['pass'],
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]
+    );
 }
 
 function pq_has_table($pdo, string $table): bool {

@@ -1,0 +1,846 @@
+@keyframes snapshiftDailyCountdownGlow{
+  0%,100%{
+    box-shadow: 0 10px 24px rgba(0,0,0,.22), 0 0 0 1px rgba(142,240,176,.14) inset, 0 0 0 rgba(142,240,176,0);
+  }
+  50%{
+    box-shadow: 0 12px 28px rgba(0,0,0,.28), 0 0 0 1px rgba(142,240,176,.24) inset, 0 0 22px rgba(142,240,176,.18);
+  }
+}
+.dailyResetPill{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 14px;
+  border:1px solid rgba(142,240,176,.52) !important;
+  background: linear-gradient(135deg, rgba(21,76,52,.94), rgba(12,30,22,.97)) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22), 0 0 0 1px rgba(142,240,176,.14) inset;
+  animation: snapshiftDailyCountdownGlow 2.8s ease-in-out infinite;
+}
+.dailyResetLabel{
+  color:#dcffe7;
+  opacity:.98;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.dailyResetValue{
+  color:#b9ffd2;
+  text-shadow: 0 0 18px rgba(142,240,176,.24);
+  font-size:15px;
+  font-weight:1000;
+  letter-spacing:.06em;
+}
+#dailyResetPill{
+  min-width: 190px;
+  justify-content:center;
+}
+
+:root{
+  --ss-site-bg:#0B1220;
+  --ss-panel-bg:rgba(15,23,42,.72);
+  --ss-section-bg:rgba(17,27,45,.78);
+  --ss-card-bg:rgba(26,39,64,.78);
+  --ss-border:rgba(42,57,82,.85);
+  --ss-text:#E8EEF7;
+  --ss-muted:#AFC2E0;
+  --ss-accent:#36CFC9;
+  --ss-accent-2:#7CC4FF;
+  --ss-button-bg:#16335D;
+  --ss-button-text:#E8EEF7;
+  --ss-pill-bg:#142848;
+  --ss-pill-text:#E8EEF7;
+  --ss-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --ss-heading-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+body{
+  background:var(--ss-site-bg) !important;
+  color:var(--ss-text) !important;
+  font-family:var(--ss-font) !important;
+}
+h1,h2,h3,h4,h5,h6,.brandTitle,.rowTitle,.gridTitle,.catName,.name,.dailyTitle,.lbTitle,.archiveName,.unlockTitle,.hero h1,.heroSimple h1,.landingHeader h1{
+  font-family:var(--ss-heading-font) !important;
+  color:var(--ss-text);
+}
+p,.rowSub,.gridHint,.catDesc,.dailySub,.dailyIntro p,.archiveMeta,.statSub,.tiny,.muted,.lbMeta .rowSub,.unlockCopy,.rewardPlacementCopy,.rewardPlacementFine,.completionShareText,.help,.archiveCount,.monthMeta,.meta,.statusDiff{
+  color:var(--ss-muted) !important;
+}
+.hero,.heroSimple,.dailyCard,.railCard,.seoCopyCard,.categoryIntroCard,.relatedCatsCard,.boardCard,.sidebar,.helpPanel,.modalCard,.pauseCard,.lbCard,.unlockPanel,.archiveCard,.statCard,.adPlacementCard,.completionPanel,.rewardPlacement,.topbar,.hud{
+  background:var(--ss-panel-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.stat,.unlockStat,.archiveEmpty,.adPlacementFrame,.resumeMeta,.pill2,.cat,.catCard,.card,.puz,.relatedCatLink,.latestGrid .card,.lbTableWrap{
+  background:var(--ss-section-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.thumb,.dailyThumb,.catTile,.tile,.archiveThumbWrap,canvas{
+  background:var(--ss-card-bg) !important;
+}
+.btnSoft,.btnPrimary,.loadMoreBtn,.dailyBtn,.hudBtn,.rewardPlacementBtn,button,select,input[type="range"],.completionShareBtn,.modalLinkBtn,.guideLinkBtn,.archiveFilterBtn,.footerLink{
+  background:var(--ss-button-bg) !important;
+  color:var(--ss-button-text) !important;
+  border-color:var(--ss-border) !important;
+}
+.pill,.statusBadge,.lbTabBtn,.lbRankPill,.lbCountBadge,.badge,.eyebrow,.tag,.metaTag,.hudItem,.statLabel,.lockBadge,.pausePill,.statusBadge.isMedal,.badge.medal{
+  background:var(--ss-pill-bg) !important;
+  color:var(--ss-pill-text) !important;
+  border-color:var(--ss-border) !important;
+}
+a,.dailyIntro a,.relatedBrowseAll,.archiveBody a,.heroActions a,.footerLinks a{ color:var(--ss-accent-2); }
+.lbTabBtn.active,.dailyBtn.isPrimary,.btnPrimary,.statusBadge.isGold,.badge.medal.isGold,.lbMedalBadge.isGold{
+  background:linear-gradient(135deg, var(--ss-accent-2), var(--ss-accent)) !important;
+  color:var(--ss-button-text) !important;
+  border-color:color-mix(in srgb, var(--ss-accent-2) 60%, white 10%) !important;
+}
+.statusBadge.isSilver,.badge.medal.isSilver,.lbMedalBadge.isSilver{
+  background:color-mix(in srgb, var(--ss-card-bg) 72%, white 14%) !important;
+}
+.statusBadge.isBronze,.badge.medal.isBronze,.lbMedalBadge.isBronze{
+  background:color-mix(in srgb, var(--ss-card-bg) 80%, #b86b2f 22%) !important;
+}
+.adPlacementBadge,.rewardPlacementEyebrow,.completionPanelTitle,.challengeCelebrateEyebrow,.statLabel,.rowTitle,.gridTitle,.archiveDate,.unlockStatLabel{
+  color:var(--ss-accent) !important;
+}
+.topbar .pill,.topbar .btnSoft,#continueBtn,.heroActions .pill,.heroActions .btnPrimary,.archiveToolbar .btnSoft,.archiveToolbar .archiveFilterBtn,.dailyRight .pill,.dailyRight .dailyBtn,.hudItem,.hudBtn{
+  box-shadow:none;
+}
+
+.statusBadge{
+  border:1px solid rgba(120,255,190,.42) !important;
+  background:rgba(10,42,24,.88) !important;
+  color:#dfffea !important;
+  box-shadow:0 5px 14px rgba(0,0,0,.24) !important;
+}
+.statusBadge .statusDiff{
+  color:inherit !important;
+  opacity:.9 !important;
+  font-weight:800 !important;
+  font-size:9px !important;
+  text-transform:none !important;
+}
+.statusBadge.isMedal{
+  border-color: rgba(255,215,120,.42) !important;
+  background: rgba(48,32,8,.90) !important;
+  color:#fff3c4 !important;
+}
+.statusBadge.isGold{
+  border-color: rgba(255,221,120,.52) !important;
+  background: linear-gradient(180deg, rgba(96,66,10,.92), rgba(53,35,8,.92)) !important;
+  color:#fff4be !important;
+}
+.statusBadge.isSilver{
+  border-color: rgba(214,224,240,.52) !important;
+  background: linear-gradient(180deg, rgba(61,74,96,.92), rgba(34,43,58,.92)) !important;
+  color:#eef5ff !important;
+}
+.statusBadge.isBronze{
+  border-color: rgba(224,164,120,.48) !important;
+  background: linear-gradient(180deg, rgba(86,49,26,.92), rgba(54,31,19,.92)) !important;
+  color:#ffe8da !important;
+}
+.statusBadge .statusStars{
+  letter-spacing:.08em !important;
+  font-size:11px !important;
+  font-weight:950 !important;
+  line-height:1 !important;
+}
+.lbMedalBadge{
+  border:1px solid rgba(255,255,255,.12) !important;
+  background: rgba(255,255,255,.03) !important;
+}
+.lbMedalBadge.isGold{
+  background: rgba(250,204,21,.10) !important;
+  border-color: rgba(250,204,21,.34) !important;
+}
+.lbMedalBadge.isSilver{
+  background: rgba(226,232,240,.10) !important;
+  border-color: rgba(226,232,240,.26) !important;
+}
+.lbMedalBadge.isBronze{
+  background: rgba(251,146,60,.10) !important;
+  border-color: rgba(251,146,60,.28) !important;
+}
+
+/* Keep leaderboard modal controls as thin pill links instead of chunky CTA buttons */
+.lbTabs,
+.lbActions{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  align-items:center !important;
+  gap:10px !important;
+}
+.lbActions{
+  justify-content:flex-start !important;
+  width:100% !important;
+}
+.lbTabBtn,
+#lbClaimBtn,
+#lbCloseBtn,
+.lbActions .dailyBtn{
+  appearance:none !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:auto !important;
+  min-width:0 !important;
+  min-height:38px !important;
+  padding:8px 14px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(42,57,82,.72) !important;
+  background:rgba(15,23,42,.55) !important;
+  color:#e8eef7 !important;
+  font-weight:900 !important;
+  font-size:12px !important;
+  line-height:1 !important;
+  text-align:center !important;
+  box-shadow:none !important;
+  white-space:nowrap !important;
+}
+.lbTabBtn:hover,
+#lbClaimBtn:hover,
+#lbCloseBtn:hover,
+.lbActions .dailyBtn:hover{
+  filter:brightness(1.08) !important;
+}
+.lbTabBtn.active{
+  background:rgba(124,196,255,.14) !important;
+  border-color:rgba(124,196,255,.45) !important;
+  color:#f2f8ff !important;
+  box-shadow:none !important;
+}
+#lbClaimBtn[hidden]{
+  display:none !important;
+}
+#lbClaimBtn[disabled],
+.lbTabBtn[disabled],
+.lbActions .dailyBtn[disabled]{
+  opacity:.72 !important;
+  cursor:default !important;
+}
+.lbHelpWrap{
+  display:inline-flex !important;
+}
+.lbInfoBtn{
+  width:38px !important;
+  height:38px !important;
+  min-height:38px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(42,57,82,.72) !important;
+  background:rgba(15,23,42,.55) !important;
+  color:#e8eef7 !important;
+  box-shadow:none !important;
+}
+@media (max-width: 620px){
+  .lbActions,
+  .lbTabs{
+    gap:8px !important;
+  }
+  .lbTabBtn,
+  #lbClaimBtn,
+  #lbCloseBtn,
+  .lbActions .dailyBtn{
+    min-height:36px !important;
+    padding:8px 12px !important;
+    font-size:12px !important;
+  }
+}
+@media (max-width: 440px){
+  .lbActions{
+    display:flex !important;
+    justify-content:flex-start !important;
+    align-items:center !important;
+  }
+  #lbClaimBtn,
+  #lbCloseBtn,
+  .lbActions .dailyBtn{
+    width:auto !important;
+    flex:0 0 auto !important;
+  }
+}
+
+.approvalGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width: 980px){
+  .approvalGrid{ grid-template-columns: 1fr; }
+}
+.approvalCard{
+  border-radius:16px;
+  border:1px solid rgba(42,57,82,.78);
+  background:rgba(11,18,32,.42);
+  padding:14px;
+}
+.approvalEyebrow{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(124,196,255,.28);
+  background:rgba(23,35,61,.62);
+  color:#dff0ff;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.approvalCard h3{
+  margin:12px 0 8px;
+  font-size:18px;
+}
+.approvalCard p{
+  margin:0;
+  color:#d8e5ff;
+  line-height:1.55;
+  font-size:13px;
+  font-weight:700;
+}
+.approvalList{
+  margin:12px 0 0;
+  padding:0;
+  list-style:none;
+  display:grid;
+  gap:8px;
+}
+.approvalList li{
+  display:flex;
+  gap:8px;
+  align-items:flex-start;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.4;
+  color:#e8eef7;
+}
+.approvalList li::before{
+  content:"✦";
+  color:#9fd0ff;
+  flex:0 0 auto;
+}
+.quickFaqGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width: 840px){
+  .quickFaqGrid{ grid-template-columns: 1fr; }
+}
+.quickFaqItem{
+  border-radius:16px;
+  border:1px solid rgba(42,57,82,.78);
+  background:rgba(11,18,32,.42);
+  padding:14px;
+}
+.quickFaqItem h3{
+  margin:0 0 8px;
+  font-size:16px;
+}
+.quickFaqItem p{
+  margin:0;
+  color:#d8e5ff;
+  line-height:1.55;
+  font-size:13px;
+  font-weight:700;
+}
+.linkPills{
+  margin-top:14px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+/* Match homepage action buttons to the Daily Challenge button style */
+#authPill,
+.topbar .btnSoft,
+.homeIntroActions .btnSoft,
+.homeIntroActions .pill,
+.supporterBtn,
+.supporterBtn.isGhost,
+.swagBannerBtn,
+.swagBannerBtn.isGhost,
+#continueBtn,
+#homeUnlockCancelBtn,
+#homeUnlockConfirmBtn{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  min-height:34px !important;
+  padding:7px 10px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(42,57,82,.7) !important;
+  background:rgba(0,0,0,.18) !important;
+  color:#e8eef7 !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1.1 !important;
+  text-decoration:none !important;
+  cursor:pointer !important;
+  box-shadow:none !important;
+  transition:none !important;
+}
+
+#authPill:hover,
+.topbar .btnSoft:hover,
+.homeIntroActions .btnSoft:hover,
+.homeIntroActions .pill:hover,
+.supporterBtn:hover,
+.supporterBtn.isGhost:hover,
+.swagBannerBtn:hover,
+.swagBannerBtn.isGhost:hover,
+#continueBtn:hover,
+#homeUnlockCancelBtn:hover,
+#homeUnlockConfirmBtn:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+
+#authPill,
+.topbar .btnSoft,
+.homeIntroActions .btnSoft,
+.homeIntroActions .pill{
+  white-space:nowrap !important;
+}
+
+#continueBtn{
+  justify-content:flex-start !important;
+}
+
+#homeUnlockCancelBtn,
+#homeUnlockConfirmBtn{
+  min-height:38px !important;
+  padding:8px 12px !important;
+}
+
+.supporterActions,
+.swagBannerActions,
+.homeIntroActions{
+  gap:10px !important;
+}
+
+/* Final pass: make all action buttons use the same visual system as the Daily Challenge buttons */
+#authPill,
+.btnSoft,
+.supporterBtn,
+.supporterBtn.isGhost,
+#continueBtn,
+#homeUnlockCancelBtn,
+#homeUnlockConfirmBtn,
+.dailyBtn{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  min-height:34px !important;
+  padding:7px 10px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.7)) !important;
+  background:var(--ss-button-bg, rgba(22,51,93,.95)) !important;
+  color:var(--ss-button-text, #e8eef7) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1.1 !important;
+  text-decoration:none !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+  transition:none !important;
+}
+
+#authPill:hover,
+.btnSoft:hover,
+.supporterBtn:hover,
+.supporterBtn.isGhost:hover,
+#continueBtn:hover,
+#homeUnlockCancelBtn:hover,
+#homeUnlockConfirmBtn:hover,
+.dailyBtn:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+
+#continueBtn{
+  justify-content:flex-start !important;
+}
+
+#homeUnlockCancelBtn,
+#homeUnlockConfirmBtn,
+#lbClaimBtn,
+#lbCloseBtn{
+  min-height:38px !important;
+  padding:8px 12px !important;
+}
+
+.topbar .right,
+.homeIntroActions,
+.linkPills,
+.supporterActions,
+.homeUnlockActions{
+  gap:10px !important;
+}
+
+/* Force the two missed homepage button groups to use admin-controlled button tokens */
+.topbar .btnSoft,
+.topbar .right > a.btnSoft,
+.homeIntroActions .btnSoft,
+.homeIntroActions a.btnSoft,
+.homeIntroActions .pill,
+.linkPills .btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+  min-height:34px !important;
+  padding:7px 10px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1.1 !important;
+  text-decoration:none !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.topbar .btnSoft:hover,
+.topbar .right > a.btnSoft:hover,
+.homeIntroActions .btnSoft:hover,
+.homeIntroActions a.btnSoft:hover,
+.homeIntroActions .pill:hover,
+.linkPills .btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+
+/* Final normalization: topbar action controls and home-intro links use one exact height */
+#authPill,
+.topbar .right > a.btnSoft,
+.topbar .right > #playBtn,
+.topbar .right > #pointsPill,
+.homeIntroActions > a.btnSoft,
+.homeIntroActions > .btnSoft,
+.homeIntroActions > a,
+.linkPills > a.btnSoft{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+#authPill:hover,
+.topbar .right > a.btnSoft:hover,
+.topbar .right > #playBtn:hover,
+.homeIntroActions > a.btnSoft:hover,
+.homeIntroActions > .btnSoft:hover,
+.homeIntroActions > a:hover,
+.linkPills > a.btnSoft:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.topbar .right{
+  align-items:center !important;
+}
+.homeIntroActions{
+  align-items:center !important;
+}
+
+/* Final pass: supporter and footer actions use the same admin-driven button system */
+.supporterWrap .btnSoft,
+.supporterWrap .supporterBtn,
+.supporterWrap .supporterBtn.isGhost,
+.footerLinks .footerLink{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+.supporterWrap .btnSoft:hover,
+.supporterWrap .supporterBtn:hover,
+.supporterWrap .supporterBtn.isGhost:hover,
+.footerLinks .footerLink:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.supporterActions,
+.footerLinks{
+  display:flex !important;
+  align-items:center !important;
+  flex-wrap:wrap !important;
+  gap:10px !important;
+}
+
+#supporterPill[hidden]{
+  display:none !important;
+}
+#supporterStatusCard[hidden]{
+  display:none !important;
+}
+
+/* Exact carried-over approved supporter pill treatment */
+#supporterPill{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(142,240,176,.52) !important;
+  background: linear-gradient(135deg, rgba(21,76,52,.94), rgba(12,30,22,.97)) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22), 0 0 0 1px rgba(142,240,176,.14) inset !important;
+  animation: snapshiftDailyCountdownGlow 2.8s ease-in-out infinite !important;
+  color:#dcffe7 !important;
+  font-size:11px !important;
+  font-weight:950 !important;
+  letter-spacing:.12em !important;
+  text-transform:uppercase !important;
+  white-space:nowrap !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  cursor:default !important;
+}
+
+#supporter .pricingGrid{
+  display:grid;
+  grid-template-columns: 1.15fr 1.15fr .9fr;
+  gap:12px;
+  margin-top:12px;
+  align-items:stretch;
+}
+#supporter .priceCard,
+#supporter .miniCard{
+  border-radius:18px;
+  border:1px solid rgba(36,48,69,0.85);
+  background: rgba(15,23,42,0.68);
+  box-sizing:border-box;
+}
+#supporter .priceCard{
+  padding:16px;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+#supporter .priceCard.featured{
+  border-color: rgba(124,196,255,.50);
+  box-shadow: 0 12px 32px rgba(0,0,0,.22);
+}
+#supporter .ribbon{
+  display:inline-flex;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid rgba(124,196,255,.35);
+  background: rgba(27,40,66,.75);
+  color:#dff0ff;
+  font-weight:900;
+  font-size:11px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+#supporter .planTitle{ margin-top:12px; font-size:22px; font-weight:950; }
+#supporter .planPrice{ margin-top:10px; display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; }
+#supporter .planAmount{ font-size:36px; font-weight:950; line-height:1; }
+#supporter .planTerm{ opacity:.82; font-size:13px; font-weight:800; padding-bottom:4px; }
+#supporter .planDesc{ margin-top:10px; opacity:.92; font-size:13px; font-weight:700; line-height:1.45; }
+#supporter .featureList{ list-style:none; margin:14px 0 0; padding:0; display:grid; gap:10px; }
+#supporter .featureList li{ display:flex; gap:10px; font-size:13px; font-weight:800; line-height:1.35; }
+#supporter .featureList li::before{ content:"✦"; color:#9fd0ff; font-weight:950; }
+#supporter .cardActions{ margin-top:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+#supporter .fine{ margin-top:10px; opacity:.76; font-size:11px; font-weight:700; }
+#supporter .miniCompare{ display:grid; gap:12px; }
+#supporter .miniCard{ padding:14px; }
+#supporter .miniTitle{ font-size:15px; font-weight:950; }
+#supporter .miniSub{ margin-top:4px; opacity:.82; font-size:12px; font-weight:800; line-height:1.4; }
+#supporter .stripePlanWrap{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+#supporter .stripePlanWrap stripe-buy-button{ display:inline-block; }
+@media (max-width: 1040px){
+  #supporter .pricingGrid{ grid-template-columns:1fr; }
+  #supporter .cardActions{ align-items:flex-start; }
+}
+
+#supporter .pricingGrid{ align-items:stretch; }
+#supporter .priceCard{ display:flex; flex-direction:column; min-height:100%; }
+#supporter .priceCard .featureList{ margin:14px 0 0; }
+#supporter .priceCard .cardActions{ margin-top:auto; }
+#supporter .priceCard .fine{ margin-top:12px; }
+#supporter .stripePlanWrap{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-start;
+  min-height:64px;
+  padding-top:14px;
+}
+#supporter .stripePlanWrap stripe-buy-button{ display:inline-block; }
+#supporter #index-monthly-plan .stripePlanWrap,
+#supporter #index-annual-plan .stripePlanWrap{
+  margin-top:0;
+}
+@media (max-width: 1040px){
+  #supporter .priceCard .cardActions{ align-items:flex-start; }
+  #supporter .stripePlanWrap{ min-height:0; padding-top:12px; }
+}
+
+/* Clean single-source preview + action-row alignment */
+.priceCard{
+  display:flex;
+  flex-direction:column;
+}
+.priceCard .planTitle{
+  min-height:52px;
+}
+.priceCard .planPrice{
+  min-height:62px;
+  align-items:flex-end;
+}
+.priceCard .planDesc{
+  min-height:74px;
+}
+.priceCard .featureList{
+  min-height:198px;
+}
+
+.stripeDetailsPreview{
+  margin-top:14px;
+  border-radius:18px;
+  border:1px solid rgba(42,57,82,.72);
+  background: rgba(15,23,42,.68);
+  padding:18px 16px 14px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  box-sizing:border-box;
+  min-height:520px;
+}
+.stripeDetailsPreviewLogoWrap{
+  width:min(240px, 100%);
+  aspect-ratio:1 / 1;
+  border-radius:16px;
+  background:#f6e7d8;
+  border:1px solid rgba(255,214,173,.42);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
+.stripeDetailsPreviewLogo{
+  width:72%;
+  height:auto;
+  display:block;
+  object-fit:contain;
+}
+.stripeDetailsPreviewName{
+  margin-top:16px;
+  font-size:18px;
+  font-weight:800;
+  line-height:1.12;
+  letter-spacing:-.01em;
+  min-height:40px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+.stripeDetailsPreviewPrice{
+  margin-top:8px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+  min-height:62px;
+}
+.stripeDetailsPreviewAmount{
+  font-size:34px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-.02em;
+}
+.stripeDetailsPreviewTerm{
+  font-size:14px;
+  font-weight:700;
+  line-height:1.05;
+  text-align:left;
+  padding-bottom:3px;
+}
+.stripeDetailsPreviewSub{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:700;
+  opacity:.94;
+  line-height:1.2;
+  min-height:14px;
+}
+.stripeDetailsPreviewPayRow{
+  margin-top:auto;
+  display:flex;
+  justify-content:center;
+  width:100%;
+  padding-top:12px;
+}
+.stripePaymentBanner{
+  display:block;
+  width:min(248px, 100%);
+  height:auto;
+  object-fit:contain;
+}
+
+.cardActions.stripePlanWrap{
+  margin-top:10px !important;
+  padding-top:0 !important;
+  min-height:0 !important;
+  align-items:flex-start !important;
+}
+.cardActions.stripePlanWrap stripe-buy-button{
+  margin-top:0 !important;
+  align-self:flex-start !important;
+}
+
+@media (max-width: 1040px){
+  .priceCard .planTitle,
+  .priceCard .planPrice,
+  .priceCard .planDesc,
+  .priceCard .featureList,
+  .stripeDetailsPreview{
+    min-height:0;
+  }
+}

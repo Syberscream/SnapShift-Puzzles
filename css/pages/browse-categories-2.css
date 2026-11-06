@@ -1,0 +1,3 @@
+.rowHeader .pill, .rowHeader .btnSoft, .heroSimple .pill, .heroSimple .btnSoft, .siteFooter .footerLink{box-shadow:none !important; min-height:0 !important;}
+.rowHeader .pill, .heroSimple .pill{padding:7px 10px !important; font-size:12px !important;}
+.rowHeader .btnSoft, .heroSimple .btnSoft, .siteFooter .footerLink{padding:7px 10px !important; font-size:12px !important; background: rgba(0,0,0,.18) !important; font-weight:800 !important;}

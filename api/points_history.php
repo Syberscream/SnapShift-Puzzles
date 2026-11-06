@@ -38,25 +38,6 @@ function ph_root_dir(): string
     return dirname(__DIR__);
 }
 
-function ph_global_value(array $names)
-{
-    foreach ($names as $name) {
-        if (array_key_exists($name, $GLOBALS) && $GLOBALS[$name] !== null && $GLOBALS[$name] !== '') {
-            return $GLOBALS[$name];
-        }
-        if (defined($name)) {
-            $value = constant($name);
-            if ($value !== null && $value !== '') {
-                return $value;
-            }
-        }
-        $env = getenv($name);
-        if ($env !== false && $env !== '') {
-            return $env;
-        }
-    }
-    return null;
-}
 
 function ph_bootstrap(): void
 {
@@ -143,30 +124,14 @@ function ph_points_from_user(?array $user): ?int
 
 function ph_pdo(): ?PDO
 {
-    if (function_exists('snapshift_pdo')) {
-        try {
-            $pdo = snapshift_pdo();
-            if ($pdo instanceof PDO) {
-                return $pdo;
-            }
-        } catch (Throwable $e) {
-        }
+    if (!function_exists('snapshift_pdo')) {
+        require_once __DIR__ . '/../config/db.php';
     }
-
-    $host = ph_global_value(['DB_HOST', 'DATABASE_HOST', 'MYSQL_HOST']);
-    $name = ph_global_value(['DB_NAME', 'DATABASE_NAME', 'MYSQL_DATABASE']);
-    $user = ph_global_value(['DB_USER', 'DATABASE_USER', 'MYSQL_USER']);
-    $pass = ph_global_value(['DB_PASS', 'DB_PASSWORD', 'DATABASE_PASS', 'DATABASE_PASSWORD', 'MYSQL_PASSWORD']);
-
-    if (!$host || !$name || !$user) {
+    try {
+        return snapshift_pdo();
+    } catch (Throwable $e) {
         return null;
     }
-
-    $dsn = 'mysql:host=' . $host . ';dbname=' . $name . ';charset=utf8mb4';
-    return new PDO($dsn, (string)$user, (string)$pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
 }
 
 function ph_table_exists(PDO $pdo, string $table): bool
