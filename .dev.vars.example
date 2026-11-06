@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local development (never commit .dev.vars)
+ELEVENLABS_API_KEY=
+RESEND_API_KEY=
+# Shows verification/reset links in API responses instead of emailing them
+DEV_MODE=1
+# SnapShift Plus (Stripe test mode keys: sk_test_..., whsec_... from `stripe listen`)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=

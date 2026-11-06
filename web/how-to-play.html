@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>How to Play &amp; Scoring | SnapShift Puzzles</title>
+  <meta name="description" content="How SnapShift scoring, medals, points, hints and streaks work." />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta property="og:title" content="How to Play &amp; Scoring | SnapShift Puzzles" />
+  <meta property="og:description" content="How SnapShift scoring, medals, points, hints and streaks work." />
+  <meta property="og:image" content="/img/logo.png" />
+  <script type="module" src="/src/pages/static.ts"></script>
+</head>
+<body>
+  <div id="app">
+    <section class="panel prose">
+      <h1>How to play</h1>
+      <p class="muted">Swap tiles until the picture is whole again.</p>
+      <h2>The basics</h2>
+      <ul>
+        <li>Drag a tile onto another to swap them, or click one tile and then another. Keyboard: arrow keys and Enter.</li>
+        <li>Every new board first shows you the finished picture for a moment. Memorize it, then the tiles shuffle and the clock starts.</li>
+      </ul>
+      <h2>Difficulties</h2>
+      <table>
+        <thead><tr><th></th><th>Easy</th><th>Medium</th><th>Hard</th></tr></thead>
+        <tbody>
+          <tr><td>Grid</td><td>4×6</td><td>6×9</td><td>8×12</td></tr>
+          <tr><td>Correct tiles</td><td>Glow green and lock</td><td>Lock, no glow</td><td>Don’t lock: they can be swapped out again</td></tr>
+          <tr><td>Finished picture</td><td>Always shown</td><td>Peek button</td><td>Only at the start</td></tr>
+          <tr><td>Shuffle</td><td>Lots of pairs: one swap often fixes two tiles</td><td>Mixed</td><td>Long chains: few double fixes</td></tr>
+          <tr><td>Hints</td><td>Free</td><td>25 points</td><td>60 points</td></tr>
+          <tr><td>Points (Bronze / Gold)</td><td>40 / 60</td><td>120 / 180</td><td>320 / 480</td></tr>
+        </tbody>
+      </table>
+      <h2>Modes</h2>
+      <ul>
+        <li><b>Classic</b> – the timed game with medals, on any difficulty.</li>
+        <li><b>Zen</b> – no timer, no score, no medal. Tiles glow and lock, hints and placing a tile are free. A relaxed way to enjoy the pictures (10 points the first time you finish).</li>
+        <li><b>Time Attack</b> – its own page. Three minutes to solve as many small 3×4 puzzles as you can; correct tiles glow and lock, and the next picture appears as soon as you finish one. Each solve scores 100 plus up to 50 for using few moves, and you can skip a picture. The weekly leaderboard (Monday to Sunday) counts your best run, and signed-in players earn 5 points per solve, up to 100 a day.</li>
+        <li><b>Rotation</b> – tiles are also turned. Drag to swap, <b>tap a tile to turn it</b> a quarter turn (keyboard: R). A tile is right only when it’s in place <i>and</i> upright. Square tiles; pays ×1.25 on top of the difficulty.</li>
+      </ul>
+      <h2>Score and streak</h2>
+      <p>Each tile you fix adds to your score. Fixing tiles on consecutive moves builds a streak that makes each one worth more, and a swap that fixes two tiles at once earns a bonus. A move that fixes nothing, or moves a correct tile out of place, resets the streak.</p>
+      <h2>Medals</h2>
+      <p>Your run is rated on <b>move efficiency</b> (72%: the fewest moves that could solve that board, against the moves you used) and <b>speed</b> (28%: against a par time per tile).</p>
+      <ul>
+        <li>★★★ <b>Gold</b> – 90% or better</li>
+        <li>★★ <b>Silver</b> – 76% or better</li>
+        <li>★ <b>Bronze</b> – any finish</li>
+      </ul>
+      <h2>Points</h2>
+      <p>Finishing pays a base amount for the difficulty (40 / 60 / 80), times the difficulty’s multiplier (×1 / ×2 / ×4), times your medal: <b>Gold ×1.5</b>, <b>Silver ×1.25</b>, Bronze ×1. Rotation mode adds another ×1.25. You get full points the first time you finish a puzzle on a difficulty and mode, and a quarter after that.</p>
+      <p>The daily challenge adds a 50-point bonus. Daily streaks pay extra at 7 days (250), 14 days (600) and 30 days (1,500), and the 1,500 bonus repeats every 30 days after that.</p>
+      <p>Spend points to unlock puzzles (the first in every category is free; the rest cost 140 points and up, never more than 500) and on helpers.</p>
+      <h2>Helpers</h2>
+      <ul>
+        <li><b>Hint</b> highlights a good next move (cost and cooldown depend on the difficulty).</li>
+        <li><b>Peek</b> (Medium) shows the finished picture for two seconds, every ten seconds.</li>
+        <li><b>Place 1 tile</b> makes the best move for you (30 / 45 / 60 points by difficulty). Not on the daily.</li>
+      </ul>
+      <h2>Daily challenge</h2>
+      <p>Always Hard Classic, and everyone gets the same shuffle. Your first finish of the day counts for the leaderboard and your streak; replay as often as you like.</p>
+    </section>
+  </div>
+</body>
+</html>

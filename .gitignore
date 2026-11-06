@@ -1,31 +1,8 @@
-# Secrets / per-server settings
-config.local.php
-*.local.php
-
-# Server logs and runtime data
-error_log
-*.log
-storage/
-cgi-bin/
-.ftpquota
-
-# Puzzle images and generated thumbnails/pages (kept on the server, ~900 MB)
-/puzzles/*/
-!/puzzles/_thumbs/.gitkeep
-/daily_puzzles/*.png
-/daily_puzzles/*.jpg
-/daily_puzzles/_thumbs/
-/puzzle/
-/98bannerads12/
-
-# Third-party installs
-/analytics/
 node_modules/
-vendor/
-
-# OS / editor
+dist/
+.wrangler/
+.dev.vars
+*.log
 .DS_Store
 Thumbs.db
-desktop.ini
-.vscode/
-.idea/
+tests/e2e/.engine/
