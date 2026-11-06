@@ -1,6 +1,7 @@
 import { api } from '../lib/api';
 import { me, requireSignIn, shell } from '../lib/shell';
 import { bg, errorText, h, mount, toast } from '../lib/ui';
+import { applyTheme, type Banner, type Theme } from '../lib/theme';
 
 interface AdminPuzzle {
   id: number;
@@ -413,24 +414,211 @@ async function messages() {
   );
 }
 
+async function uploadSiteImage(file: File): Promise<string> {
+  const f = new FormData();
+  f.set('file', file);
+  return (await api.post<{ url: string }>('/admin/site/image', f)).url;
+}
+
+const BANNER_PAGES: [string, string][] = [
+  ['all', 'Every page'],
+  ['home', 'Home'],
+  ['categories', 'Browse categories'],
+  ['category', 'Category pages'],
+  ['play', 'Game (below the board)'],
+  ['daily', 'Daily & archive'],
+  ['leaderboard', 'Leaderboard'],
+  ['account', 'Account'],
+  ['info', 'Info pages (about, FAQ, …)'],
+];
+
 async function site() {
-  const s = await api.get<Record<string, string>>('/admin/site');
-  const f = h(
+  const s = await api.get<{
+    announcement: string;
+    supporterMonthlyUrl: string;
+    supporterYearlyUrl: string;
+    contactEmail: string;
+    theme: Theme;
+    banners: Banner[];
+  }>('/admin/site');
+
+  // ---- general ----
+  const general = h(
     'form',
     { class: 'panel' },
-    h('h2', {}, 'Site settings'),
-    h('div', { class: 'field' }, h('label', {}, 'Announcement banner (shown on every page; empty to hide)'), h('input', { name: 'announcement', value: s.announcement })),
+    h('h2', {}, 'General'),
+    h('div', { class: 'field' }, h('label', {}, 'Announcement (a notice at the top of every page; empty to hide)'), h('input', { name: 'announcement', value: s.announcement })),
     h('div', { class: 'field' }, h('label', {}, 'Supporter monthly payment link (Stripe Payment Link)'), h('input', { name: 'supporterMonthlyUrl', value: s.supporterMonthlyUrl, placeholder: 'https://buy.stripe.com/...' })),
     h('div', { class: 'field' }, h('label', {}, 'Supporter yearly payment link'), h('input', { name: 'supporterYearlyUrl', value: s.supporterYearlyUrl })),
     h('div', { class: 'field' }, h('label', {}, 'Contact email shown to players'), h('input', { name: 'contactEmail', value: s.contactEmail })),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
   );
-  f.addEventListener('submit', async (e) => {
+  general.addEventListener('submit', async (e) => {
     e.preventDefault();
-    await api.put('/admin/site', Object.fromEntries(new FormData(f)));
+    await api.put('/admin/site', Object.fromEntries(new FormData(general)));
     toast('Saved', '', 'good');
   });
-  mount(body, f);
+
+  // ---- look & feel (live preview on the whole admin page while editing) ----
+  const theme: Theme = { ...s.theme };
+  const DEFAULTS: Theme = {
+    backgroundImage: '/img/background.jpg', backgroundOpacity: 0.16, backgroundFit: 'cover', backgroundBlur: 0, panelOpacity: 0.86,
+    baseColor: '#05080f', panelColor: '#0f172a', pillColor: '#01461e', buttonColor: '#092c4e', accentColor: '#7cc4ff',
+  };
+  const preview = h(
+    'div',
+    { class: 'theme-preview' },
+    h('div', { class: 'pv-bg' }),
+    h('div', { class: 'pv-panel' }, h('b', {}, 'Preview panel'), h('div', { class: 'row' }, h('span', { class: 'pill' }, 'Next daily 04:12:00'), h('span', { class: 'btn' }, 'Button'), h('a', { href: '#' }, 'A link'))),
+  );
+  const apply = () => {
+    applyTheme(theme, preview);
+    applyTheme(theme); // whole page, so you see it in context
+  };
+  const range = (key: 'backgroundOpacity' | 'panelOpacity' | 'backgroundBlur', label: string, min: number, max: number, step: number, fmt: (v: number) => string) => {
+    const out = h('span', { class: 'muted small' }, fmt(theme[key]));
+    const input = h('input', { type: 'range', min, max, step, value: theme[key] }) as HTMLInputElement;
+    input.addEventListener('input', () => {
+      theme[key] = Number(input.value);
+      out.textContent = fmt(theme[key]);
+      apply();
+    });
+    return h('div', { class: 'field' }, h('label', {}, label, ' ', out), input);
+  };
+  const colour = (key: 'baseColor' | 'panelColor' | 'pillColor' | 'buttonColor' | 'accentColor', label: string) => {
+    const input = h('input', { type: 'color', value: theme[key] }) as HTMLInputElement;
+    input.addEventListener('input', () => {
+      theme[key] = input.value;
+      apply();
+    });
+    return h('div', { class: 'field', style: 'min-width:120px' }, h('label', {}, label), input);
+  };
+  const bgUrl = h('input', { value: theme.backgroundImage, placeholder: '/img/background.jpg or an uploaded image' }) as HTMLInputElement;
+  bgUrl.addEventListener('change', () => {
+    theme.backgroundImage = bgUrl.value.trim();
+    apply();
+  });
+  const bgFile = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', style: 'max-width:260px' }) as HTMLInputElement;
+  bgFile.addEventListener('change', async () => {
+    if (!bgFile.files?.[0]) return;
+    try {
+      theme.backgroundImage = await uploadSiteImage(bgFile.files[0]);
+      bgUrl.value = theme.backgroundImage;
+      apply();
+      toast('Uploaded', 'Press Save to use it on the site.', 'good');
+    } catch (x) {
+      toast('Upload failed', errorText(x), 'bad');
+    }
+  });
+  const fit = h('select', {}, [['cover', 'Fill the screen (crop)'], ['contain', 'Fit whole picture'], ['repeat', 'Tile / repeat']].map(([v, l]) => h('option', { value: v, selected: theme.backgroundFit === v }, l))) as HTMLSelectElement;
+  fit.addEventListener('change', () => {
+    theme.backgroundFit = fit.value as Theme['backgroundFit'];
+    apply();
+  });
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const look = h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, 'Look & feel'),
+    h('p', { class: 'muted small' }, 'Changes preview on this page straight away. Players see them after you press Save.'),
+    preview,
+    h('div', { class: 'field', style: 'margin-top:12px' }, h('label', {}, 'Background image'), bgUrl, h('div', { class: 'row', style: 'margin-top:6px' }, bgFile, h('button', { class: 'btn', type: 'button', onclick: () => { theme.backgroundImage = ''; bgUrl.value = ''; apply(); } }, 'No image'))),
+    h('div', { class: 'field' }, h('label', {}, 'Background fit'), fit),
+    range('backgroundOpacity', 'Background visibility', 0, 1, 0.01, pct),
+    range('backgroundBlur', 'Background blur', 0, 20, 1, (v) => `${v}px`),
+    range('panelOpacity', 'Panel solidity (lower = more see-through)', 0.3, 1, 0.01, pct),
+    h('div', { class: 'row' }, colour('baseColor', 'Page colour'), colour('panelColor', 'Panel colour'), colour('pillColor', 'Pill colour'), colour('buttonColor', 'Button colour'), colour('accentColor', 'Link colour')),
+    h(
+      'div',
+      { class: 'row' },
+      h('button', { class: 'btn primary', onclick: async () => { await api.put('/admin/site', { theme }); toast('Saved', 'The new look is live.', 'good'); } }, 'Save'),
+      h('button', { class: 'btn', onclick: async () => { if (!confirm('Put the original background, transparency and colours back?')) return; await api.put('/admin/site', { theme: DEFAULTS }); applyTheme(DEFAULTS); toast('Reset', 'The original look is back.', 'good'); await site(); } }, 'Reset to defaults'),
+    ),
+  );
+
+  // ---- banners ----
+  const banners: Banner[] = s.banners.map((b) => ({ ...b }));
+  const list = h('div', { class: 'stack' });
+  const drawBanners = () => {
+    mount(
+      list,
+      banners.length
+        ? banners.map((b, i) => {
+            const field = (key: 'href' | 'alt', placeholder: string) => {
+              const input = h('input', { value: b[key], placeholder }) as HTMLInputElement;
+              input.addEventListener('input', () => (b[key] = input.value));
+              return input;
+            };
+            const date = (key: 'start' | 'end') => {
+              const input = h('input', { type: 'date', value: b[key], style: 'max-width:170px' }) as HTMLInputElement;
+              input.addEventListener('change', () => (b[key] = input.value));
+              return input;
+            };
+            const pos = h('select', { style: 'max-width:200px' }, h('option', { value: 'top', selected: b.position === 'top' }, 'Above the content'), h('option', { value: 'bottom', selected: b.position === 'bottom' }, 'Below the content')) as HTMLSelectElement;
+            pos.addEventListener('change', () => (b.position = pos.value as Banner['position']));
+            const on = h('input', { type: 'checkbox', checked: b.enabled }) as HTMLInputElement;
+            on.addEventListener('change', () => (b.enabled = on.checked));
+            return h(
+              'div',
+              { class: 'panel soft' },
+              h('img', { src: b.image, alt: '', style: 'max-height:120px;width:auto;border-radius:10px;margin-bottom:10px' }),
+              h('div', { class: 'field' }, h('label', {}, 'Link when clicked (optional)'), field('href', 'https://… or /supporter')),
+              h('div', { class: 'field' }, h('label', {}, 'Description for screen readers'), field('alt', 'e.g. SnapShift t-shirts are here')),
+              h('div', { class: 'field' }, h('label', {}, 'Show on'), h('div', { class: 'row' }, BANNER_PAGES.map(([key, label]) => {
+                const cb = h('input', { type: 'checkbox', checked: b.pages.includes(key) }) as HTMLInputElement;
+                cb.addEventListener('change', () => {
+                  b.pages = cb.checked ? [...b.pages, key] : b.pages.filter((p) => p !== key);
+                });
+                return h('label', { class: 'check' }, cb, label);
+              }))),
+              h('div', { class: 'row' }, pos, h('span', { class: 'muted small' }, 'From'), date('start'), h('span', { class: 'muted small' }, 'to'), date('end'), h('label', { class: 'check' }, on, 'Show')),
+              h(
+                'div',
+                { class: 'row', style: 'margin-top:8px' },
+                h('button', { class: 'btn', disabled: i === 0, onclick: () => { [banners[i - 1], banners[i]] = [banners[i], banners[i - 1]]; drawBanners(); } }, '↑'),
+                h('button', { class: 'btn', disabled: i === banners.length - 1, onclick: () => { [banners[i + 1], banners[i]] = [banners[i], banners[i + 1]]; drawBanners(); } }, '↓'),
+                h('button', { class: 'btn danger', onclick: () => { if (confirm('Remove this banner?')) { banners.splice(i, 1); drawBanners(); } } }, 'Remove'),
+              ),
+            );
+          })
+        : h('p', { class: 'muted' }, 'No banners yet.'),
+    );
+  };
+  const addFile = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', style: 'max-width:260px' }) as HTMLInputElement;
+  addFile.addEventListener('change', async () => {
+    if (!addFile.files?.[0]) return;
+    try {
+      const url = await uploadSiteImage(addFile.files[0]);
+      banners.push({ id: Math.random().toString(36).slice(2, 10), image: url, href: '', alt: '', pages: ['home'], position: 'top', enabled: true, start: '', end: '' });
+      addFile.value = '';
+      drawBanners();
+      toast('Banner added', 'Set where it shows, then press Save banners.', 'good');
+    } catch (x) {
+      toast('Upload failed', errorText(x), 'bad');
+    }
+  });
+  const bannerSection = h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, 'Banners'),
+    h('p', { class: 'muted small' }, 'Images shown above or below the page content (wide images work best, e.g. 1200×200). If several banners match the same page and position, one is picked at random on each visit. On the game page only "below the content" banners show.'),
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, h('b', {}, 'Add a banner:'), addFile),
+    list,
+    h('button', { class: 'btn primary', style: 'margin-top:12px', onclick: async () => {
+      try {
+        const r = await api.put<{ banners: Banner[] }>('/admin/site', { banners });
+        banners.splice(0, banners.length, ...r.banners);
+        drawBanners();
+        toast('Banners saved', '', 'good');
+      } catch (x) {
+        toast('Could not save', errorText(x), 'bad');
+      }
+    } }, 'Save banners'),
+  );
+  drawBanners();
+
+  mount(body, h('div', { class: 'two-col' }, look, general), bannerSection);
+  apply();
 }
 
 // Start after all helpers above are defined.

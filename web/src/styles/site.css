@@ -2,17 +2,28 @@
    green status pills and rounded navy buttons, as on the original site. */
 
 :root {
-  --bg: #05080f;
-  --panel: rgba(15, 23, 42, 0.86);
-  --section: rgba(17, 27, 45, 0.9);
-  --card: rgba(26, 39, 64, 0.92);
+  /* Theme values (Admin → Site settings → Look & feel sets these on <html>). */
+  --theme-base: #05080f;
+  --theme-panel: #0f172a;
+  --theme-panel-alpha: 0.86;
+  --theme-bg-image: url('/img/background.jpg');
+  --theme-bg-opacity: 0.16;
+  --theme-bg-size: cover;
+  --theme-bg-repeat: no-repeat;
+  --theme-bg-blur: 0px;
+
+  --bg: var(--theme-base);
+  --panel: color-mix(in srgb, var(--theme-panel) calc(var(--theme-panel-alpha) * 100%), transparent);
+  --section: color-mix(in srgb, color-mix(in srgb, var(--theme-panel), #fff 4%) calc(min(1, var(--theme-panel-alpha) + 0.04) * 100%), transparent);
+  --card: color-mix(in srgb, color-mix(in srgb, var(--theme-panel), #fff 9%) calc(min(1, var(--theme-panel-alpha) + 0.06) * 100%), transparent);
+  --surface: color-mix(in srgb, var(--theme-panel), #000 25%);
   --border: rgba(255, 255, 255, 0.85);
   --border-soft: rgba(175, 194, 224, 0.28);
   --text: #ffffff;
   --muted: #afc2e0;
   --accent: #7cc4ff;
   --button: #092c4e;
-  --button-hover: #0e3d6b;
+  --button-hover: color-mix(in srgb, var(--button), #fff 12%);
   --button-text: #e8eef7;
   --pill: #01461e;
   --pill-text: #ffffff;
@@ -40,8 +51,12 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: url('/img/background.jpg') center / cover no-repeat;
-  opacity: 0.16;
+  background-image: var(--theme-bg-image);
+  background-position: center;
+  background-size: var(--theme-bg-size);
+  background-repeat: var(--theme-bg-repeat);
+  opacity: var(--theme-bg-opacity);
+  filter: blur(var(--theme-bg-blur));
   z-index: -1;
   pointer-events: none;
 }
@@ -130,7 +145,7 @@ p { margin: 0 0 10px; }
   color: var(--text); text-decoration: none; transition: transform 0.12s, box-shadow 0.12s;
 }
 a.card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); text-decoration: none; }
-.card .thumb { aspect-ratio: 1 / 1; background: #0b1424 center / cover no-repeat; }
+.card .thumb { aspect-ratio: 1 / 1; background: var(--surface) center / cover no-repeat; }
 .card .thumb.wide { aspect-ratio: 16 / 9; }
 .card .thumb.locked { filter: grayscale(0.65) brightness(0.55); }
 .card .meta { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 2px; }
@@ -142,7 +157,7 @@ a.card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0, 0, 0
 
 /* ---------- hero (daily) ---------- */
 .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: stretch; }
-.hero .art { border-radius: 14px; background: #0b1424 center / cover no-repeat; min-height: 220px; border: 1px solid var(--border-soft); }
+.hero .art { border-radius: 14px; background: var(--surface) center / cover no-repeat; min-height: 220px; border: 1px solid var(--border-soft); }
 @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
 .countdown { font-variant-numeric: tabular-nums; }
 .stat { background: var(--section); border: 1px solid var(--border-soft); border-radius: 14px; padding: 10px 14px; }
@@ -152,7 +167,7 @@ a.card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0, 0, 0
 label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 4px; }
 input, select, textarea {
   width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border-soft);
-  background: #0a1426; color: var(--text); font: 15px var(--font);
+  background: var(--surface); color: var(--text); font: 15px var(--font);
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 textarea { min-height: 120px; resize: vertical; }
@@ -176,14 +191,14 @@ tr.me td { background: rgba(1, 70, 30, 0.45); }
 
 /* ---------- toast & modal ---------- */
 .toasts { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; width: min(440px, calc(100% - 24px)); }
-.toast { background: #0b1a33; border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); animation: pop 0.2s ease-out; }
+.toast { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); animation: pop 0.2s ease-out; }
 .toast b { display: block; }
 .toast.good { border-color: var(--ok); }
 .toast.bad { border-color: var(--danger); }
 @keyframes pop { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 dialog.modal {
-  border: 1px solid var(--border); border-radius: 20px; padding: 22px; background: #0d1830; color: var(--text);
+  border: 1px solid var(--border); border-radius: 20px; padding: 22px; background: color-mix(in srgb, var(--theme-panel), #fff 3%); color: var(--text);
   width: min(520px, calc(100% - 24px)); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 dialog.modal::backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(3px); }
@@ -207,7 +222,7 @@ body.game-page .shell { width: min(1500px, 100%); }
 .hud { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .hud .row { gap: 8px; }
 .board-wrap { position: relative; }
-#board { display: block; width: 100%; height: auto; border-radius: 14px; touch-action: none; cursor: pointer; background: #0b1424; }
+#board { display: block; width: 100%; height: auto; border-radius: 14px; touch-action: none; cursor: pointer; background: var(--surface); }
 #board:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .pause-cover { position: absolute; inset: 0; display: none; place-items: center; background: rgba(5, 10, 20, 0.92); border-radius: 14px; }
 .paused .pause-cover { display: grid; }
@@ -237,3 +252,14 @@ body.game-page .shell { width: min(1500px, 100%); }
 .tag.submitted, .tag.queued { background: #4a3a07; }
 code, pre { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 pre { background: #050b16; padding: 10px; border-radius: 10px; overflow: auto; max-height: 220px; }
+
+/* ---------- banners ---------- */
+.banner-slot { margin-bottom: 14px; }
+.banner-slot.bottom { margin: 14px 0 0; }
+.banner { display: block; border-radius: var(--radius-panel); overflow: hidden; border: 1px solid var(--border-soft); }
+.banner img { width: 100%; height: auto; }
+.theme-preview { position: relative; height: 170px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border-soft); background: var(--bg); }
+.theme-preview .pv-bg { position: absolute; inset: 0; background-image: var(--theme-bg-image); background-position: center; background-size: var(--theme-bg-size); background-repeat: var(--theme-bg-repeat); opacity: var(--theme-bg-opacity); filter: blur(var(--theme-bg-blur)); }
+.theme-preview .pv-panel { position: absolute; inset: 22px; padding: 14px; border-radius: var(--radius-panel); border: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
+input[type='range'] { padding: 0; }
+input[type='color'] { padding: 2px; height: 40px; }

@@ -13,8 +13,9 @@ import {
   type PuzzleRow,
 } from '../lib/catalog';
 import { spend, balance } from '../lib/points';
-import { dayKey, fail, getSetting, msUntilNextDay, now, str, body } from '../lib/util';
+import { dayKey, fail, msUntilNextDay, now, str, body } from '../lib/util';
 import { unlockCost } from '../../shared/rules';
+import { publicSite } from '../lib/site';
 
 const app = new Hono<AppEnv>();
 
@@ -26,15 +27,8 @@ interface CategoryRow {
   sort: number;
 }
 
-/** Public site settings (supporter links, announcement). */
-export const SITE_DEFAULTS = {
-  announcement: '',
-  supporterMonthlyUrl: '',
-  supporterYearlyUrl: '',
-  contactEmail: 'contact@snapshiftpuzzles.com',
-};
-
-app.get('/site', async (c) => c.json(await getSetting(c.env, 'site', SITE_DEFAULTS)));
+/** Public site settings: announcement, supporter links, theme and today's banners. */
+app.get('/site', async (c) => c.json(await publicSite(c.env)));
 
 app.get('/home', async (c) => {
   const user = c.get('user');

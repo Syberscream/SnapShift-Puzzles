@@ -1,6 +1,7 @@
 import '../styles/site.css';
 import { api, type Me } from './api';
 import { h, toast } from './ui';
+import { applyTheme, cacheTheme, pageKey, type Banner, type Theme } from './theme';
 
 let current: Me | null = null;
 let pointsPill: HTMLElement | null = null;
@@ -82,6 +83,7 @@ function footer(): HTMLElement {
 export async function shell(opts: { title?: string; bodyClass?: string } = {}): Promise<HTMLElement> {
   if (opts.title) document.title = `${opts.title} | SnapShift Puzzles`;
   if (opts.bodyClass) document.body.classList.add(opts.bodyClass);
+  const sitePromise = api.get<SitePublic>('/site').catch(() => null);
   try {
     current = (await api.get<{ user: Me | null }>('/auth/me')).user;
   } catch {
@@ -91,16 +93,23 @@ export async function shell(opts: { title?: string; bodyClass?: string } = {}): 
   const main = h('main', { id: 'main' });
   // Static pages ship their content inside #app; keep it.
   if (existing) main.append(...Array.from(existing.childNodes));
-  const wrap = h('div', { class: 'shell' }, h('a', { class: 'sr-only', href: '#main' }, 'Skip to content'), header(current), main, footer());
+  // Banners and the announcement live outside <main>, so pages can redraw main freely.
+  const top = h('div', { class: 'banner-slot top' });
+  const bottom = h('div', { class: 'banner-slot bottom' });
+  const wrap = h('div', { class: 'shell' }, h('a', { class: 'sr-only', href: '#main' }, 'Skip to content'), header(current), top, main, bottom, footer());
   if (existing) existing.replaceWith(wrap);
   else document.body.prepend(wrap);
   listeners.forEach((fn) => fn(current));
 
-  try {
-    const site = await api.get<{ announcement: string }>('/site');
-    if (site.announcement) main.prepend(h('div', { class: 'notice' }, site.announcement));
-  } catch {
-    /* optional */
+  const site = await sitePromise;
+  if (site) {
+    applyTheme(site.theme);
+    cacheTheme(site.theme);
+    if (site.announcement) top.append(h('div', { class: 'notice' }, site.announcement));
+    for (const [slot, position] of [[top, 'top'], [bottom, 'bottom']] as const) {
+      const b = pickBanner(site.banners, position);
+      if (b) slot.append(bannerEl(b));
+    }
   }
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -125,4 +134,25 @@ export function requireSignIn(main: HTMLElement, what: string): boolean {
 export function showError(main: HTMLElement, message: string): void {
   main.append(h('section', { class: 'panel' }, h('h1', {}, 'Something went wrong'), h('p', { class: 'error' }, message)));
   toast('Error', message, 'bad');
+}
+
+interface SitePublic {
+  announcement: string;
+  theme: Theme;
+  banners: Banner[];
+}
+
+/** One banner per slot: if several match this page and position, rotate at random. */
+function pickBanner(banners: Banner[], position: 'top' | 'bottom'): Banner | null {
+  const page = pageKey();
+  if (page === 'play' && position === 'top') return null; // keep the board near the top
+  const list = banners.filter((b) => b.position === position && (b.pages.includes('all') || b.pages.includes(page)));
+  return list.length ? list[Math.floor(Math.random() * list.length)] : null;
+}
+
+function bannerEl(b: Banner): HTMLElement {
+  const img = h('img', { src: b.image, alt: b.alt || 'SnapShift banner', loading: 'lazy' });
+  return b.href
+    ? h('a', { class: 'banner', href: b.href, ...(b.href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {}) }, img)
+    : h('div', { class: 'banner' }, img);
 }

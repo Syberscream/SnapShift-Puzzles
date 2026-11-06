@@ -4,7 +4,7 @@ import { requireAdmin } from '../lib/auth';
 import { dailyPoolLeft, media, type PuzzleRow } from '../lib/catalog';
 import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
-import { SITE_DEFAULTS } from './catalog';
+import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
 import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, type GenerationSettings } from '../pipeline/pipeline';
 import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX } from '../pipeline/prompts';
 import { rng, randomSeed } from '../../shared/engine';
@@ -328,17 +328,39 @@ app.post('/messages/:id/handled', async (c) => {
   return c.json({ ok: true });
 });
 
-app.get('/site', async (c) => c.json(await getSetting(c.env, 'site', SITE_DEFAULTS)));
+app.get('/site', async (c) => c.json(await getSite(c.env)));
+
+/** Save any part of the site settings (text, theme, banners); missing parts are kept. */
 app.put('/site', async (c) => {
   const b = await body(c);
+  const cur = await getSite(c.env);
+  const text = (k: 'announcement' | 'supporterMonthlyUrl' | 'supporterYearlyUrl' | 'contactEmail', max: number) =>
+    b[k] !== undefined ? str(b[k], max) : cur[k];
   const next = {
-    announcement: str(b.announcement, 300),
-    supporterMonthlyUrl: str(b.supporterMonthlyUrl, 300),
-    supporterYearlyUrl: str(b.supporterYearlyUrl, 300),
-    contactEmail: str(b.contactEmail, 190) || SITE_DEFAULTS.contactEmail,
+    announcement: text('announcement', 300),
+    supporterMonthlyUrl: text('supporterMonthlyUrl', 300),
+    supporterYearlyUrl: text('supporterYearlyUrl', 300),
+    contactEmail: text('contactEmail', 190) || SITE_DEFAULTS.contactEmail,
+    theme: b.theme !== undefined ? cleanTheme(b.theme as object, cur.theme) : cur.theme,
+    banners: b.banners !== undefined ? cleanBanners(b.banners) : cur.banners,
   };
   await putSetting(c.env, 'site', next);
   return c.json(next);
+});
+
+/** Upload a background or banner image; returns its URL. */
+app.post('/site/image', async (c) => {
+  const form = await c.req.formData();
+  const file = form.get('file');
+  if (!(file instanceof File)) fail(422, 'Choose an image file.');
+  if (file.size > 8 * 1024 * 1024) fail(422, 'Images must be under 8 MB.');
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[file.type];
+  if (!ext) fail(422, 'Use PNG, JPEG, WebP or GIF.');
+  const key = `site/${randomId(8)}.${ext}`;
+  await c.env.MEDIA.put(key, await file.arrayBuffer(), {
+    httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' },
+  });
+  return c.json({ url: media(key) });
 });
 
 export default app;
