@@ -61,7 +61,7 @@ export async function plusSection(): Promise<HTMLElement | null> {
       h('ul', { class: 'promo-perks' }, PERKS.map(([icon, text]) => h('li', {}, h('span', { 'aria-hidden': 'true' }, icon), text))),
       h('div', { class: 'row' }, h('a', { class: 'btn plus-btn big', href: '/plus' }, '✦ Get Plus'), h('a', { class: 'btn', href: '/plus' }, 'See everything included')),
     ),
-    h('div', { class: 'promo-side' }, h('div', { class: 'promo-tiles', 'aria-hidden': 'true' }, Array.from({ length: 9 }, (_, i) => h('i', { class: `t${i}` }))), prices),
+    h('div', { class: 'promo-side' }, h('img', { class: 'promo-icon', src: '/img/logo-icon.png', alt: '', width: 150, height: 152 }), prices),
   );
 }
 

@@ -134,5 +134,5 @@ async function render(d: Home) {
     ),
   );
 
-  mount(main, hero, cont, await plusSection(), ta, cats, latest);
+  mount(main, hero, cont, ta, cats, latest, await plusSection());
 }
