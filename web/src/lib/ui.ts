@@ -54,6 +54,11 @@ export function bg(url: string): string {
   return url ? `background-image:url("${url.replace(/"/g, '%22')}")` : '';
 }
 
+/** Has a paid (or admin-given) membership, as opposed to an admin's built-in perks. */
+export function hasPaidPlus(u: { lifetime: boolean; memberUntil: number | null } | null | undefined): boolean {
+  return !!u && (u.lifetime || (!!u.memberUntil && u.memberUntil > Date.now()));
+}
+
 /** The small "PLUS" tag shown next to members' names and on members' pictures. */
 export function plusTag(text = 'PLUS'): HTMLElement {
   return h('span', { class: 'plus-tag', title: 'SnapShift Plus' }, '✦ ', text);

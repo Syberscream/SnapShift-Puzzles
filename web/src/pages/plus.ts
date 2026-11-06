@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { me, shell } from '../lib/shell';
-import { errorText, h, mount, plusTag, qs, toast } from '../lib/ui';
+import { errorText, h, hasPaidPlus, mount, plusTag, qs, toast } from '../lib/ui';
 import { PLUS } from '@shared/rules';
 
 interface Plans {
@@ -81,7 +81,7 @@ function planCard(p: Plans['plans'][number]) {
 
 function render() {
   const user = me();
-  const member = !!user?.member && user.role !== 'admin';
+  const member = hasPaidPlus(user);
   const manage = h('button', { class: 'btn' }, 'Manage billing') as HTMLButtonElement;
   manage.addEventListener('click', () => void portal(manage));
   mount(
@@ -103,7 +103,16 @@ function render() {
             ' ',
             user!.billing ? manage : null,
           )
-        : null,
+        : user?.role === 'admin'
+          ? h(
+              'div',
+              { class: 'notice' },
+              'As an admin you already get every Plus feature. You can still buy a plan here, just like a player would (handy for testing). ',
+              user.billing ? manage : null,
+            )
+          : user?.billing
+            ? h('div', { class: 'notice' }, 'Your membership has ended. ', manage)
+            : null,
     ),
     h('section', { class: 'panel' }, h('h2', {}, 'What you get'), h('ul', { class: 'perks' }, perks.map(([t, d]) => h('li', {}, h('b', {}, t), h('span', { class: 'muted small' }, d))))),
     !member
@@ -136,11 +145,11 @@ function render() {
 render();
 
 // Back from Stripe: the webhook may take a few seconds to arrive.
-if (qs('welcome') && !me()?.member) {
+if (qs('welcome') && !hasPaidPlus(me())) {
   for (let i = 0; i < 10; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     const r = await api.get<{ user: ReturnType<typeof me> }>('/auth/me').catch(() => null);
-    if (r?.user?.member) {
+    if (hasPaidPlus(r?.user)) {
       location.reload();
       break;
     }

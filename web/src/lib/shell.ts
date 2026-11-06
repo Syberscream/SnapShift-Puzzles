@@ -1,6 +1,6 @@
 import '../styles/site.css';
 import { api, type Me } from './api';
-import { h, toast } from './ui';
+import { h, hasPaidPlus, toast } from './ui';
 import { applyTheme, cacheTheme, pageKey, type Banner, type Theme } from './theme';
 
 let current: Me | null = null;
@@ -26,7 +26,7 @@ function header(user: Me | null): HTMLElement {
     'nav',
     { class: 'nav', id: 'site-nav', 'aria-label': 'Main' },
     user
-      ? h('a', { class: 'btn', href: '/account' }, user.member && user.role !== 'admin' ? h('span', { class: 'plus-star', title: 'SnapShift Plus' }, '✦ ') : null, user.username)
+      ? h('a', { class: 'btn', href: '/account' }, hasPaidPlus(user) ? h('span', { class: 'plus-star', title: 'SnapShift Plus' }, '✦ ') : null, user.username)
       : h('a', { class: 'btn', href: '/account' }, 'Sign in'),
     h('a', { class: 'btn', href: '/' }, 'Home'),
     h('a', { class: 'btn', href: '/categories' }, 'Play'),

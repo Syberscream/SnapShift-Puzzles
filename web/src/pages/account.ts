@@ -1,6 +1,6 @@
 import { api, type Me } from '../lib/api';
 import { me, shell } from '../lib/shell';
-import { errorText, h, medalBadge, mount, qs, toast, plusTag } from '../lib/ui';
+import { errorText, h, medalBadge, mount, qs, toast, plusTag, hasPaidPlus } from '../lib/ui';
 import { framePanel, medalsPanel, membershipPanel, requestsPanel } from './account-plus';
 
 const main = await shell({ title: 'Account' });
@@ -137,7 +137,7 @@ async function profileView(user: Me) {
     h(
       'section',
       { class: 'panel' },
-      h('div', { class: 'spread' }, h('div', {}, h('h1', {}, user.username), h('p', { class: 'muted' }, user.email, user.member && user.role !== 'admin' ? [' · ', plusTag()] : '')), h('button', { class: 'btn', onclick: async () => (await api.post('/auth/logout'), (location.href = '/')) }, 'Sign out')),
+      h('div', { class: 'spread' }, h('div', {}, h('h1', {}, user.username), h('p', { class: 'muted' }, user.email, hasPaidPlus(user) ? [' · ', plusTag()] : '')), h('button', { class: 'btn', onclick: async () => (await api.post('/auth/logout'), (location.href = '/')) }, 'Sign out')),
       h(
         'div',
         { class: 'row' },

@@ -2,7 +2,7 @@
 // picture requests and the medal collection.
 
 import { api, type Me } from '../lib/api';
-import { bg, errorText, h, medalBadge, mount, plusTag, toast } from '../lib/ui';
+import { bg, errorText, h, hasPaidPlus, medalBadge, mount, plusTag, toast } from '../lib/ui';
 import { FRAME_LABELS, FRAMES, MODE_LABELS, PLUS, RULES, type Difficulty, type Mode } from '@shared/rules';
 
 async function openPortal(btn: HTMLButtonElement) {
@@ -16,7 +16,7 @@ async function openPortal(btn: HTMLButtonElement) {
 }
 
 export function membershipPanel(user: Me, freezesLeft: number | null): HTMLElement {
-  const paying = user.member && user.role !== 'admin';
+  const paying = hasPaidPlus(user);
   const manage = h('button', { class: 'btn' }, 'Manage billing') as HTMLButtonElement;
   manage.addEventListener('click', () => void openPortal(manage));
   return h(
@@ -30,7 +30,7 @@ export function membershipPanel(user: Me, freezesLeft: number | null): HTMLEleme
           h(
             'p',
             {},
-            user.role === 'admin' && !user.lifetime && !user.memberUntil
+            !paying
               ? 'Admins get every Plus feature.'
               : user.lifetime
                 ? 'Lifetime member. Thank you! ♥'
