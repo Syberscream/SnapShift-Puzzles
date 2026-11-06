@@ -13,7 +13,7 @@ It runs entirely on Cloudflare:
 | Images | **R2** | original, web-sized and thumbnail images |
 | Puzzle generation | **Cron Trigger** (every 10 min) | queues ElevenLabs jobs and collects finished images |
 
-The old PHP site is preserved on the `main` branch.
+The old PHP site is preserved in this repository's history (the commits before the v2 merge).
 
 ## How it fits together
 
