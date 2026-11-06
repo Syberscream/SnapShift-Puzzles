@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'snapshift-shell-v56';
+const CACHE_VERSION = 'snapshift-shell-v57';
 const START_URL = '/index.html?app=snapshift';
 const APP_SHELL = [
   '/',

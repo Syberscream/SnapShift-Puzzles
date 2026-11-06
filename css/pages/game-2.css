@@ -1,0 +1,120 @@
+/* ===== PATCH: folded phones in landscape should use side HUD, not top HUD ===== */
+@media (orientation: landscape) and (max-width: 1100px) and (max-height: 560px){
+  #gameScreen .app{
+    padding-top: max(4px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(4px, env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+  }
+
+  #gameScreen .boardCard{
+    grid-template-columns: minmax(0, 1fr) clamp(132px, 18vw, 156px) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    align-content: stretch !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  #gameScreen .hud{
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    overflow: auto !important;
+  }
+
+  #gameScreen .hudLeft,
+  #gameScreen .hudRight{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  #gameScreen .hudItem,
+  #gameScreen .hudBtn{
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 32px !important;
+    padding: 6px 8px !important;
+    font-size: 10.5px !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  #gameScreen #saveStatus,
+  #gameScreen #hintPlaceBtn,
+  #gameScreen #hudCategory{
+    justify-content: flex-start !important;
+    padding-left: 10px !important;
+  }
+
+  #gameScreen .canvasWrap{
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    align-self: stretch !important;
+    overflow: hidden !important;
+  }
+
+  #gameScreen #pausePill{
+    display: none !important;
+  }
+}
+
+/* Final win: folded Fold / short-wide landscape side HUD items must not flex-grow */
+@media (orientation: landscape) and (max-width: 1100px) and (max-height: 540px),
+       (orientation: landscape) and (max-width: 1100px) and (min-aspect-ratio: 171/100){
+  #gameScreen .boardCard{
+    grid-template-columns: minmax(0, 1fr) 118px !important;
+    gap: 8px !important;
+  }
+
+  #gameScreen .hud{
+    gap: 6px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    align-content: flex-start !important;
+  }
+
+  #gameScreen .hudLeft,
+  #gameScreen .hudRight{
+    gap: 6px !important;
+    flex: 0 0 auto !important;
+  }
+
+  #gameScreen .hudItem,
+  #gameScreen .hudBtn{
+    flex: 0 0 auto !important;
+    align-self: stretch !important;
+    min-height: 30px !important;
+    max-height: 34px !important;
+    padding: 5px 8px !important;
+    font-size: 10.5px !important;
+    line-height: 1.05 !important;
+    border-radius: 14px !important;
+  }
+
+  #gameScreen .hudItem.big{
+    min-height: 30px !important;
+    max-height: 34px !important;
+    font-size: 10.5px !important;
+    padding: 5px 8px !important;
+  }
+}

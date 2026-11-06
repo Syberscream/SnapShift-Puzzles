@@ -1,0 +1,357 @@
+header.topbar + .hero{
+  margin-top:12px !important;
+}
+
+/* Tune puzzle preview windows to show a bit more image with less harsh crop */
+.dailyThumb{
+  aspect-ratio: 16 / 11 !important;
+}
+.dailyThumb img,
+#dailyImg{
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: cover !important;
+  object-position: center 42% !important;
+}
+
+.archiveThumbWrap{
+  aspect-ratio: 16 / 10 !important;
+}
+.archiveThumb{
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: cover !important;
+  object-position: center 42% !important;
+}
+
+/* Category cards */
+.thumb img{
+  object-fit: cover !important;
+  object-position: center 42% !important;
+}
+
+.dailyResetPill{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+}
+.dailyResetLabel{
+  opacity:.82;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.dailyResetValue{
+  font-size:13px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+#dailyResetPill{
+  justify-content:center;
+}
+
+/* Match cleaner index-style solid treatments on category cards */
+.puz{
+  background: #1A2740 !important;
+}
+.body{
+  background: #1A2740 !important;
+}
+.name,.meta,.meta span{
+  color:#eef5ff !important;
+  opacity:1 !important;
+}
+.lockBadge,
+.lockBadge.isActionable,
+.lockBadge.isPassive{
+  background: #1A2740 !important;
+  border-color: rgba(206,228,255,0.72) !important;
+  color:#ffffff !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,.20) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.lockBadge.isPassive{
+  opacity: 1 !important;
+}
+
+/* Keep the image dimmed for locked cards, and slightly dim the lower panel too */
+.locked{
+  opacity: 1 !important;
+  filter: none !important;
+}
+.locked .thumb img{
+  filter: brightness(.78) saturate(.92) !important;
+}
+.locked .body{
+  background: rgba(26, 39, 64, 0.82) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+.locked .name,.locked .meta,.locked .meta span{
+  color: rgba(238,245,255,0.92) !important;
+}
+.locked .lockBadge,
+.locked .lockBadge.isActionable,
+.locked .lockBadge.isPassive{
+  opacity: 1 !important;
+  filter: none !important;
+  background: #1A2740 !important;
+}
+
+:root{
+  --ss-site-bg:#0B1220;
+  --ss-panel-bg:rgba(15,23,42,.72);
+  --ss-section-bg:rgba(17,27,45,.78);
+  --ss-card-bg:rgba(26,39,64,.78);
+  --ss-border:rgba(42,57,82,.85);
+  --ss-text:#E8EEF7;
+  --ss-muted:#AFC2E0;
+  --ss-accent:#36CFC9;
+  --ss-accent-2:#7CC4FF;
+  --ss-button-bg:#16335D;
+  --ss-button-text:#E8EEF7;
+  --ss-pill-bg:#142848;
+  --ss-pill-text:#E8EEF7;
+  --ss-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --ss-heading-font:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+body{
+  background:var(--ss-site-bg) !important;
+  color:var(--ss-text) !important;
+  font-family:var(--ss-font) !important;
+}
+h1,h2,h3,h4,h5,h6,.brandTitle,.rowTitle,.gridTitle,.catName,.name,.dailyTitle,.lbTitle,.archiveName,.unlockTitle,.hero h1,.heroSimple h1,.landingHeader h1{
+  font-family:var(--ss-heading-font) !important;
+  color:var(--ss-text);
+}
+p,.rowSub,.gridHint,.catDesc,.dailySub,.dailyIntro p,.archiveMeta,.statSub,.tiny,.muted,.lbMeta .rowSub,.unlockCopy,.rewardPlacementCopy,.rewardPlacementFine,.completionShareText,.help,.archiveCount,.monthMeta,.meta,.statusDiff{
+  color:var(--ss-muted) !important;
+}
+.hero,.heroSimple,.dailyCard,.railCard,.seoCopyCard,.categoryIntroCard,.relatedCatsCard,.boardCard,.sidebar,.helpPanel,.modalCard,.pauseCard,.lbCard,.unlockPanel,.archiveCard,.statCard,.adPlacementCard,.completionPanel,.rewardPlacement,.topbar,.hud{
+  background:var(--ss-panel-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.stat,.unlockStat,.archiveEmpty,.adPlacementFrame,.resumeMeta,.pill2,.cat,.catCard,.card,.puz,.relatedCatLink,.latestGrid .card,.lbTableWrap{
+  background:var(--ss-section-bg) !important;
+  border-color:var(--ss-border) !important;
+}
+.thumb,.dailyThumb,.catTile,.tile,.archiveThumbWrap,canvas{
+  background:var(--ss-card-bg) !important;
+}
+.btnSoft,.btnPrimary,.loadMoreBtn,.dailyBtn,.hudBtn,.rewardPlacementBtn,button,select,input[type="range"],.completionShareBtn,.modalLinkBtn,.guideLinkBtn,.archiveFilterBtn,.footerLink{
+  background:var(--ss-button-bg) !important;
+  color:var(--ss-button-text) !important;
+  border-color:var(--ss-border) !important;
+}
+.pill,.statusBadge,.lbTabBtn,.lbRankPill,.lbCountBadge,.badge,.eyebrow,.tag,.metaTag,.hudItem,.statLabel,.lockBadge,.pausePill,.statusBadge.isMedal,.badge.medal{
+  background:var(--ss-pill-bg) !important;
+  color:var(--ss-pill-text) !important;
+  border-color:var(--ss-border) !important;
+}
+a,.dailyIntro a,.relatedBrowseAll,.archiveBody a,.heroActions a,.footerLinks a{ color:var(--ss-accent-2); }
+.lbTabBtn.active,.dailyBtn.isPrimary,.btnPrimary,.statusBadge.isGold,.badge.medal.isGold,.lbMedalBadge.isGold{
+  background:linear-gradient(135deg, var(--ss-accent-2), var(--ss-accent)) !important;
+  color:var(--ss-button-text) !important;
+  border-color:color-mix(in srgb, var(--ss-accent-2) 60%, white 10%) !important;
+}
+.statusBadge.isSilver,.badge.medal.isSilver,.lbMedalBadge.isSilver{
+  background:color-mix(in srgb, var(--ss-card-bg) 72%, white 14%) !important;
+}
+.statusBadge.isBronze,.badge.medal.isBronze,.lbMedalBadge.isBronze{
+  background:color-mix(in srgb, var(--ss-card-bg) 80%, #b86b2f 22%) !important;
+}
+.adPlacementBadge,.rewardPlacementEyebrow,.completionPanelTitle,.challengeCelebrateEyebrow,.statLabel,.rowTitle,.gridTitle,.archiveDate,.unlockStatLabel{
+  color:var(--ss-accent) !important;
+}
+.topbar .pill,.topbar .btnSoft,#continueBtn,.heroActions .pill,.heroActions .btnPrimary,.archiveToolbar .btnSoft,.archiveToolbar .archiveFilterBtn,.dailyRight .pill,.dailyRight .dailyBtn,.hudItem,.hudBtn{
+  box-shadow:none;
+}
+
+.statusBadge{
+  border:1px solid rgba(120,255,190,.42) !important;
+  background:rgba(10,42,24,.88) !important;
+  color:#dfffea !important;
+  box-shadow:0 5px 14px rgba(0,0,0,.24) !important;
+}
+.statusBadge .statusDiff{
+  color:inherit !important;
+  opacity:.9 !important;
+  font-weight:800 !important;
+  font-size:9px !important;
+  text-transform:none !important;
+}
+.statusBadge.isMedal{
+  border-color: rgba(255,215,120,.42) !important;
+  background: rgba(48,32,8,.90) !important;
+  color:#fff3c4 !important;
+}
+.statusBadge.isGold{
+  border-color: rgba(255,221,120,.52) !important;
+  background: linear-gradient(180deg, rgba(96,66,10,.92), rgba(53,35,8,.92)) !important;
+  color:#fff4be !important;
+}
+.statusBadge.isSilver{
+  border-color: rgba(214,224,240,.52) !important;
+  background: linear-gradient(180deg, rgba(61,74,96,.92), rgba(34,43,58,.92)) !important;
+  color:#eef5ff !important;
+}
+.statusBadge.isBronze{
+  border-color: rgba(224,164,120,.48) !important;
+  background: linear-gradient(180deg, rgba(86,49,26,.92), rgba(54,31,19,.92)) !important;
+  color:#ffe8da !important;
+}
+.statusBadge .statusStars{
+  letter-spacing:.08em !important;
+  font-size:11px !important;
+  font-weight:950 !important;
+  line-height:1 !important;
+}
+
+.categoryGuideGrid{
+  margin-top: 14px;
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+}
+.categoryGuideCard{
+  border-radius: 18px;
+  border: 1px solid rgba(36,48,69,0.85);
+  background: rgba(15,23,42,0.72);
+  padding: 16px;
+  backdrop-filter: blur(10px);
+}
+.categoryGuideCard h2{
+  margin:0 0 8px;
+  font-size:18px;
+}
+.categoryGuideIntro{
+  margin:0;
+  line-height:1.55;
+  color:#d7e2ff;
+}
+.categoryGuideList{
+  margin:12px 0 0;
+  padding-left: 18px;
+  display:grid;
+  gap:8px;
+}
+.categoryGuideList li{
+  line-height:1.5;
+  color:#d7e2ff;
+  font-weight:700;
+}
+.categoryFaqList{
+  display:grid;
+  gap:12px;
+}
+.categoryFaqItem strong{
+  display:block;
+  font-size:14px;
+  font-weight:900;
+}
+.categoryFaqItem p{
+  margin:6px 0 0;
+  line-height:1.55;
+  color:#d7e2ff;
+}
+@media (max-width: 820px){
+  .categoryGuideGrid{ grid-template-columns: 1fr; }
+  .categoryGuideCard{ padding:14px; }
+}
+
+/* Match category action controls to the final index-page button sizing */
+#authPill,
+.topbar .right > a.btnSoft,
+.topbar .right > #playBtn,
+.topbar .right > #pointsPill,
+.categoryIntroActions > a.btnSoft,
+.categoryIntroActions > .btnSoft,
+.categoryIntroActions > a,
+.filterPill,
+.loadMoreBtn,
+.unlockActions > .btnSoft,
+.unlockActions > button,
+.footerLinks .footerLink{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid var(--ss-border, rgba(42,57,82,.72)) !important;
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  font-family:var(--ss-font, system-ui, -apple-system, Segoe UI, Roboto, sans-serif) !important;
+  font-weight:800 !important;
+  font-size:12px !important;
+  letter-spacing:.2px !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+}
+#authPill:hover,
+.topbar .right > a.btnSoft:hover,
+.topbar .right > #playBtn:hover,
+.categoryIntroActions > a.btnSoft:hover,
+.categoryIntroActions > .btnSoft:hover,
+.categoryIntroActions > a:hover,
+.filterPill:hover,
+.loadMoreBtn:hover,
+.unlockActions > .btnSoft:hover,
+.unlockActions > button:hover,
+.footerLinks .footerLink:hover{
+  filter:brightness(1.08) !important;
+  transform:none !important;
+}
+.topbar .right,
+.categoryIntroActions,
+.unlockActions,
+.footerLinks{
+  display:flex !important;
+  align-items:center !important;
+  flex-wrap:wrap !important;
+  gap:10px !important;
+}
+.filterPill.isActive{
+  background:var(--ss-button-bg, #16335D) !important;
+  color:var(--ss-button-text, #E8EEF7) !important;
+  border-color:var(--ss-border, rgba(42,57,82,.72)) !important;
+  box-shadow:none !important;
+}
+
+#supporterPill[hidden]{
+  display:none !important;
+}
+
+#supporterPill{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  height:34px !important;
+  min-height:34px !important;
+  padding:0 14px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(142,240,176,.52) !important;
+  background: linear-gradient(135deg, rgba(21,76,52,.94), rgba(12,30,22,.97)) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22), 0 0 0 1px rgba(142,240,176,.14) inset !important;
+  animation: snapshiftDailyCountdownGlow 2.8s ease-in-out infinite !important;
+  color:#dcffe7 !important;
+  font-size:11px !important;
+  font-weight:950 !important;
+  letter-spacing:.12em !important;
+  text-transform:uppercase !important;
+  white-space:nowrap !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  cursor:default !important;
+}

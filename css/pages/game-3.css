@@ -1,0 +1,336 @@
+/* ===== PATCH: Fold top HUD in two rows for less crowding ===== */
+@media (orientation: landscape) and (min-width: 700px) and (max-width: 1100px){
+  #gameScreen .boardCard{
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    align-content: stretch !important;
+  }
+
+  #gameScreen .hud{
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+    align-self: start !important;
+    grid-template-columns:
+      minmax(112px, 1.1fr)
+      minmax(164px, 1.55fr)
+      minmax(92px, 0.86fr)
+      minmax(92px, 0.86fr)
+      minmax(96px, 0.9fr) !important;
+    column-gap: 8px !important;
+    row-gap: 8px !important;
+    padding: 0 !important;
+    margin: 0 0 8px 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  #gameScreen .hudLeft,
+  #gameScreen .hudRight{
+    display: contents !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  #gameScreen .hudItem,
+  #gameScreen .hudBtn{
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: 40px !important;
+    padding: 8px 10px !important;
+    font-size: 12.8px !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    border-radius: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+  }
+
+  #gameScreen #timerStat{ grid-column: 1 !important; grid-row: 1 !important; }
+  #gameScreen #hudCategory{ grid-column: 2 !important; grid-row: 1 !important; justify-content: flex-start !important; padding-left: 14px !important; }
+  #gameScreen #scoreStat{ grid-column: 3 !important; grid-row: 1 !important; }
+  #gameScreen #phonePointsHud{ grid-column: 4 !important; grid-row: 1 !important; }
+  #gameScreen #streakStat{ grid-column: 5 !important; grid-row: 1 !important; }
+
+  #gameScreen #saveStatus{
+    grid-column: 1 / span 2 !important;
+    grid-row: 2 !important;
+    justify-content: flex-start !important;
+    padding-left: 14px !important;
+  }
+
+  #gameScreen #hintPlaceBtn{
+    grid-column: 3 / span 3 !important;
+    grid-row: 2 !important;
+    justify-content: flex-start !important;
+    padding-left: 14px !important;
+  }
+
+  #gameScreen .canvasWrap{
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 700px) and (max-width: 920px){
+  #gameScreen .hud{
+    grid-template-columns:
+      minmax(102px, 1.05fr)
+      minmax(148px, 1.42fr)
+      minmax(84px, 0.82fr)
+      minmax(84px, 0.82fr)
+      minmax(88px, 0.86fr) !important;
+    column-gap: 6px !important;
+    row-gap: 6px !important;
+  }
+
+  #gameScreen .hudItem,
+  #gameScreen .hudBtn{
+    min-height: 36px !important;
+    padding: 7px 8px !important;
+    font-size: 11.8px !important;
+  }
+
+  #gameScreen #saveStatus,
+  #gameScreen #hintPlaceBtn{
+    padding-left: 12px !important;
+  }
+}
+
+/* ===== FINAL PATCH: unfolded Fold keeps top HUD; folded/short/wide landscape uses side HUD ===== */
+
+/* Unfolded Fold / tablet-ish landscape only */
+@media (orientation: landscape) and (min-width: 700px) and (max-width: 1100px) and (min-height: 541px) and (max-aspect-ratio: 17/10){
+  #gameScreen .boardCard{
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    align-items: stretch !important;
+    align-content: stretch !important;
+  }
+
+  #gameScreen .hud{
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+    align-self: start !important;
+    grid-template-columns:
+      minmax(112px, 1.1fr)
+      minmax(164px, 1.55fr)
+      minmax(92px, 0.86fr)
+      minmax(92px, 0.86fr)
+      minmax(96px, 0.9fr) !important;
+    column-gap: 8px !important;
+    row-gap: 8px !important;
+    padding: 0 !important;
+    margin: 0 0 8px 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  #gameScreen .hudLeft,
+  #gameScreen .hudRight{
+    display: contents !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  #gameScreen .hudItem,
+  #gameScreen .hudBtn{
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: 40px !important;
+    padding: 8px 10px !important;
+    font-size: 12.8px !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    border-radius: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    box-sizing: border-box !important;
+  }
+
+  #gameScreen #timerStat{ grid-column: 1 !important; grid-row: 1 !important; }
+  #gameScreen #hudCategory{ grid-column: 2 !important; grid-row: 1 !important; justify-content: flex-start !important; padding-left: 14px !important; }
+  #gameScreen #scoreStat{ grid-column: 3 !important; grid-row: 1 !important; }
+  #gameScreen #phonePointsHud{ grid-column: 4 !important; grid-row: 1 !important; }
+  #gameScreen #streakStat{ grid-column: 5 !important; grid-row: 1 !important; }
+
+  #gameScreen #saveStatus{
+    grid-column: 1 / span 2 !important;
+    grid-row: 2 !important;
+    justify-content: flex-start !important;
+    padding-left: 14px !important;
+  }
+
+  #gameScreen #hintPlaceBtn{
+    grid-column: 3 / span 3 !important;
+    grid-row: 2 !important;
+    justify-content: flex-start !important;
+    padding-left: 14px !important;
+  }
+
+  #gameScreen .canvasWrap{
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    align-self: stretch !important;
+    justify-self: stretch !important;
+  }
+
+  #gameScreen #pausePill{
+    display: none !important;
+  }
+}
+
+/* Folded Fold / short or extra-wide landscape phones, including browser-minimized/full-screen states */
+@media (orientation: landscape) and (max-width: 1100px) and (max-height: 540px),
+       (orientation: landscape) and (max-width: 1100px) and (min-aspect-ratio: 171/100){
+  #gameScreen .app{
+    height: 100dvh !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    display: grid !important;
+    grid-template-columns: var(--sidebarW) minmax(0, 1fr) !important;
+    grid-template-rows: 1fr !important;
+    gap: 6px !important;
+    padding: 6px !important;
+    align-items: stretch !important;
+  }
+
+  #gameScreen .sidebar{
+    height: calc(100dvh - 12px) !important;
+    max-height: calc(100dvh - 12px) !important;
+  }
+
+  #gameScreen .content{
+    height: calc(100dvh - 12px) !important;
+    max-height: calc(100dvh - 12px) !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #gameScreen .boardCard{
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) clamp(132px, 18vw, 156px) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    align-items: stretch !important;
+    align-content: stretch !important;
+  }
+
+  #gameScreen .hud{
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    backdrop-filter: none !important;
+    overflow: auto !important;
+  }
+
+  #gameScreen .hudLeft,
+  #gameScreen .hudRight{
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  #gameScreen .hudItem,
+  #gameScreen .hudBtn{
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 32px !important;
+    padding: 6px 8px !important;
+    font-size: 10.5px !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  #gameScreen #hudCategory,
+  #gameScreen #saveStatus,
+  #gameScreen #hintPlaceBtn{
+    justify-content: flex-start !important;
+    text-align: left !important;
+    padding-left: 10px !important;
+  }
+
+  #gameScreen .canvasWrap{
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    align-self: stretch !important;
+    justify-self: stretch !important;
+    overflow: hidden !important;
+  }
+
+  #gameScreen #pausePill{
+    display: none !important;
+  }
+}
