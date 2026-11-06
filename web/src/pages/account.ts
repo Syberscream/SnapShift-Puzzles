@@ -165,7 +165,7 @@ async function profileView(user: Me) {
                   h(
                     'tr',
                     {},
-                    h('td', {}, reasons[l.reason] ?? l.reason),
+                    h('td', {}, l.reason === 'admin' ? (l.delta > 0 ? 'Gift' : 'Adjustment') : (reasons[l.reason] ?? l.reason), l.reason === 'admin' && l.ref ? h('div', { class: 'small muted' }, l.ref) : null),
                     h('td', { class: 'muted small' }, new Date(l.created_at).toLocaleString()),
                     h('td', { class: 'num', style: `color:${l.delta > 0 ? 'var(--ok)' : 'var(--muted)'}` }, `${l.delta > 0 ? '+' : ''}${l.delta}`),
                   ),

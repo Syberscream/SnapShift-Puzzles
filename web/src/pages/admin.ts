@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { me, requireSignIn, shell } from '../lib/shell';
-import { bg, errorText, h, mount, toast } from '../lib/ui';
+import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { applyTheme, type Banner, type Theme } from '../lib/theme';
 
 interface AdminPuzzle {
@@ -394,7 +394,7 @@ async function players() {
               h(
                 'td',
                 { class: 'row end' },
-                h('button', { class: 'btn', onclick: async () => { const v = prompt(`Adjust points for ${u.username} (e.g. 100 or -50):`); if (v && Number(v)) { await api.post(`/admin/users/${u.id}/points`, { delta: Number(v), note: 'admin adjustment' }); await load(); } } }, 'Points'),
+                h('button', { class: 'btn', onclick: () => pointsDialog(u, load) }, 'Points'),
                 h('button', { class: 'btn', onclick: async () => { const v = prompt(`Give ${u.username} SnapShift Plus for how many days? (0 removes it)`, '30'); if (v !== null) { await api.post(`/admin/users/${u.id}/supporter`, { days: Number(v) }); toast('Updated', '', 'good'); await load(); } } }, 'Plus days'),
                 h('button', { class: 'btn', onclick: async () => { if (confirm(u.lifetime ? `Remove lifetime Plus from ${u.username}?` : `Give ${u.username} lifetime Plus?`)) { await api.post(`/admin/users/${u.id}/supporter`, { lifetime: !u.lifetime }); toast('Updated', '', 'good'); await load(); } } }, u.lifetime ? 'Remove lifetime' : 'Lifetime'),
               ),
@@ -405,8 +405,99 @@ async function players() {
     );
   };
   search.addEventListener('change', load);
-  mount(body, h('section', { class: 'panel' }, h('h2', {}, 'Players'), search, list));
-  await load();
+  const log = h('div');
+  const loadLog = async () => {
+    const { rows } = await api.get<{ rows: { delta: number; ref: string | null; created_at: number; username: string }[] }>('/admin/points/recent');
+    mount(
+      log,
+      rows.length
+        ? h('table', {}, h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r.username), h('td', { class: 'small muted' }, r.ref ?? ''), h('td', { class: 'small muted' }, new Date(r.created_at).toLocaleString()), h('td', { class: 'num', style: `color:${r.delta > 0 ? 'var(--ok)' : 'var(--muted)'}` }, `${r.delta > 0 ? '+' : ''}${r.delta}`)))))
+        : h('p', { class: 'muted' }, 'No points given yet.'),
+    );
+  };
+  const reload = async () => {
+    await load();
+    await loadLog();
+  };
+  mount(
+    body,
+    h('section', { class: 'panel' }, h('h2', {}, 'Players'), search, list),
+    h('div', { class: 'two-col' }, await groupGrantPanel(reload), h('section', { class: 'panel' }, h('h2', {}, 'Points given by admins'), log)),
+  );
+  await reload();
+}
+
+const QUICK_AMOUNTS = [50, 100, 250, 500, 1000];
+
+/** Give or take points from one player, with a note they see in their history. */
+function pointsDialog(u: { id: number; username: string; points: number }, onDone: () => Promise<void>) {
+  const amount = h('input', { type: 'number', step: '1', value: '100', style: 'max-width:160px' }) as HTMLInputElement;
+  const take = h('input', { type: 'checkbox' }) as HTMLInputElement;
+  const note = h('input', { maxlength: 120, placeholder: 'e.g. Thanks for the bug report!' }) as HTMLInputElement;
+  const err = h('p', { class: 'error' });
+  const save = h('button', { class: 'btn primary' }, 'Give points') as HTMLButtonElement;
+  const sync = () => (save.textContent = take.checked ? `Take ${amount.value || 0} points` : `Give ${amount.value || 0} points`);
+  amount.addEventListener('input', sync);
+  take.addEventListener('change', sync);
+  const d = modal(
+    h('h2', {}, `Points for ${u.username}`),
+    h('p', { class: 'muted' }, `Balance: ${u.points.toLocaleString()} points.`),
+    h('div', { class: 'row' }, QUICK_AMOUNTS.map((n) => h('button', { class: 'btn', onclick: () => ((amount.value = String(n)), sync()) }, `+${n}`))),
+    h('div', { class: 'field', style: 'margin-top:10px' }, h('label', {}, 'Amount'), h('div', { class: 'row' }, amount, h('label', { class: 'check' }, take, 'Take points away instead'))),
+    h('div', { class: 'field' }, h('label', {}, 'Note (the player sees this in their points history)'), note),
+    h('p', { class: 'small muted' }, 'Given points can be spent like any others but don’t count toward the points leaderboard.'),
+    err,
+    h('div', { class: 'row end' }, h('button', { class: 'btn ghost', onclick: () => d.close() }, 'Cancel'), save),
+  );
+  save.addEventListener('click', async () => {
+    const n = Math.abs(Math.round(Number(amount.value)));
+    if (!n) return void (err.textContent = 'Enter an amount.');
+    save.disabled = true;
+    try {
+      const r = await api.post<{ points: number }>(`/admin/users/${u.id}/points`, { delta: take.checked ? -n : n, note: note.value || (take.checked ? 'Adjustment' : 'Gift from SnapShift') });
+      toast(take.checked ? 'Points taken' : 'Points given', `${u.username} now has ${r.points.toLocaleString()} points.`, 'good');
+      d.close();
+      await onDone();
+    } catch (x) {
+      err.textContent = errorText(x);
+      save.disabled = false;
+    }
+  });
+}
+
+/** Give the same points to a whole group of players. */
+async function groupGrantPanel(onDone: () => Promise<void>): Promise<HTMLElement> {
+  const { groups } = await api.get<{ groups: { id: string; label: string; count: number }[] }>('/admin/points/groups');
+  const group = h('select', {}, groups.map((g) => h('option', { value: g.id }, `${g.label} (${g.count})`))) as HTMLSelectElement;
+  const amount = h('input', { type: 'number', min: '1', max: '10000', value: '100', style: 'max-width:140px' }) as HTMLInputElement;
+  const note = h('input', { maxlength: 120, placeholder: 'e.g. Happy holidays from SnapShift!' }) as HTMLInputElement;
+  const go = h('button', { class: 'btn primary' }, 'Give points') as HTMLButtonElement;
+  go.addEventListener('click', async () => {
+    const g = groups.find((x) => x.id === group.value)!;
+    const n = Math.round(Number(amount.value));
+    if (!(n >= 1)) return toast('Enter an amount', '', 'bad');
+    if (!confirm(`Give ${n.toLocaleString()} points to ${g.count} players (${g.label})?`)) return;
+    go.disabled = true;
+    try {
+      const r = await api.post<{ players: number }>('/admin/points/grant', { group: g.id, amount: n, note: note.value || 'Gift from SnapShift' });
+      toast('Points given', `${n} points to ${r.players} players.`, 'good');
+      await onDone();
+    } catch (x) {
+      toast('Could not give points', errorText(x), 'bad', 6000);
+    } finally {
+      go.disabled = false;
+    }
+  });
+  return h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, 'Give points to a group'),
+    h('p', { class: 'muted small' }, 'Everyone in the group gets the same amount, with your note in their points history.'),
+    h('div', { class: 'field' }, h('label', {}, 'Who'), group),
+    h('div', { class: 'field' }, h('label', {}, 'Points each'), amount),
+    h('div', { class: 'field' }, h('label', {}, 'Note'), note),
+    go,
+  );
 }
 
 async function messages() {

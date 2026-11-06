@@ -540,6 +540,38 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await admin.screenshot({ path: `${OUT}/17-admin-membership.png`, fullPage: true });
 }
 
+// ---------- Admin: give points ----------
+{
+  const bal = async () => (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
+  const before = await bal();
+  await admin.goto(BASE + '/admin#players');
+  await admin.waitForSelector('text=Give points to a group');
+  await admin.locator('tr', { hasText: 'PuzzleFan' }).locator('button', { hasText: 'Points' }).click();
+  await admin.click('dialog button:has-text("+250")');
+  await admin.fill('dialog input[maxlength="120"]', 'Thanks for testing!');
+  await admin.click('dialog button:has-text("Give 250 points")');
+  await admin.waitForSelector('dialog', { state: 'detached' });
+  check('points: admin gives a player points', (await bal()) === before + 250);
+  const pf = (await (await admin.request.get(BASE + '/api/admin/users?q=PuzzleFan')).json()).users[0];
+  const tooMuch = await admin.request.post(BASE + `/api/admin/users/${pf.id}/points`, { data: { delta: -(pf.points + 1) } });
+  check('points: cannot take more than a player has', tooMuch.status() === 422, (await tooMuch.json()).error);
+  const groups = (await (await admin.request.get(BASE + '/api/admin/points/groups')).json()).groups;
+  const everyone = groups.find((g) => g.id === 'all');
+  const g = await (await admin.request.post(BASE + '/api/admin/points/grant', { data: { group: 'all', amount: 100, note: 'Holiday gift' } })).json();
+  check('points: group gift reaches everyone', g.players === everyone.count && (await bal()) === before + 350, `${g.players} of ${everyone.count}`);
+  const badGroup = await admin.request.post(BASE + '/api/admin/points/grant', { data: { group: 'all', amount: 0 } });
+  check('points: group gift needs an amount', badGroup.status() === 422);
+  await admin.reload();
+  await admin.waitForSelector('text=Holiday gift');
+  check('points: admin log shows gifts', (await admin.locator('text=Thanks for testing!').count()) >= 1);
+  await admin.screenshot({ path: `${OUT}/18-admin-points.png`, fullPage: true });
+  await player.goto(BASE + '/account');
+  await player.waitForSelector('text=Holiday gift');
+  check('points: player sees the note in their history', (await player.locator('text=Thanks for testing!').count()) === 1);
+  const lbAfter = (await (await player.request.get(BASE + '/api/leaderboard/points')).json()).rows.find((r) => r.username === 'PuzzleFan');
+  check('points: gifts don’t count on the points leaderboard', lbAfter && lbAfter.earned < before + 350);
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

@@ -316,12 +316,64 @@ app.get('/users', async (c) => {
   return c.json({ users: results });
 });
 
+/** Give (or take) points from one player. The note shows in their points history. */
 app.post('/users/:id/points', async (c) => {
   const b = await body(c);
+  const id = int(c.req.param('id'));
   const delta = int(b.delta);
   if (!delta) fail(422, 'Enter a non-zero amount.');
-  await c.env.DB.batch(creditStatements(c.env, int(c.req.param('id')), delta, 'admin', str(b.note, 120) || null));
-  return c.json({ ok: true });
+  if (Math.abs(delta) > 100_000) fail(422, 'That’s more than 100,000 points in one go.');
+  const u = await c.env.DB.prepare('SELECT points FROM users WHERE id = ?').bind(id).first<{ points: number }>();
+  if (!u) fail(404, 'Player not found.');
+  if (u.points + delta < 0) fail(422, `They only have ${u.points} points, so you can take at most ${u.points}.`);
+  await c.env.DB.batch(creditStatements(c.env, id, delta, 'admin', str(b.note, 120) || null));
+  return c.json({ ok: true, points: u.points + delta });
+});
+
+/** Who a group grant goes to. */
+const GRANT_GROUPS: Record<string, { label: string; where: string }> = {
+  all: { label: 'Everyone', where: '1 = 1' },
+  verified: { label: 'Verified emails', where: 'email_verified = 1' },
+  active: { label: 'Played in the last 30 days', where: 'id IN (SELECT user_id FROM plays WHERE updated_at > :since)' },
+  members: { label: 'Plus members', where: '(lifetime = 1 OR COALESCE(supporter_until, 0) > :now)' },
+};
+
+app.get('/points/groups', async (c) => {
+  const t = now();
+  const out = [];
+  for (const [id, g] of Object.entries(GRANT_GROUPS)) {
+    const where = g.where.replace(':since', String(t - 30 * 86400_000)).replace(':now', String(t));
+    const r = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE ${where}`).first<{ n: number }>();
+    out.push({ id, label: g.label, count: r?.n ?? 0 });
+  }
+  return c.json({ groups: out });
+});
+
+/** Give the same number of points to a whole group, e.g. a holiday gift or an apology for downtime. */
+app.post('/points/grant', async (c) => {
+  const b = await body(c);
+  const g = GRANT_GROUPS[String(b.group)];
+  if (!g) fail(422, 'Pick who gets the points.');
+  const amount = int(b.amount);
+  if (amount < 1 || amount > 10_000) fail(422, 'Give between 1 and 10,000 points each.');
+  const note = str(b.note, 120) || null;
+  const t = now();
+  const where = g.where.replace(':since', String(t - 30 * 86400_000)).replace(':now', String(t));
+  // One batch runs as a single transaction, so both statements see the same group.
+  const [ins] = await c.env.DB.batch([
+    c.env.DB.prepare(`INSERT INTO points_ledger (user_id, delta, reason, ref, created_at) SELECT id, ?, 'admin', ?, ? FROM users WHERE ${where}`).bind(amount, note, t),
+    c.env.DB.prepare(`UPDATE users SET points = points + ? WHERE ${where}`).bind(amount),
+  ]);
+  return c.json({ ok: true, players: ins.meta.changes, amount });
+});
+
+/** Recent points given or taken by admins. */
+app.get('/points/recent', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT l.delta, l.ref, l.created_at, u.username FROM points_ledger l JOIN users u ON u.id = l.user_id
+     WHERE l.reason = 'admin' ORDER BY l.id DESC LIMIT 40`,
+  ).all();
+  return c.json({ rows: results });
 });
 
 /** Give (or take away) membership by hand: {days} from now (0 removes), or {lifetime: true|false}. */
