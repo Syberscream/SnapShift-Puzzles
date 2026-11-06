@@ -49,11 +49,11 @@ export const RULES: Record<Difficulty, DifficultyRules> = {
     lock: true, glow: true, preview: 'always', scramble: 'pairs', hintCost: 0, hintCooldownMs: 10_000, placeCost: 30,
   },
   medium: {
-    label: 'Medium', rows: 6, cols: 9, rotationGrid: [6, 10], parPerTileMs: 6800, winBase: 60, multiplier: 1.5,
+    label: 'Medium', rows: 6, cols: 9, rotationGrid: [6, 10], parPerTileMs: 6800, winBase: 60, multiplier: 2,
     lock: true, glow: false, preview: 'peek', scramble: 'mixed', hintCost: 25, hintCooldownMs: 15_000, placeCost: 45,
   },
   hard: {
-    label: 'Hard', rows: 8, cols: 12, rotationGrid: [8, 14], parPerTileMs: 8000, winBase: 80, multiplier: 2.5,
+    label: 'Hard', rows: 8, cols: 12, rotationGrid: [8, 14], parPerTileMs: 8000, winBase: 80, multiplier: 4,
     lock: false, glow: false, preview: 'hidden', scramble: 'long', hintCost: 60, hintCooldownMs: 30_000, placeCost: 60,
   },
 };
@@ -80,8 +80,8 @@ export const TIME_ATTACK = {
   perSolve: 100,
   efficiencyBonus: 50,
   /** Points added to the player's balance per solved puzzle, capped per day. */
-  pointsPerSolve: 10,
-  dailyPointsCap: 200,
+  pointsPerSolve: 5,
+  dailyPointsCap: 100,
   /** Extra time allowed for the finish request to arrive. */
   graceMs: 20_000,
 };
@@ -91,7 +91,9 @@ export function timeAttackScore(par: number, moves: number): number {
   return TIME_ATTACK.perSolve + Math.round(TIME_ATTACK.efficiencyBonus * Math.min(1, Math.max(1, par) / Math.max(1, moves)));
 }
 
-/** Win points also get floor(WIN_TIME_FACTOR / seconds) as a speed bonus. */
+/** Win points = base × difficulty multiplier × medal factor (Classic/Rotation). */
+export const MEDAL_POINTS: Record<'gold' | 'silver' | 'bronze', number> = { gold: 1.5, silver: 1.25, bronze: 1 };
+/** Engine v1 only: win points also got floor(WIN_TIME_FACTOR / seconds) as a speed bonus. */
 export const WIN_TIME_FACTOR = 600;
 
 /** In-game score: per newly-correct tile, plus a growing streak bonus. */
@@ -112,6 +114,13 @@ export const STREAK_MILESTONES: { days: number; points: number; title: string }[
   { days: 14, points: 600, title: 'Streak Master' },
   { days: 30, points: 1500, title: 'Monthly Legend' },
 ];
+/** After 30 days the Monthly Legend bonus repeats every 30 days (60, 90, …). */
+export function streakMilestone(days: number): { days: number; points: number; title: string } | null {
+  const fixed = STREAK_MILESTONES.find((m) => m.days === days);
+  if (fixed) return fixed;
+  const last = STREAK_MILESTONES[STREAK_MILESTONES.length - 1];
+  return days > last.days && days % last.days === 0 ? { days, points: last.points, title: `${days}-Day Legend` } : null;
+}
 
 /** Finishing a puzzle again on the same difficulty pays this share of the points. */
 export const REPLAY_FACTOR = 0.25;
@@ -119,8 +128,10 @@ export const REPLAY_FACTOR = 0.25;
 /** Unlocking: the first puzzle in each category is free, then cost grows with position. */
 export const UNLOCK_BASE = 100;
 export const UNLOCK_STEP = 40;
+/** Unlocks never cost more than this, however many puzzles a category has. */
+export const UNLOCK_MAX = 500;
 export function unlockCost(indexInCategory: number): number {
-  return indexInCategory <= 0 ? 0 : UNLOCK_BASE + UNLOCK_STEP * indexInCategory;
+  return indexInCategory <= 0 ? 0 : Math.min(UNLOCK_MAX, UNLOCK_BASE + UNLOCK_STEP * indexInCategory);
 }
 
 // ---- Engine version 1 (launch) values, kept so older games replay and score the same ----

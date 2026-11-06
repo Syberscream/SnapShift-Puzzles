@@ -14,6 +14,8 @@ import {
   SCORE_PER_CORRECT,
   SCORE_STREAK_BONUS,
   WIN_TIME_FACTOR,
+  MEDAL_POINTS,
+  type EngineVersion,
 } from './rules';
 
 /** One entry in the move log. */
@@ -313,8 +315,10 @@ export function replay(seed: number, setup: GameSetup, actions: Action[]): Repla
   return { state: s, invalidAt: -1 };
 }
 
+export type Medal = 'gold' | 'silver' | 'bronze';
+
 export interface Rating {
-  medal: 'gold' | 'silver' | 'bronze';
+  medal: Medal;
   stars: 1 | 2 | 3;
   scorePct: number;
   moveEffPct: number;
@@ -340,11 +344,22 @@ export function rate(difficulty: Difficulty, s: Pick<GameState, 'tiles' | 'par' 
   };
 }
 
-/** Points for finishing: base + speed bonus, times the game's multiplier. */
-export function winPoints(difficulty: Difficulty, elapsedMs: number, rules: Pick<GameRules, 'scoreMultiplier'>): number {
-  const secs = Math.max(0.1, elapsedMs / 1000);
-  const raw = RULES[difficulty].winBase + Math.floor(WIN_TIME_FACTOR / secs);
-  return Math.floor(raw * rules.scoreMultiplier);
+/**
+ * Points for finishing. Engine v2: base × multiplier × medal factor.
+ * Engine v1 games keep the launch formula: (base + speed bonus) × multiplier.
+ */
+export function winPoints(
+  difficulty: Difficulty,
+  rules: Pick<GameRules, 'scoreMultiplier'>,
+  result: { medal: Medal | string | null; elapsedMs: number },
+  version: EngineVersion = 2,
+): number {
+  if (version === 1) {
+    const secs = Math.max(0.1, result.elapsedMs / 1000);
+    return Math.floor((RULES[difficulty].winBase + Math.floor(WIN_TIME_FACTOR / secs)) * rules.scoreMultiplier);
+  }
+  const factor = MEDAL_POINTS[result.medal as Medal] ?? 1;
+  return Math.floor(RULES[difficulty].winBase * rules.scoreMultiplier * factor);
 }
 
 /**

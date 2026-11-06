@@ -23,7 +23,7 @@ import {
   gameRules,
   MODES,
   REPLAY_FACTOR,
-  STREAK_MILESTONES,
+  streakMilestone,
   ZEN_POINTS,
   type Difficulty,
   type EngineVersion,
@@ -261,7 +261,7 @@ app.post('/:id/complete', async (c) => {
     .first<{ n: number }>();
   const firstClear = (prior?.n ?? 0) === 0;
   // Zen pays a small fixed amount the first time and has no medal.
-  const base = zen ? ZEN_POINTS : winPoints(play.difficulty, elapsed, rules);
+  const base = zen ? ZEN_POINTS : winPoints(play.difficulty, rules, { medal: rating.medal, elapsedMs: elapsed }, play.engine as 1 | 2);
   const points = firstClear ? base : zen ? 0 : Math.floor(base * REPLAY_FACTOR);
 
   let dailyBonus = 0;
@@ -290,12 +290,12 @@ app.post('/:id/complete', async (c) => {
   const results = await c.env.DB.batch(stmts);
   if (!results[0].meta.changes) fail(409, 'Already finished.');
 
-  // Streak milestones (7 / 14 / 30 days) pay once per streak.
+  // Streak milestones (7 / 14 / 30 days, then every 30) pay once per streak.
   let streak = null;
   let milestone = null;
   if (countsForDaily) {
     streak = await dailyStreak(c.env, user.id, today);
-    const hit = STREAK_MILESTONES.find((m) => m.days === streak!.current);
+    const hit = streakMilestone(streak.current);
     if (hit) {
       const ins = await c.env.DB.prepare('INSERT OR IGNORE INTO streak_rewards (user_id, milestone, day, points) VALUES (?, ?, ?, ?)')
         .bind(user.id, hit.days, today, hit.points)

@@ -55,15 +55,15 @@ Guests can play the daily and the free puzzle in each category; their games are 
 | Picture | always shown | Peek button | only at the start |
 | Shuffle | pairs | mixed | long chains |
 | Hint | free | 25 pts | 60 pts |
-| Points | ×1 | ×1.5 | ×2.5 |
+| Points | ×1 | ×2 | ×4 |
 
 - Modes: **Classic**; **Zen** (untimed, no medal, fully assisted, 10 pts once); **Rotation** (tiles also turned, tap to rotate, square tiles, ×1.25).
-- **Time Attack** (`/time-attack`): 3 minutes, 3×4 boards that glow and lock, 100 per solve + up to 50 for few moves. The server picks the puzzles and seeds and replays every move list; weekly leaderboard (best run, Monday–Sunday); 10 pts per solve, max 200 a day.
+- **Time Attack** (`/time-attack`): 3 minutes, 3×4 boards that glow and lock, 100 per solve + up to 50 for few moves. The server picks the puzzles and seeds and replays every move list; weekly leaderboard (best run, Monday–Sunday); 5 pts per solve, max 100 a day.
 - Every new board shows the picture for 2.5 s before the clock starts.
 - Medal = 72% move efficiency (against the fewest moves that solve that board) + 28% speed → Gold ≥ 90%, Silver ≥ 76%.
-- Win points = (40/60/80 + 600 ÷ seconds) × multiplier. Replays pay 25%.
-- Daily: always Hard Classic, same seed for everyone, +50 bonus, streak rewards at 7/14/30 days.
-- Unlocks: first puzzle in a category free, then 100 + 40 × position.
+- Win points = 40/60/80 × multiplier × medal (Gold ×1.5, Silver ×1.25, Bronze ×1). Replays pay 25%. (Engine v1 games keep the old base + 600 ÷ seconds speed bonus.)
+- Daily: always Hard Classic, same seed for everyone, +50 bonus, streak rewards at 7/14/30 days, then 1,500 every 30 days.
+- Unlocks: first puzzle in a category free, then 100 + 40 × position, capped at 500.
 - Every game stores its engine version, so games started under older rules replay and score the same.
 
 All of these numbers live in `shared/rules.ts`.

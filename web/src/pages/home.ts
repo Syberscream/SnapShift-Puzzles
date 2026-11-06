@@ -39,7 +39,7 @@ function render(d: Home) {
         h(
           'p',
           { class: 'muted' },
-          'One featured puzzle a day, the same board for everyone, always on Hard (8×12). Keep your streak alive for bonus points at 7, 14 and 30 days.',
+          'One featured puzzle a day, the same board for everyone, always on Hard (8×12). Keep your streak alive for bonus points at 7, 14 and 30 days, and every month after.',
         ),
         d.dailyResult
           ? h(

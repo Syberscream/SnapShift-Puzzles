@@ -17,7 +17,7 @@ import {
   type Action,
   type GameState,
 } from '../shared/engine';
-import { DIFFICULTIES, gameRules, MODES, RULES, unlockCost, type Difficulty, type GameSetup, type Mode } from '../shared/rules';
+import { DIFFICULTIES, gameRules, MODES, RULES, streakMilestone, unlockCost, type Difficulty, type GameSetup, type Mode } from '../shared/rules';
 
 const setup = (difficulty: Difficulty, mode: Mode = 'classic', version: 1 | 2 = 2, extra: Partial<GameSetup> = {}): GameSetup => ({
   version,
@@ -210,10 +210,26 @@ describe('scoring', () => {
     expect(rate('easy', { ...fake, moves: 80 }, 600_000).medal).toBe('bronze');
   });
 
-  it('applies the difficulty multiplier to win points', () => {
-    expect(winPoints('easy', 60_000, gameRules(setup('easy')))).toBe(40 + 10);
-    expect(winPoints('hard', 60_000, gameRules(setup('hard')))).toBe(Math.floor((80 + 10) * 2.5));
-    expect(winPoints('hard', 60_000, gameRules(setup('hard', 'rotation')))).toBe(Math.floor((80 + 10) * 2.5 * 1.25));
+  it('pays win points by difficulty, mode and medal', () => {
+    const r = (medal: string) => ({ medal, elapsedMs: 60_000 });
+    expect(winPoints('easy', gameRules(setup('easy')), r('bronze'))).toBe(40);
+    expect(winPoints('easy', gameRules(setup('easy')), r('gold'))).toBe(60);
+    expect(winPoints('medium', gameRules(setup('medium')), r('silver'))).toBe(150);
+    expect(winPoints('hard', gameRules(setup('hard')), r('gold'))).toBe(480);
+    expect(winPoints('hard', gameRules(setup('hard', 'rotation')), r('gold'))).toBe(600);
+  });
+
+  it('keeps the launch formula for engine v1 games', () => {
+    const v1 = gameRules({ version: 1, difficulty: 'hard', mode: 'classic', daily: false, hardMode: true });
+    expect(winPoints('hard', v1, { medal: 'gold', elapsedMs: 60_000 }, 1)).toBe(Math.floor((80 + 10) * 1.45));
+  });
+
+  it('repeats the streak bonus every 30 days after a month', () => {
+    expect(streakMilestone(7)?.points).toBe(250);
+    expect(streakMilestone(30)?.points).toBe(1500);
+    expect(streakMilestone(45)).toBeNull();
+    expect(streakMilestone(60)?.points).toBe(1500);
+    expect(streakMilestone(90)?.days).toBe(90);
   });
 
   it('clamps elapsed time between a human floor and wall-clock time', () => {
@@ -225,5 +241,7 @@ describe('scoring', () => {
   it('prices unlocks by position', () => {
     expect(unlockCost(0)).toBe(0);
     expect(unlockCost(1)).toBe(140);
+    expect(unlockCost(10)).toBe(500);
+    expect(unlockCost(60)).toBe(500);
   });
 });

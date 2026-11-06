@@ -373,7 +373,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('time attack: illegal move rejected', bad.status() === 422);
   const before = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
   const fin = await (await player.request.post(BASE + `/api/time-attack/${st.runId}/finish`, { data: { results: logs } })).json();
-  check('time attack: 3 solved, perfect score 450, +30 points', fin.solved === 3 && fin.score === 450 && fin.points === 30 && fin.balance === before + 30, JSON.stringify(fin));
+  check('time attack: 3 solved, perfect score 450, +15 points', fin.solved === 3 && fin.score === 450 && fin.points === 15 && fin.balance === before + 15, JSON.stringify(fin));
   const again = await player.request.post(BASE + `/api/time-attack/${st.runId}/finish`, { data: { results: logs } });
   check('time attack: cannot finish twice', again.status() === 409);
   const lb = await (await player.request.get(BASE + '/api/time-attack/leaderboard')).json();

@@ -517,7 +517,7 @@ async function finish() {
         elapsedMs: elapsedBase,
         moves: state.moves,
         score: state.score,
-        points: rules.timed ? winPoints(difficulty, elapsedBase, rules) : ZEN_POINTS,
+        points: rules.timed ? winPoints(difficulty, rules, { medal: rating?.medal ?? null, elapsedMs: elapsedBase }, setup.version) : ZEN_POINTS,
         firstClear: true,
         dailyBonus: 0,
         milestone: null,
