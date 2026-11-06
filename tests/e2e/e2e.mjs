@@ -164,6 +164,18 @@ await player.waitForSelector('dialog.modal', { timeout: 10000 });
 const resultText = await player.locator('dialog.modal').innerText();
 check('completion dialog shows medal and points', /medal/i.test(resultText) && /\+\d+ points/.test(resultText), resultText.replace(/\s+/g, ' ').slice(0, 160));
 await player.screenshot({ path: `${OUT}/07-play-complete.png` });
+// Reopening a finished puzzle shows it finished, not a new board.
+await player.reload();
+await player.waitForSelector('.done-bar:not([hidden])', { timeout: 10000 });
+const doneText = await player.locator('.done-bar').innerText();
+check('finished puzzle reopens as completed', /Completed/.test(doneText) && /Moves: [1-9]/.test(await player.locator('.pill', { hasText: 'Moves' }).innerText()), doneText.replace(/\s+/g, ' '));
+await player.screenshot({ path: `${OUT}/07b-reopen-completed.png` });
+await player.locator('.done-bar button', { hasText: 'Play again' }).click();
+await player.waitForFunction(() => document.querySelector('.done-bar').hidden, null, { timeout: 10000 });
+check('Play again starts a fresh board', /Moves: 0/.test(await player.locator('.pill', { hasText: 'Moves' }).innerText()));
+await player.reload();
+await player.waitForSelector('.done-bar:not([hidden])', { timeout: 10000 });
+check('untouched replay still shows the finish', true);
 const me1 = (await (await player.request.get(BASE + '/api/auth/me')).json()).user;
 check('points credited', me1.points > 0, `points=${me1.points} after ${swaps} swaps`);
 
@@ -259,6 +271,15 @@ await guest.reload();
 await guest.waitForSelector('#board');
 await guest.waitForTimeout(600);
 check('guest game restored after reload', /Moves: 1/.test(await guest.locator('.pill', { hasText: 'Moves' }).innerText()));
+{
+  // Finish the guest game, reload, and it should stay finished.
+  const save = await guest.evaluate(() => Object.values(JSON.parse(localStorage.getItem('ss_guest_games')))[0]);
+  await solveByClicking(guest, save.seed, 'easy', save.actions);
+  await guest.waitForSelector('dialog.modal', { timeout: 10000 });
+  await guest.reload();
+  await guest.waitForSelector('.done-bar:not([hidden])', { timeout: 10000 });
+  check('guest finished puzzle stays completed', /Completed/.test(await guest.locator('.done-bar').innerText()));
+}
 await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
 
 // Static pages render

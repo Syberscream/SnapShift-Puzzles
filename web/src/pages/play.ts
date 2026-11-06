@@ -41,6 +41,7 @@ interface ServerPlay {
   actions: Action[];
   elapsedMs: number;
   completed: boolean;
+  result: { medal: string; scorePct: number; moves: number; elapsedMs: number; points: number; score: number; completedAt: number } | null;
 }
 
 interface CompleteResult {
@@ -62,7 +63,13 @@ const user = me();
 const dailyDay = qs('daily');
 const slug = qs('p');
 const prefs = store('ss_play_prefs', { difficulty: 'easy' as Difficulty, hardMode: false });
-const guestSaves = store<Record<string, { seed: number; actions: Action[]; elapsedMs: number }>>('ss_guest_games', {});
+interface GuestSave {
+  seed: number;
+  actions: Action[];
+  elapsedMs: number;
+  completed?: { medal: string; scorePct: number; moves: number; elapsedMs: number };
+}
+const guestSaves = store<Record<string, GuestSave>>('ss_guest_games', {});
 
 let puzzle!: PuzzleInfo;
 let difficulty: Difficulty = dailyDay ? 'hard' : (DIFFICULTIES.includes(qs('d') as Difficulty) ? (qs('d') as Difficulty) : prefs.get().difficulty);
@@ -96,6 +103,7 @@ const hardBtn = h('button', { class: 'btn', 'aria-pressed': 'false', title: 'No 
 const pauseBtn = h('button', { class: 'btn', onclick: () => togglePause() }, 'Pause');
 const muteBtn = h('button', { class: 'btn', 'aria-pressed': String(isMuted()) }, isMuted() ? 'Sound off' : 'Sound on');
 const preview = h('div', { class: 'preview', title: 'The finished picture' });
+const doneBar = h('div', { class: 'notice done-bar', hidden: true });
 
 async function loadPuzzle(): Promise<void> {
   if (dailyDay) {
@@ -153,6 +161,9 @@ async function startGame(fresh = false): Promise<void> {
     actions = saved?.actions ?? [];
     elapsedBase = saved?.elapsedMs ?? 0;
   }
+  let done: { medal: string; scorePct: number; moves: number; elapsedMs: number } | null = null;
+  if (user) done = play!.completed ? play!.result : null;
+  else if (!fresh) done = guestSaves.get()[guestKey()]?.completed ?? null;
   const r = replay(seed, difficulty, actions, hardMode);
   if (r.invalidAt !== -1) {
     actions = actions.slice(0, r.invalidAt);
@@ -162,8 +173,43 @@ async function startGame(fresh = false): Promise<void> {
   board.setState(state);
   board.setShowCorrect(!hardMode);
   syncControls();
+  if (done && isSolved(state)) {
+    showCompleted(done);
+    updateHud();
+    return;
+  }
+  showCompleted(null);
   updateHud();
   if (!paused) runningSince = performance.now();
+}
+
+/** Show (or clear) the finished state: whole picture, a "Completed" bar and Play again. */
+function showCompleted(done: { medal: string; scorePct: number; moves: number; elapsedMs: number } | null) {
+  finished = !!done;
+  board.setCompleted(!!done);
+  for (const b of [hintBtn, placeBtn, pauseBtn]) b.toggleAttribute('disabled', !!done);
+  if (!done) {
+    doneBar.hidden = true;
+    return;
+  }
+  elapsedBase = done.elapsedMs;
+  runningSince = 0;
+  const label = done.medal ? done.medal[0].toUpperCase() + done.medal.slice(1) : '';
+  mount(
+    doneBar,
+    h(
+      'div',
+      { class: 'spread' },
+      h('span', {}, h('b', {}, '✓ Completed'), ' ', medalBadge(done.medal), ` ${label} · ${done.scorePct}% overall · ${done.moves} moves · ${formatTime(done.elapsedMs)}`),
+      h(
+        'span',
+        { class: 'row' },
+        puzzle.next && !dailyDay ? h('a', { class: 'btn', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}` }, 'Next puzzle →') : null,
+        h('button', { class: 'btn primary', onclick: () => void restart(true) }, 'Play again'),
+      ),
+    ),
+  );
+  doneBar.hidden = false;
 }
 
 function elapsed(): number {
@@ -320,8 +366,14 @@ async function finish() {
   if (!user) {
     const rating = rate(difficulty, state.tiles.length, state.moves, elapsedBase);
     const saves = guestSaves.get();
-    delete saves[guestKey()];
+    saves[guestKey()] = {
+      seed,
+      actions,
+      elapsedMs: Math.round(elapsedBase),
+      completed: { medal: rating.medal, scorePct: rating.scorePct, moves: state.moves, elapsedMs: Math.round(elapsedBase) },
+    };
     guestSaves.set(saves);
+    showCompleted(saves[guestKey()].completed!);
     sfx.win(rating.medal);
     showResult({
       rating,
@@ -341,6 +393,7 @@ async function finish() {
   try {
     const r = await api.post<CompleteResult>(`/plays/${play!.id}/complete`, { actions, elapsedMs: Math.round(elapsedBase) });
     setPoints(r.balance);
+    showCompleted({ medal: r.rating.medal, scorePct: r.rating.scorePct, moves: r.moves, elapsedMs: r.elapsedMs });
     sfx.win(r.rating.medal);
     showResult(r, false);
   } catch (e) {
@@ -463,6 +516,7 @@ try {
             h('div', { class: 'row' }, timeEl, h('span', { class: 'pill' }, dailyDay ? `Daily · ${dailyDay}` : puzzle.categoryName || 'Puzzle'), scoreEl, streakEl, movesEl),
             h('div', { class: 'row' }, saveEl),
           ),
+          doneBar,
           wrap,
           h('div', { class: 'progress-bar', role: 'progressbar', 'aria-label': 'Tiles in place' }, progressFill),
           h('p', { class: 'small muted', style: 'margin-top:8px' }, 'Drag a tile onto another to swap them, or click two tiles. Tiles lock when they land in the right place. Keyboard: arrows + Enter.'),

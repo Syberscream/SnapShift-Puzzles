@@ -263,3 +263,5 @@ pre { background: #050b16; padding: 10px; border-radius: 10px; overflow: auto; m
 .theme-preview .pv-panel { position: absolute; inset: 22px; padding: 14px; border-radius: var(--radius-panel); border: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
 input[type='range'] { padding: 0; }
 input[type='color'] { padding: 2px; height: 40px; }
+.done-bar { margin: 0 0 12px; }
+.done-bar .medal { vertical-align: middle; }

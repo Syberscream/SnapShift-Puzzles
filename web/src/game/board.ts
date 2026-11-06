@@ -31,6 +31,8 @@ export class Board {
   private raf = 0;
   private keyboardUsed = false;
   paused = false;
+  /** Finished: draw the whole picture with no grid and ignore input. */
+  private completed = false;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -48,6 +50,14 @@ export class Board {
     this.state = s;
     this.cursor = Math.min(this.cursor, s.tiles.length - 1);
     this.resize();
+  }
+
+  setCompleted(v: boolean) {
+    this.completed = v;
+    this.selected = -1;
+    this.hint = null;
+    this.canvas.style.cursor = v ? 'default' : '';
+    this.request();
   }
 
   setShowCorrect(v: boolean) {
@@ -117,7 +127,7 @@ export class Board {
     c.setAttribute('aria-label', 'Puzzle board. Use arrow keys to move, Enter to pick up a tile and Enter again to swap.');
 
     c.addEventListener('pointerdown', (e) => {
-      if (this.paused) return;
+      if (this.paused || this.completed) return;
       const p = this.posAt(e.clientX, e.clientY);
       if (p < 0 || this.state.locked[p]) return;
       this.keyboardUsed = false;
@@ -171,7 +181,7 @@ export class Board {
     });
 
     c.addEventListener('keydown', (e) => {
-      if (this.paused || !this.state) return;
+      if (this.paused || this.completed || !this.state) return;
       const { rows, cols } = this;
       let r = Math.floor(this.cursor / cols);
       let col = this.cursor % cols;
@@ -233,6 +243,14 @@ export class Board {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.fillStyle = '#0b1424';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    if (this.completed && !this.anims.some((a) => now - a.start < ANIM_MS)) {
+      // The finished picture, in one piece.
+      ctx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height);
+      this.anims = [];
+      this.flashes.clear();
+      return;
+    }
 
     this.anims = this.anims.filter((a) => now - a.start < ANIM_MS);
     const moving = new Set(this.anims.map((a) => a.to));
@@ -318,6 +336,6 @@ export class Board {
       ctx.lineWidth = 3 * dpr;
       ctx.strokeRect(x, y, r.w * 1.06, r.h * 1.06);
     }
-    if (this.anims.length || this.hint || this.flashes.size) this.request();
+    if (this.anims.length || this.hint || this.flashes.size || this.completed) this.request();
   }
 }

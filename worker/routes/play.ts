@@ -66,6 +66,9 @@ function playView(p: PlayRow) {
     completed: !!p.completed_at,
     hintsPaid: p.hints_paid,
     placesPaid: p.places_paid,
+    result: p.completed_at
+      ? { medal: p.medal, scorePct: p.score_pct, moves: p.moves, elapsedMs: p.elapsed_ms, points: p.points, score: p.score, completedAt: p.completed_at }
+      : null,
   };
 }
 
@@ -117,16 +120,30 @@ app.post('/', async (c) => {
     seed = randomSeed();
   }
 
-  // Resume an unfinished game of the same puzzle/difficulty/day unless asked for a fresh one.
-  const existing = await c.env.DB.prepare(
-    `SELECT * FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ? AND completed_at IS NULL
-     AND ${dailyDay ? 'daily_day = ?' : 'daily_day IS NULL AND ? IS NULL'}
-     ORDER BY updated_at DESC LIMIT 1`,
-  )
-    .bind(user.id, puzzle.id, difficulty, dailyDay)
-    .first<PlayRow>();
-  if (existing && !fresh) {
-    return c.json({ play: playView(existing), resumed: true });
+  // Reopening a puzzle shows its latest game for this difficulty (or day):
+  // an unfinished one is resumed, a finished one is shown finished.
+  // "fresh" (Play again / Shuffle) starts a new game instead.
+  const latest = async (completed: boolean) =>
+    c.env.DB.prepare(
+      `SELECT * FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ?
+       AND completed_at IS ${completed ? 'NOT NULL' : 'NULL'}
+       AND ${dailyDay ? 'daily_day = ?' : 'daily_day IS NULL AND ? IS NULL'}
+       ORDER BY ${completed ? 'completed_at' : 'updated_at'} DESC LIMIT 1`,
+    )
+      .bind(user.id, puzzle.id, difficulty, dailyDay)
+      .first<PlayRow>();
+  const existing = await latest(false);
+  const done = await latest(true);
+  if (!fresh) {
+    // An untouched game opened after a finish shouldn't hide that finish.
+    const untouched = existing && existing.actions === '[]';
+    if (existing && !(untouched && done)) {
+      return c.json({ play: playView(existing), resumed: true });
+    }
+    if (done) {
+      if (existing) await c.env.DB.prepare('DELETE FROM plays WHERE id = ?').bind(existing.id).run();
+      return c.json({ play: playView(done), resumed: false });
+    }
   }
   if (existing && fresh) await c.env.DB.prepare('DELETE FROM plays WHERE id = ?').bind(existing.id).run();
 
