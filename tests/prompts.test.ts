@@ -53,3 +53,23 @@ describe('photo-realistic prompts', () => {
     for (let i = 0; i < 20; i++) expect(pickIdea('space', rand).prompt).not.toMatch(/spring bloom|after rain|autumn|winter day/);
   });
 });
+
+describe('mix of looks', () => {
+  it('follows the photo-realistic share', () => {
+    const count = (share: number) => {
+      const rand = rng(11);
+      let photos = 0;
+      for (let i = 0; i < 400; i++) if (/photo/i.test(pickIdea('animals', rand, '', new Set(), share).prompt)) photos++;
+      return photos;
+    };
+    expect(count(100)).toBe(400);
+    expect(count(0)).toBe(0);
+    expect(count(60)).toBeGreaterThan(200);
+    expect(count(60)).toBeLessThan(280);
+  });
+
+  it('keeps Art painted', () => {
+    const rand = rng(4);
+    for (let i = 0; i < 30; i++) expect(pickIdea('art', rand, '', new Set(), 0).prompt).toMatch(/oil painting/);
+  });
+});

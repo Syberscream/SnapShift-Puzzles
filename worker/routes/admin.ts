@@ -210,6 +210,7 @@ app.put('/generation', async (c) => {
     options: b.options && typeof b.options === 'object' && !Array.isArray(b.options) ? b.options : cur.options,
     categories: Array.isArray(b.categories) ? b.categories.map((x) => str(x, 40)).filter(Boolean) : cur.categories,
     dailyPoolTarget: b.dailyPoolTarget !== undefined ? Math.max(0, Math.min(365, int(b.dailyPoolTarget, cur.dailyPoolTarget))) : cur.dailyPoolTarget,
+    photoShare: b.photoShare !== undefined ? Math.max(0, Math.min(100, int(b.photoShare, 60))) : (cur.photoShare ?? GENERATION_DEFAULTS.photoShare),
   };
   await putSetting(c.env, 'generation', next);
   return c.json({ settings: next });
@@ -234,7 +235,7 @@ app.post('/generate', async (c) => {
     if (!cat) fail(404, 'Unknown category.');
     const rand = rng(randomSeed());
     const taken = await takenTitles(c.env, categoryId);
-    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint, taken) }, true));
+    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint, taken, settings.photoShare ?? GENERATION_DEFAULTS.photoShare) }, true));
   }
   const log = await runPipeline(c.env);
   return c.json({ jobs: ids, log });

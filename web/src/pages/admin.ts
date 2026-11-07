@@ -51,6 +51,7 @@ interface GenSettings {
   options: Record<string, unknown>;
   categories: string[];
   dailyPoolTarget: number;
+  photoShare: number;
 }
 
 const main = await shell({ title: 'Admin' });
@@ -226,6 +227,13 @@ async function generate() {
       h('div', { class: 'field' }, h('label', {}, 'Keep this many daily puzzles ready'), h('input', { type: 'number', name: 'dailyPoolTarget', min: 0, max: 365, value: s.dailyPoolTarget })),
     ),
     h('p', { class: 'muted small' }, 'Daily puzzles are generated first, into "Puzzles of the Day", whenever fewer than that many unused ones are published or waiting.'),
+    h(
+      'div',
+      { class: 'field' },
+      h('label', {}, 'Photo-realistic pictures (%)'),
+      h('input', { type: 'number', name: 'photoShare', min: 0, max: 100, step: 5, value: s.photoShare ?? 60, style: 'max-width:120px' }),
+      h('span', { class: 'small muted' }, 'The rest get an artistic look: watercolour, oil painting, concept art, storybook illustration and more. 100 = photos only, 0 = art only. The Art category is always painted.'),
+    ),
     h('div', { class: 'field' }, h('label', {}, 'Model'), h('input', { name: 'model', value: s.model, list: 'models' }), h('datalist', { id: 'models' }, ['gemini-3-pro-image', 'gemini-3.1-flash-image', 'gpt-image-2', 'gpt-image-1.5', 'bytedance-seedream-5-pro'].map((m) => h('option', { value: m })))),
     h('div', { class: 'field' }, h('label', {}, 'Extra model options (JSON)'), h('input', { name: 'options', value: JSON.stringify(s.options) }), h('span', { class: 'small muted' }, 'Sent with every request, e.g. {"aspect_ratio":"16:9","resolution":"2K"}. Each model accepts different fields.')),
     h('div', { class: 'field' }, h('label', {}, 'Only these categories (leave all unticked for every category)'), h('div', { class: 'row' }, cats.filter((c) => c.id !== 'daily').map((c) => h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'cat', value: c.id, checked: s.categories.includes(c.id) }), c.name)))),
@@ -248,6 +256,7 @@ async function generate() {
       options,
       categories: f.getAll('cat'),
       dailyPoolTarget: Number(f.get('dailyPoolTarget')),
+      photoShare: Number(f.get('photoShare')),
     });
     toast('Saved', '', 'good');
   });

@@ -90,7 +90,18 @@ const PHOTO =
   'true-to-life colours and textures, crisp fine detail, award-winning nature and travel photography quality. ' +
   'Not an illustration, painting, drawing, cartoon or CGI render';
 
-/** Categories that look better with their own style. Everything else gets PHOTO. */
+/** Artistic looks used for the share of pictures that aren't photo-realistic. */
+const ART_LOOKS = [
+  'luminous watercolour painting with soft washes and fine ink detail',
+  'rich oil painting with visible impasto brushwork',
+  'cinematic digital concept art with dramatic lighting',
+  'impressionist painting with broken colour and dappled light',
+  'detailed storybook illustration with warm, vivid colours',
+  'stylised 3D render with soft global illumination, like an animated film still',
+  'vibrant gouache illustration with bold shapes and fine texture',
+];
+
+/** Photo-realistic looks per category. Everything else gets PHOTO. */
 const STYLES: Record<string, string> = {
   art: 'museum-quality fine-art oil painting with rich visible brushwork',
   fractals: 'hyper-detailed 3D fractal render with photoreal materials, reflections and lighting',
@@ -115,7 +126,11 @@ const pick = <T>(list: T[], rand: () => number): T => list[Math.floor(rand() * l
  * are used first ("Red Fox"), then subject + mood ("Red Fox, Winter").
  * The chosen title is added to `taken` so a batch never repeats itself.
  */
-export function pickIdea(categoryId: string, rand: () => number, hint = '', taken: Set<string> = new Set()): PromptIdea {
+/**
+ * A new picture idea for a category. `photoShare` (0–100) is the chance it's
+ * photo-realistic; otherwise it gets a random artistic look. Art is always painted.
+ */
+export function pickIdea(categoryId: string, rand: () => number, hint = '', taken: Set<string> = new Set(), photoShare = 100): PromptIdea {
   // The daily pool and the members' gallery mix every theme so each picture feels different.
   const mixed = categoryId === 'daily' || categoryId === 'members';
   const theme = mixed ? pick(Object.keys(SUBJECTS), rand) : categoryId;
@@ -146,7 +161,9 @@ export function pickIdea(categoryId: string, rand: () => number, hint = '', take
     }
   }
   taken.add(title.toLowerCase());
-  const subjectStyle = mixed ? STYLES[Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? ''] ?? PHOTO : style;
+  const subjectTheme = mixed ? (Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? '') : theme;
+  const photoStyle = mixed ? (STYLES[subjectTheme] ?? PHOTO) : style;
+  const subjectStyle = subjectTheme !== 'art' && rand() * 100 >= photoShare ? pick(ART_LOOKS, rand) : photoStyle;
   return { title, prompt: `${subject} ${setting[0]}, ${subjectStyle}.${extra} ${PUZZLE_SUFFIX}` };
 }
 

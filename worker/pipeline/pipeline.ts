@@ -29,6 +29,8 @@ export interface GenerationSettings {
   categories: string[];
   /** Keep at least this many unused puzzles ready for the daily challenge (0 = off). */
   dailyPoolTarget: number;
+  /** Share of generated pictures that are photo-realistic (0–100); the rest get an artistic look. */
+  photoShare: number;
 }
 
 export const GENERATION_DEFAULTS: GenerationSettings = {
@@ -39,6 +41,7 @@ export const GENERATION_DEFAULTS: GenerationSettings = {
   options: { aspect_ratio: '16:9', resolution: '2K' },
   categories: [],
   dailyPoolTarget: 14,
+  photoShare: 60,
 };
 
 const MAX_ATTEMPTS = 3;
@@ -124,7 +127,7 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
     const hint = cats.find((c) => c.id === DAILY_CATEGORY)?.prompt_hint ?? '';
     const taken = await takenTitles(env, DAILY_CATEGORY);
     for (let i = 0; i < short && room > 0; i++, room--) {
-      const idea = pickIdea(DAILY_CATEGORY, rand, hint, taken);
+      const idea = pickIdea(DAILY_CATEGORY, rand, hint, taken, s.photoShare ?? GENERATION_DEFAULTS.photoShare);
       await queueJob(env, s, { categoryId: DAILY_CATEGORY, ...idea }, true);
       log.push(`queued daily pool: ${idea.title}`);
     }
@@ -133,7 +136,7 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
   const allowed = cats.filter((c) => c.id !== DAILY_CATEGORY && (s.categories.length === 0 || s.categories.includes(c.id)));
   for (const cat of allowed) {
     if (room-- <= 0) break;
-    const idea = pickIdea(cat.id, rand, cat.prompt_hint, await takenTitles(env, cat.id));
+    const idea = pickIdea(cat.id, rand, cat.prompt_hint, await takenTitles(env, cat.id), s.photoShare ?? GENERATION_DEFAULTS.photoShare);
     await queueJob(env, s, { categoryId: cat.id, ...idea }, true);
     log.push(`queued ${cat.id}: ${idea.title}`);
   }
