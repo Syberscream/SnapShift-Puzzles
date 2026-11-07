@@ -1,4 +1,5 @@
 import { api } from '../lib/api';
+import { dayChart, rankBars } from '../lib/charts';
 import { me, requireSignIn, shell } from '../lib/shell';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { applyTheme, type Banner, type Theme } from '../lib/theme';
@@ -60,6 +61,7 @@ const body = h('div');
 
 const TABS: [string, string, () => Promise<void>][] = [
   ['overview', 'Overview', overview],
+  ['analytics', 'Analytics', analytics],
   ['queue', 'Review queue', queue],
   ['generate', 'Generate (ElevenLabs)', generate],
   ['puzzles', 'Published', published],
@@ -84,6 +86,166 @@ async function show(key: string, fn: () => Promise<void>) {
 
 const catSelect = (value: string | null, name = 'categoryId') =>
   h('select', { name }, h('option', { value: '' }, '— category —'), cats.map((c) => h('option', { value: c.id, selected: c.id === value }, c.name)));
+
+// ---------- analytics ----------
+
+interface GameStats {
+  days: number;
+  labels: string[];
+  series: Record<'signups' | 'activePlayers' | 'finishes' | 'started' | 'dailyPlayers' | 'timeAttackRuns', number[]>;
+  summary: Record<string, number | null>;
+  topPuzzles: { slug: string; title: string; category: string | null; n: number; players: number; avg: number }[];
+  categories: { name: string; n: number }[];
+  difficulty: { k: string; n: number }[];
+  modes: { k: string; n: number }[];
+  medals: { k: string; n: number }[];
+  helpers: { k: string; n: number }[];
+}
+type Ranked = { name: string; views: number; visits: number }[] | null;
+interface Traffic {
+  connected: boolean;
+  tokenSet?: boolean;
+  error?: string;
+  errors?: string[];
+  days: number;
+  labels?: string[];
+  total?: { pageViews: number; visits: number } | null;
+  series?: { pageViews: number[]; visits: number[] } | null;
+  pages?: Ranked;
+  referrers?: Ranked;
+  countries?: Ranked;
+  devices?: Ranked;
+}
+
+let analyticsDays = 30;
+
+async function analytics() {
+  const days = analyticsDays;
+  mount(body, h('section', { class: 'panel' }, h('p', { class: 'muted' }, 'Loading…')));
+  const [g, t] = await Promise.all([
+    api.get<GameStats>(`/admin/analytics/game?days=${days}`),
+    api.get<Traffic>(`/admin/analytics/traffic?days=${days}`).catch((e) => ({ connected: true, error: errorText(e), days }) as Traffic),
+  ]);
+  const n = (v: number | null | undefined) => (v ?? 0).toLocaleString();
+  const tile = (label: string, value: string, sub?: string) => h('div', { class: 'stat' }, h('span', { class: 'muted small' }, label), h('b', {}, value), sub ? h('small', {}, sub) : null);
+  const S = g.summary;
+  const range = h(
+    'div',
+    { class: 'row range-picker' },
+    [7, 30, 90].map((d) =>
+      h('button', { class: 'btn', 'aria-pressed': String(d === days), onclick: () => ((analyticsDays = d), void analytics()) }, `${d} days`),
+    ),
+  );
+  const cap = (k: string) => k[0].toUpperCase() + k.slice(1);
+
+  mount(
+    body,
+    h(
+      'section',
+      { class: 'panel' },
+      h('div', { class: 'spread' }, h('div', {}, h('h2', {}, 'Players and games'), h('p', { class: 'muted small' }, 'Signed-in players only; guests play on their own device and aren’t counted here.')), range),
+      h(
+        'div',
+        { class: 'analytics-tiles' },
+        tile('New players', n(S.newPlayers), `${n(S.players)} in total`),
+        tile('Active players', n(S.activePlayers), `${n(S.returningPlayers)} returning`),
+        tile('Games finished', n(S.finished), S.finishRate != null ? `${S.finishRate}% of ${n(S.started)} started` : undefined),
+        tile('Daily results', n(S.dailyResults)),
+        tile('Time Attack runs', n(S.timeAttackRuns)),
+        tile('Plus members', n(S.plusMembers), S.lifetime ? `${n(S.lifetime)} lifetime` : 'right now'),
+        tile('Points earned', n(S.pointsEarned), `${n(S.pointsSpent)} spent`),
+      ),
+    ),
+    h(
+      'section',
+      { class: 'panel chart-grid-2 days' },
+      dayChart('Active players', g.labels, g.series.activePlayers, { total: n(S.activePlayers), note: 'Total is unique players in the period.' }),
+      dayChart('Games finished', g.labels, g.series.finishes),
+      dayChart('New players', g.labels, g.series.signups),
+      dayChart('Daily challenge players', g.labels, g.series.dailyPlayers),
+    ),
+    h(
+      'section',
+      { class: 'panel chart-grid-2' },
+      rankBars(
+        'Most finished puzzles',
+        g.topPuzzles.map((p) => ({ name: p.title, value: p.n, sub: `· ${p.category ?? ''} · ${p.players} ${p.players === 1 ? 'player' : 'players'} · avg ${p.avg}%`, href: `/play?p=${encodeURIComponent(p.slug)}` })),
+      ),
+      rankBars('Finishes by category', g.categories.map((c) => ({ name: c.name, value: c.n }))),
+      rankBars('Difficulty', g.difficulty.map((d) => ({ name: cap(d.k), value: d.n }))),
+      rankBars('Mode', g.modes.map((d) => ({ name: d.k === 'timeattack' ? 'Time Attack' : cap(d.k), value: d.n }))),
+      rankBars('Medals', ['gold', 'silver', 'bronze'].map((m) => ({ name: cap(m), value: g.medals.find((x) => x.k === m)?.n ?? 0 }))),
+      rankBars('Helpers used', [
+        { name: 'Hints', value: g.helpers.find((x) => x.k === 'hint')?.n ?? 0 },
+        { name: 'Placed tiles', value: g.helpers.find((x) => x.k === 'place')?.n ?? 0 },
+      ]),
+    ),
+    await trafficSection(t),
+  );
+}
+
+async function trafficSection(t: Traffic): Promise<HTMLElement> {
+  const head = h('div', {}, h('h2', {}, 'Site traffic'), h('p', { class: 'muted small' }, 'From Cloudflare Web Analytics: every visitor, guests included. Bots excluded. Up to 30 days.'));
+  if (!t.connected) return h('section', { class: 'panel' }, head, await trafficSetup(t.tokenSet ?? false));
+  if (t.error)
+    return h(
+      'section',
+      { class: 'panel' },
+      head,
+      h('div', { class: 'notice warn' }, 'Cloudflare didn’t return traffic: ', t.error),
+      h('details', {}, h('summary', {}, 'Connection settings'), await trafficSetup(true)),
+    );
+  const n = (v: number | undefined) => (v ?? 0).toLocaleString();
+  const ranked = (title: string, rows: Ranked) => (rows ? rankBars(title, rows.map((r) => ({ name: r.name, value: r.views }))) : null);
+  return h(
+    'section',
+    { class: 'panel stack' },
+    head,
+    t.errors?.length ? h('p', { class: 'small muted' }, 'Some parts didn’t load: ', t.errors.join('; ')) : null,
+    h(
+      'div',
+      { class: 'chart-grid-2 days' },
+      t.series ? dayChart('Visits', t.labels!, t.series.visits, { total: n(t.total?.visits) }) : null,
+      t.series ? dayChart('Page views', t.labels!, t.series.pageViews, { total: n(t.total?.pageViews) }) : null,
+    ),
+    h(
+      'div',
+      { class: 'chart-grid-2' },
+      ranked('Top pages (views)', t.pages ?? null),
+      ranked('Where visitors came from', t.referrers ?? null),
+      ranked('Countries', t.countries ?? null),
+      ranked('Devices', t.devices ?? null),
+    ),
+    h('details', {}, h('summary', { class: 'small muted' }, 'Connection settings'), await trafficSetup(true)),
+  );
+}
+
+async function trafficSetup(tokenSet: boolean): Promise<HTMLElement> {
+  const cur = await api.get<{ accountId: string; siteTag: string; tokenSet: boolean }>('/admin/analytics/traffic/settings');
+  const form = h(
+    'form',
+    { class: 'stack' },
+    h('ol', { class: 'small' },
+      h('li', {}, 'In Cloudflare, open My Profile → API Tokens → Create Token → Custom token. Give it the permission ', h('b', {}, 'Account → Account Analytics → Read'), ' for your account, then create it and copy the token.'),
+      h('li', {}, 'In PowerShell, in your SnapShift folder: ', h('code', {}, 'npx wrangler secret put CF_ANALYTICS_TOKEN'), ' and paste the token.', tokenSet || cur.tokenSet ? h('span', { class: 'tag done' }, 'Token is set') : h('span', { class: 'tag failed' }, 'Not set yet')),
+      h('li', {}, 'Paste your account ID and Web Analytics site tag below. Both are in the address bar on the Web Analytics page: the account ID is right after dash.cloudflare.com/, and the site tag comes after siteTag~in=.'),
+    ),
+    h('div', { class: 'field' }, h('label', {}, 'Account ID'), h('input', { name: 'accountId', value: cur.accountId, placeholder: '32 letters and numbers', autocomplete: 'off' })),
+    h('div', { class: 'field' }, h('label', {}, 'Site tag'), h('input', { name: 'siteTag', value: cur.siteTag, placeholder: '32 letters and numbers', autocomplete: 'off' })),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'submit' }, 'Save and load traffic')),
+  );
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api.put('/admin/analytics/traffic/settings', Object.fromEntries(new FormData(form)));
+      toast('Saved', '', 'good');
+      void analytics();
+    } catch (err) {
+      toast('Couldn’t save', errorText(err), 'bad');
+    }
+  });
+  return form;
+}
 
 async function overview() {
   const o = await api.get<Record<string, number | boolean>>('/admin/overview');

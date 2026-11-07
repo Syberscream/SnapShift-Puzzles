@@ -21,6 +21,10 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string;
   /** Tests only: a fake Stripe API. */
   STRIPE_BASE_URL?: string;
+  /** Cloudflare API token with Account Analytics Read, for Admin → Analytics. */
+  CF_ANALYTICS_TOKEN?: string;
+  /** Tests only: a fake Cloudflare API. */
+  CF_API_BASE_URL?: string;
 }
 
 export interface User {

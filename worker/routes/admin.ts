@@ -11,6 +11,7 @@ import { rng, randomSeed } from '../../shared/engine';
 import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
 import { setLifetime } from '../lib/membership';
 import { sendStreakReminders } from '../lib/reminders';
+import analytics from './analytics';
 
 const app = new Hono<AppEnv>();
 app.use('*', async (c, next) => {
@@ -41,6 +42,8 @@ function adminPuzzle(p: PuzzleRow) {
     publishedAt: p.published_at,
   };
 }
+
+app.route('/analytics', analytics);
 
 app.get('/overview', async (c) => {
   const today = dayKey(c.env);

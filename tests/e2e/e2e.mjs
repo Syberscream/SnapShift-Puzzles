@@ -813,6 +813,46 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await pCtx2.close();
 }
 
+// ---- admin analytics ----
+{
+  const j = async (r) => (await r).json();
+  const denied = await guest.request.get(BASE + '/api/admin/analytics/game');
+  check('analytics: admins only', denied.status() === 401 || denied.status() === 403, String(denied.status()));
+  const g = await j(admin.request.get(BASE + '/api/admin/analytics/game?days=7'));
+  check('analytics: game stats per day', g.labels.length === 7 && g.series.finishes.length === 7 && g.series.finishes.reduce((a, b) => a + b, 0) === g.summary.finished && g.summary.finished > 0, JSON.stringify(g.summary));
+  check('analytics: top puzzles listed', g.topPuzzles.length > 0 && g.topPuzzles[0].n >= 1);
+  await admin.goto(BASE + '/admin#analytics');
+  await admin.waitForSelector('text=Players and games');
+  check('analytics tab: charts drawn', (await admin.locator('.chart-svg').count()) >= 4);
+  await admin.waitForSelector('text=Site traffic');
+  check('analytics tab: traffic setup shown until connected', await admin.locator('input[name=siteTag]').isVisible());
+  check('analytics tab: knows the token is set', await admin.locator('text=Token is set').isVisible());
+  // Hover a column for its tooltip.
+  const box = await admin.locator('.chart-svg').first().boundingBox();
+  await admin.mouse.move(box.x + box.width - 12, box.y + box.height / 2);
+  check('analytics tab: hover shows the day and value', await admin.locator('.chart-tip:visible').count() === 1);
+  // Bad IDs are refused.
+  const bad = await admin.request.put(BASE + '/api/admin/analytics/traffic/settings', { data: { accountId: 'nope', siteTag: 'b'.repeat(32) } });
+  check('analytics: bad account ID refused', bad.status() === 422);
+  // Wrong account: a clear error, not a crash.
+  await admin.request.put(BASE + '/api/admin/analytics/traffic/settings', { data: { accountId: 'c'.repeat(32), siteTag: 'b'.repeat(32) } });
+  const wrong = await j(admin.request.get(BASE + '/api/admin/analytics/traffic?days=7'));
+  check('analytics: Cloudflare errors are shown', wrong.connected && /not authorized/.test(wrong.error || ''), JSON.stringify(wrong));
+  // Through the form, with the right IDs.
+  await admin.goto(BASE + '/admin#overview');
+  await admin.goto(BASE + '/admin#analytics');
+  await admin.waitForSelector('text=Connection settings');
+  await admin.click('text=Connection settings');
+  await admin.fill('input[name=accountId]', 'a'.repeat(32));
+  await admin.fill('input[name=siteTag]', 'b'.repeat(32));
+  await admin.click('text=Save and load traffic');
+  await admin.waitForSelector('text=Where visitors came from');
+  const t = await j(admin.request.get(BASE + '/api/admin/analytics/traffic?days=30'));
+  check('analytics: traffic totals and days', t.total?.pageViews === 274 && t.series.visits.length === 30 && t.labels.length === 30, JSON.stringify(t).slice(0, 200));
+  check('analytics: top pages, referrers, countries, devices', t.pages[0].name === '/' && t.referrers[0].name === 'Direct / unknown' && t.countries.length === 2 && t.devices.length === 2);
+  check('analytics tab: traffic charts drawn', (await admin.locator('.chart-svg').count()) >= 6);
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);
