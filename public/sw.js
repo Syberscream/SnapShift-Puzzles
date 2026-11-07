@@ -2,7 +2,7 @@
 // cache first for built assets and puzzle images (their URLs never change),
 // and the logo/icons kept on the device (refreshed in the background), so the
 // installed app always has its logo even on a slow or patchy connection.
-const CACHE = 'snapshift-v2-3';
+const CACHE = 'snapshift-v2-4';
 const KEEP = ['/img/logo.png', '/img/logo-icon.png', '/icons/icon-192.png', '/icons/icon-512.png'];
 self.addEventListener('install', (e) => {
   self.skipWaiting();
