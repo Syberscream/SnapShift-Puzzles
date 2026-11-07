@@ -214,3 +214,25 @@ export async function achievementsPanel(): Promise<HTMLElement> {
     ),
   );
 }
+
+/** Public profile on/off, with a link to it. */
+export function profilePanel(user: Me): HTMLElement {
+  const box = h('input', { type: 'checkbox', checked: user.profilePublic }) as HTMLInputElement;
+  box.addEventListener('change', async () => {
+    try {
+      await api.put('/auth/preferences', { profilePublic: box.checked });
+      toast(box.checked ? 'Profile is public' : 'Profile is private', '', 'good');
+    } catch (e) {
+      box.checked = !box.checked;
+      toast('Couldn’t save', errorText(e), 'bad');
+    }
+  });
+  return h(
+    'section',
+    { class: 'panel', id: 'profile' },
+    h('h2', {}, 'Public profile'),
+    h('p', { class: 'muted' }, 'Your profile shows your medals, streaks, achievements and recently finished puzzles. Your email is never shown.'),
+    h('label', { class: 'check' }, box, 'Let other players see my profile'),
+    h('p', {}, h('a', { class: 'btn', href: `/u?name=${encodeURIComponent(user.username)}` }, 'View my profile')),
+  );
+}

@@ -7,7 +7,7 @@ import type { AppEnv } from '../env';
 import { requireUser } from '../lib/auth';
 import { isMember, plusSql } from '../lib/membership';
 import { checkAchievements } from '../lib/rewards';
-import { DAILY_CATEGORY, media, type PuzzleRow } from '../lib/catalog';
+import { DAILY_CATEGORY, media, type PuzzleRow, imageFields } from '../lib/catalog';
 import { balance, creditStatements } from '../lib/points';
 import { addDays, body, dayKey, fail, now, randomId, weekOf } from '../lib/util';
 import { isSolved, randomSeed, replay, rng, type Action } from '../../shared/engine';
@@ -79,7 +79,7 @@ app.post('/start', async (c) => {
     durationMs: TIME_ATTACK.durationMs,
     rows: TIME_ATTACK.rows,
     cols: TIME_ATTACK.cols,
-    puzzles: list.map((x) => ({ slug: x.p.slug, title: x.p.title, image: media(x.p.image_key || x.p.original_key), seed: x.seed })),
+    puzzles: list.map((x) => ({ slug: x.p.slug, title: x.p.title, ...imageFields(x.p), seed: x.seed })),
   });
 });
 

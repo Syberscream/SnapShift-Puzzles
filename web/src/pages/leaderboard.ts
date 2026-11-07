@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { shell, showError } from '../lib/shell';
-import { errorText, h, medalBadge, mount, plusTag, qs } from '../lib/ui';
+import { errorText, h, medalBadge, mount, plusTag, qs, userLink } from '../lib/ui';
 import { formatTime } from '@shared/engine';
 
 interface DailyRow {
@@ -40,7 +40,7 @@ async function draw() {
                     'tr',
                     { class: r.isMe ? 'me' : '' },
                     h('td', {}, r.rank),
-                    h('td', {}, r.username, r.plus ? plusTag() : null),
+                    h('td', {}, userLink(r.username), r.plus ? plusTag() : null),
                     h('td', {}, medalBadge(r.medal)),
                     h('td', { class: 'num' }, `${r.scorePct}%`),
                     h('td', { class: 'num' }, formatTime(r.elapsedMs)),
@@ -71,7 +71,7 @@ async function draw() {
                 'tbody',
                 {},
                 d.rows.map((r) =>
-                  h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved), h('td', { class: 'num' }, r.runs)),
+                  h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, userLink(r.username), r.plus ? plusTag() : null), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved), h('td', { class: 'num' }, r.runs)),
                 ),
               ),
             )
@@ -89,7 +89,7 @@ async function draw() {
           h(
             'tbody',
             {},
-            d.rows.map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, r.earned.toLocaleString()), h('td', { class: 'num' }, r.golds))),
+            d.rows.map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, userLink(r.username), r.plus ? plusTag() : null), h('td', { class: 'num' }, r.earned.toLocaleString()), h('td', { class: 'num' }, r.golds))),
           ),
         ),
       );

@@ -2,7 +2,7 @@
 
 import { api, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
-import { bg, countdown, errorText, h, medalBadge, mount, plusTag, qs } from '../lib/ui';
+import { bg, countdown, errorText, h, medalBadge, mount, plusTag, qs, userLink } from '../lib/ui';
 import { puzzleCard } from './shared';
 
 interface EventView {
@@ -124,7 +124,7 @@ async function showEvent(eventId: string) {
               'tbody',
               {},
               d.leaderboard.map((r) =>
-                h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, `${r.done}/${d.puzzles.length}`), h('td', { class: 'num' }, r.total)),
+                h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, userLink(r.username), r.plus ? plusTag() : null), h('td', { class: 'num' }, `${r.done}/${d.puzzles.length}`), h('td', { class: 'num' }, r.total)),
               ),
             ),
           )

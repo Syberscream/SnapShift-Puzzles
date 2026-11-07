@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv, User } from '../env';
 import { requireUser } from '../lib/auth';
-import { archiveOpen, canPlay, dailyStreak, getDaily, media, useStreakFreezes, type PuzzleRow } from '../lib/catalog';
+import { archiveOpen, canPlay, dailyStreak, getDaily, media, useStreakFreezes, type PuzzleRow, imageFields } from '../lib/catalog';
 import { isMember } from '../lib/membership';
 import { checkAchievements, checkCollection, recordEventFinish } from '../lib/rewards';
 import { balance, creditStatements, spend } from '../lib/points';
@@ -417,7 +417,7 @@ app.post('/:id/complete', async (c) => {
 app.get('/:id/puzzle', async (c) => {
   const play = await loadPlay(c, requireUser(c), c.req.param('id'));
   const p = await c.env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(play.puzzle_id).first<PuzzleRow>();
-  return c.json({ slug: p!.slug, title: p!.title, image: media(p!.image_key || p!.original_key) });
+  return c.json({ slug: p!.slug, title: p!.title, ...imageFields(p!) });
 });
 
 export default app;

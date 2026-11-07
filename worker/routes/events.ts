@@ -3,7 +3,7 @@
 
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
-import { activeEventPuzzleIds, categoryIndexes, media, membersOnlyCategories, toView, userPuzzleState, viewerOf, type PuzzleRow } from '../lib/catalog';
+import { activeEventPuzzleIds, categoryIndexes, media, membersOnlyCategories, toView, userPuzzleState, viewerOf, type PuzzleRow, imageFields } from '../lib/catalog';
 import type { EventRow } from '../lib/rewards';
 import { dayKey, fail, msUntilNextDay, addDays } from '../lib/util';
 import { plusSql } from '../lib/membership';
@@ -63,7 +63,7 @@ app.get('/:id', async (c) => {
     nextDayInMs: msUntilNextDay(c.env),
     puzzles: rows.map((p) => ({
       ...toView(p, indexes.get(p.id) ?? 0, state, viewerOf(user), membersCats.has(p.category_id ?? ''), eventIds),
-      image: media(p.image_key || p.original_key),
+      ...imageFields(p),
       eventResult: mine.get(p.id) ? { scorePct: mine.get(p.id)!.score_pct, medal: mine.get(p.id)!.medal } : null,
     })),
     leaderboard: board.map((r, i) => ({ rank: i + 1, username: r.username, done: r.done, total: r.total, plus: !!r.plus, isMe: r.user_id === user?.id })),

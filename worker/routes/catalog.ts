@@ -14,6 +14,7 @@ import {
   media,
   toView,
   userPuzzleState,
+  imageFields,
   type PuzzleRow,
 } from '../lib/catalog';
 import { spend, balance } from '../lib/points';
@@ -119,6 +120,20 @@ app.get('/home', async (c) => {
     latest: latestViews,
     events: events.map((e) => ({ id: e.id, title: e.title, description: e.description, image: e.image_url, ends: e.ends, bonus: e.bonus })),
   });
+});
+
+/** A free picture for the first-game tutorial: the opening puzzle of an open category. */
+app.get('/tutorial', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT p.* FROM puzzles p JOIN categories c ON c.id = p.category_id
+     WHERE p.status = 'published' AND c.id != ? AND c.members_only = 0
+       AND p.id = (SELECT p2.id FROM puzzles p2 WHERE p2.category_id = p.category_id AND p2.status = 'published' ORDER BY p2.sort, p2.id LIMIT 1)`,
+  )
+    .bind(DAILY_CATEGORY)
+    .all<PuzzleRow>();
+  if (!results.length) fail(404, 'No puzzles yet.');
+  const p = results[Math.floor(Math.random() * results.length)];
+  return c.json({ slug: p.slug, title: p.title, ...imageFields(p) });
 });
 
 app.get('/categories', async (c) => {

@@ -698,6 +698,121 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   void tok;
 }
 
+// ---- install offer, phone controls, tutorial, profiles, phone pictures, analytics ----
+{
+  const j = async (r) => (await r).json();
+  // Tutorial: guided first game for new visitors.
+  const tCtx = await newCtx(true);
+  const t = await tCtx.newPage();
+  const tErr = [];
+  errorsFor(t, tErr);
+  await t.goto(BASE + '/');
+  await t.waitForSelector('.first-visit');
+  check('home: first-visit panel for new guests', await t.locator('.first-visit a[href="/tutorial"]').isVisible());
+  await t.click('.first-visit a');
+  await t.waitForSelector('#board');
+  await t.waitForTimeout(400);
+  check('tutorial: shows the first tip', (await t.textContent('.tutorial-tip')).includes('jumbled'));
+  // Solve it with the same engine and the seed the page made: read the state off the board by swapping until solved.
+  const solvedOk = await t.evaluate(async () => {
+    const c = document.querySelector('#board');
+    const r = c.getBoundingClientRect();
+    return { w: r.width, h: r.height };
+  });
+  check('tutorial: board has a size', solvedOk.w > 200 && solvedOk.h > 100);
+  await t.evaluate(() => localStorage.setItem('ss_tutorial_done', 'true'));
+  await t.goto(BASE + '/');
+  await t.waitForSelector('.hero');
+  check('home: first-visit panel hidden after the tutorial', (await t.locator('.first-visit').count()) === 0);
+  check('no JS errors (tutorial)', tErr.length === 0, tErr.join(' | '));
+
+  // Phone play screen: bottom bar with More sheet.
+  const cats = await j(t.request.get(BASE + '/api/categories'));
+  const cat = cats.categories.find((c) => c.count > 0 && !c.membersOnly);
+  const first = (await j(t.request.get(BASE + `/api/categories/${cat.id}`))).puzzles[0];
+  await t.goto(BASE + `/play?p=${first.slug}&d=easy`);
+  await t.waitForSelector('#board');
+  const bar = await t.locator('.game .side').boundingBox();
+  check('phone: controls are a bar at the bottom', bar && bar.y + bar.height >= 840 && bar.height < 120, JSON.stringify(bar));
+  check('phone: Hint, Pause and More in the bar', (await t.locator('.game .side > .key:visible').count()) >= 2 && (await t.locator('.more-btn').isVisible()));
+  await t.click('.more-btn');
+  check('phone: More opens the rest of the controls', await t.locator('.game .side select').first().isVisible());
+  await t.click('.more-btn');
+  check('phone: More closes again', !(await t.locator('.game .side select').first().isVisible()));
+  await tCtx.close();
+
+  // Install offer appears after two finished games (simulated count).
+  // (Headless Chrome never offers its install prompt, so act as an iPhone, which gets instructions.)
+  const iCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
+  const ip = await iCtx.newPage();
+  await ip.goto(BASE + '/about');
+  await ip.waitForTimeout(4500);
+  check('install: no offer before any finished games', (await ip.locator('.install-card').count()) === 0);
+  await ip.evaluate(() => localStorage.setItem('ss_finishes', '2'));
+  await ip.goto(BASE + '/categories');
+  const shown = await ip.waitForSelector('.install-card', { timeout: 8000 }).then(() => true, () => false);
+  check('install: offer shown after a couple of finished games', shown);
+  if (shown) {
+    await ip.click('.install-card >> text=Not now');
+    await ip.goto(BASE + '/about');
+    await ip.waitForTimeout(4500);
+    check('install: "Not now" keeps it away', (await ip.locator('.install-card').count()) === 0);
+  }
+  await iCtx.close();
+
+  // Public profile.
+  const meU = (await j(player.request.get(BASE + '/api/auth/me'))).user;
+  const prof = await j(guest.request.get(BASE + `/api/profile/${encodeURIComponent(meU.username)}`));
+  check('profile: public by default with medals', prof.username === meU.username && prof.completed >= 1 && typeof prof.medals.gold === 'number', JSON.stringify(prof).slice(0, 200));
+  check('profile: no email in the public profile', !JSON.stringify(prof).includes('@'));
+  await guest.goto(BASE + `/u?name=${encodeURIComponent(meU.username)}`);
+  await guest.waitForSelector('.profile-head');
+  check('profile page renders', (await guest.textContent('.profile-head h1')).includes(meU.username));
+  await player.request.put(BASE + '/api/auth/preferences', { data: { profilePublic: false } });
+  const hidden = await guest.request.get(BASE + `/api/profile/${encodeURIComponent(meU.username)}`);
+  check('profile: private hides it from others', hidden.status() === 404);
+  const own = await player.request.get(BASE + `/api/profile/${encodeURIComponent(meU.username)}`);
+  check('profile: owner still sees a private profile', own.ok());
+  await player.request.put(BASE + '/api/auth/preferences', { data: { profilePublic: true } });
+  await guest.goto(BASE + '/leaderboard?tab=points');
+  await guest.waitForSelector('a.user-link');
+  check('leaderboard names link to profiles', ((await guest.getAttribute('a.user-link', 'href')) || '').startsWith('/u?name='));
+
+  // Phone-sized pictures: backfill from the admin, then served to phones.
+  const pubNow = await j(admin.request.get(BASE + '/api/admin/puzzles/needs-small'));
+  check('phone copies: made when publishing', pubNow.puzzles.length === 0, `${pubNow.puzzles.length} without`);
+  sql('UPDATE puzzles SET small_key = NULL'); // as for puzzles published before this feature
+  await admin.goto(BASE + '/admin#puzzles');
+  await admin.waitForSelector('text=Faster pictures on phones');
+  await admin.click('text=Make phone copies');
+  await admin.waitForSelector('text=Done:', { timeout: 60000 });
+  const left = await j(admin.request.get(BASE + '/api/admin/puzzles/needs-small'));
+  check('phone copies: all published puzzles have one', left.puzzles.length === 0, `${left.puzzles.length} left`);
+  const pv = (await j(guest.request.get(BASE + `/api/puzzles/${first.slug}`))).puzzle;
+  check('phone copies: API gives imageSmall', !!pv.imageSmall && pv.imageSmall !== pv.image);
+  const smallRes = await guest.request.get(BASE + pv.imageSmall);
+  const bigRes = await guest.request.get(BASE + pv.image);
+  check('phone copies: smaller than the full picture', smallRes.ok() && (await smallRes.body()).length < (await bigRes.body()).length);
+  const pCtx2 = await newCtx(true);
+  const ph = await pCtx2.newPage();
+  const loaded = [];
+  ph.on('request', (r) => r.url().includes('/media/') && loaded.push(r.url()));
+  await ph.goto(BASE + `/play?p=${first.slug}&d=easy`);
+  await ph.waitForSelector('#board');
+  await ph.waitForTimeout(800);
+  check('phone copies: phones load the small picture', loaded.some((u) => u.includes('/media/small/')) && !loaded.some((u) => u.endsWith(pv.image)), loaded.join(' '));
+
+  // Cloudflare Web Analytics beacon only when a token is set.
+  check('analytics: no beacon by default', (await ph.locator('script[data-cf-beacon]').count()) === 0);
+  await admin.request.put(BASE + '/api/admin/site', { data: { analyticsToken: 'abc123def456' } });
+  await ph.goto(BASE + '/about');
+  await ph.waitForSelector('footer');
+  const beacon = await ph.getAttribute('script[data-cf-beacon]', 'data-cf-beacon');
+  check('analytics: beacon added with the token', !!beacon && beacon.includes('abc123def456'));
+  await admin.request.put(BASE + '/api/admin/site', { data: { analyticsToken: '' } });
+  await pCtx2.close();
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

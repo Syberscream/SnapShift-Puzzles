@@ -1,8 +1,9 @@
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
-import { bg, errorText, h, medalBadge, modal, mount, plusTag, qs, store, timeUntil, toast } from '../lib/ui';
+import { bg, errorText, h, medalBadge, modal, mount, plusTag, qs, store, timeUntil, toast, pickImage } from '../lib/ui';
 import { Board } from '../game/board';
 import { confetti, countUp } from '../game/confetti';
+import { noteFinish } from '../lib/install';
 import { isMuted, setMuted, sfx } from '../game/sound';
 import {
   applySuggestion,
@@ -46,6 +47,7 @@ interface PuzzleInfo {
   slug: string;
   title: string;
   image: string;
+  imageSmall?: string | null;
   thumb: string;
   categoryName: string;
   categoryId: string | null;
@@ -107,7 +109,7 @@ interface ChallengeInfo {
   elapsedMs: number;
   moves: number;
   medal: string | null;
-  puzzle: { slug: string; title: string; image: string; thumb: string; categoryId: string | null; categoryName: string };
+  puzzle: { slug: string; title: string; image: string; imageSmall?: string | null; thumb: string; categoryId: string | null; categoryName: string };
   results: { username: string; elapsedMs: number; moves: number; medal: string | null; isMe: boolean }[];
 }
 
@@ -167,10 +169,12 @@ const wrap = h(
 );
 const diffSel = h('select', { 'aria-label': 'Difficulty' }) as HTMLSelectElement;
 const modeSel = h('select', { 'aria-label': 'Mode' }, MODES.map((m) => h('option', { value: m }, `${MODE_LABELS[m]} mode`))) as HTMLSelectElement;
-const hintBtn = h('button', { class: 'btn' }, 'Hint');
+const hintBtn = h('button', { class: 'btn key' }, 'Hint');
 const placeBtn = h('button', { class: 'btn' }, 'Place 1 tile');
-const peekBtn = h('button', { class: 'btn', title: 'Show the finished picture for a moment' }, 'Peek');
-const pauseBtn = h('button', { class: 'btn', onclick: () => togglePause() }, 'Pause');
+const peekBtn = h('button', { class: 'btn key', title: 'Show the finished picture for a moment' }, 'Peek');
+const pauseBtn = h('button', { class: 'btn key', onclick: () => togglePause() }, 'Pause');
+/** Phones: the controls become a bottom bar; "More" opens the rest. */
+const moreBtn = h('button', { class: 'btn more-btn', 'aria-expanded': 'false' }, '⋯ More');
 const muteBtn = h('button', { class: 'btn', 'aria-pressed': String(isMuted()) }, isMuted() ? 'Sound off' : 'Sound on');
 const preview = h('div', { class: 'preview', title: 'The finished picture' });
 const doneBar = h('div', { class: 'notice done-bar', hidden: true });
@@ -228,7 +232,7 @@ async function loadPuzzle(): Promise<void> {
     return;
   }
   if (dailyDay) {
-    const d = await api.get<{ seed: number; puzzle: { slug: string; title: string; image: string; thumb: string }; category: { id: string; name: string } | null }>(
+    const d = await api.get<{ seed: number; puzzle: { slug: string; title: string; image: string; imageSmall?: string | null; thumb: string }; category: { id: string; name: string } | null }>(
       `/daily/day/${encodeURIComponent(dailyDay)}`,
     );
     seed = d.seed;
@@ -236,7 +240,7 @@ async function loadPuzzle(): Promise<void> {
     return;
   }
   const d = await api.get<{
-    puzzle: { slug: string; title: string; image: string; thumb: string; unlocked: boolean; unlockCost: number; lock: PuzzleInfo['lock']; publicAt: number | null };
+    puzzle: { slug: string; title: string; image: string; imageSmall?: string | null; thumb: string; unlocked: boolean; unlockCost: number; lock: PuzzleInfo['lock']; publicAt: number | null };
     category: { id: string; name: string } | null;
     next: { slug: string; title: string } | null;
   }>(`/puzzles/${encodeURIComponent(slug)}`);
@@ -575,6 +579,7 @@ function togglePause(force?: boolean) {
 
 async function finish() {
   finished = true;
+  noteFinish();
   // The finishing shimmer plays while the result is recorded.
   const party = board.celebrate();
   elapsedBase = elapsed();
@@ -815,7 +820,7 @@ try {
       ),
     );
   } else {
-    image = await loadImage(puzzle.image);
+    image = await loadImage(pickImage(puzzle));
     showChallengeBar();
     preview.setAttribute('style', bg(puzzle.thumb || puzzle.image));
     mount(
@@ -839,6 +844,7 @@ try {
           h('button', { class: 'btn', onclick: () => (document.fullscreenElement ? document.exitFullscreen() : wrap.requestFullscreen?.()) }, 'Full screen'),
           muteBtn,
           h('a', { class: 'btn', href: '/how-to-play', target: '_blank' }, 'How to play'),
+          moreBtn,
         ),
         h(
           'section',
@@ -856,6 +862,17 @@ try {
     diffSel.addEventListener('change', () => void switchTo({ difficulty: diffSel.value as Difficulty }));
     modeSel.addEventListener('change', () => void switchTo({ mode: modeSel.value as Mode }));
     hintBtn.addEventListener('click', useHint);
+    moreBtn.addEventListener('click', () => {
+      const side = moreBtn.parentElement!;
+      const open = side.classList.toggle('open');
+      moreBtn.setAttribute('aria-expanded', String(open));
+      moreBtn.textContent = open ? '✕ Close' : '⋯ More';
+    });
+    // Choosing anything in the sheet closes it.
+    moreBtn.parentElement!.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      if (t !== moreBtn && t.closest('.btn') && moreBtn.parentElement!.classList.contains('open')) moreBtn.click();
+    });
     placeBtn.addEventListener('click', placeTile);
     peekBtn.addEventListener('click', peek);
     muteBtn.addEventListener('click', () => {

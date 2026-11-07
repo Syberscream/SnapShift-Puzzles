@@ -43,6 +43,8 @@ export interface SiteSettings {
   supporterMonthlyUrl: string;
   supporterYearlyUrl: string;
   contactEmail: string;
+  /** Cloudflare Web Analytics site token (empty = off). */
+  analyticsToken: string;
   theme: Theme;
   banners: Banner[];
 }
@@ -65,13 +67,14 @@ export const SITE_DEFAULTS: SiteSettings = {
   supporterMonthlyUrl: '',
   supporterYearlyUrl: '',
   contactEmail: 'contact@snapshiftpuzzles.com',
+  analyticsToken: '',
   theme: THEME_DEFAULTS,
   banners: [],
 };
 
 export async function getSite(env: Env): Promise<SiteSettings> {
   const s = await getSetting(env, 'site', SITE_DEFAULTS);
-  return { ...s, theme: { ...THEME_DEFAULTS, ...(s.theme ?? {}) }, banners: Array.isArray(s.banners) ? s.banners : [] };
+  return { ...SITE_DEFAULTS, ...s, theme: { ...THEME_DEFAULTS, ...(s.theme ?? {}) }, banners: Array.isArray(s.banners) ? s.banners : [] };
 }
 
 const color = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : fallback);
@@ -134,6 +137,7 @@ export async function publicSite(env: Env, member = false) {
     supporterMonthlyUrl: s.supporterMonthlyUrl,
     supporterYearlyUrl: s.supporterYearlyUrl,
     contactEmail: s.contactEmail,
+    analyticsToken: s.analyticsToken,
     theme: s.theme,
     banners: s.banners.filter((b) => b.enabled && !(member && b.audience === 'free') && (!b.start || b.start <= today) && (!b.end || b.end >= today)),
   };

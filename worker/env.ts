@@ -34,6 +34,7 @@ export interface User {
   lifetime: number;
   frame: string;
   remind_streak: number;
+  profile_public: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   created_at: number;

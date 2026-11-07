@@ -3,7 +3,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireUser } from '../lib/auth';
-import { DAILY_CATEGORY, media, type PuzzleRow } from '../lib/catalog';
+import { DAILY_CATEGORY, media, type PuzzleRow, imageFields } from '../lib/catalog';
 import { body, fail, now, randomId } from '../lib/util';
 import type { ChallengeRow } from './play';
 
@@ -74,7 +74,7 @@ app.get('/:id', async (c) => {
     puzzle: {
       slug: p.slug,
       title: p.title,
-      image: media(p.image_key || p.original_key),
+      ...imageFields(p),
       thumb: media(p.thumb_key || p.image_key || p.original_key),
       categoryId: p.category_id,
       categoryName: cat?.name ?? '',

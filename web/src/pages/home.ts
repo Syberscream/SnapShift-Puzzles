@@ -1,6 +1,6 @@
 import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
-import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag } from '../lib/ui';
+import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag, store } from '../lib/ui';
 import { categoryCard, puzzleCard } from './shared';
 import { plusSection } from '../lib/plus-promo';
 
@@ -145,5 +145,16 @@ async function render(d: Home) {
     ),
   );
 
-  mount(main, hero, ...events, cont, ta, cats, latest, await plusSection());
+  // New visitors (no account, never finished a game here) get the guided first game.
+  const fresh = !user && !store<boolean>('ss_tutorial_done', false).get() && store<number>('ss_finishes', 0).get() === 0;
+  const welcome = fresh
+    ? h(
+        'section',
+        { class: 'panel first-visit' },
+        h('div', {}, h('h2', {}, 'New to SnapShift?'), h('p', { class: 'muted' }, 'Swap tiles to rebuild the picture. Learn how in 30 seconds with a quick guided puzzle.')),
+        h('a', { class: 'btn primary big', href: '/tutorial' }, 'Show me how'),
+      )
+    : null;
+
+  mount(main, welcome, hero, ...events, cont, ta, cats, latest, await plusSection());
 }

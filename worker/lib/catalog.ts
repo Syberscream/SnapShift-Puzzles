@@ -15,6 +15,8 @@ export interface PuzzleRow {
   original_key: string;
   image_key: string | null;
   thumb_key: string | null;
+  /** Phone-sized copy (about 1200px wide). */
+  small_key?: string | null;
   width: number | null;
   height: number | null;
   prompt: string | null;
@@ -28,6 +30,11 @@ export interface PuzzleRow {
 export const DAILY_CATEGORY = 'daily';
 
 export const media = (key: string | null | undefined) => (key ? `/media/${key}` : '');
+/** The picture to play, plus the phone-sized copy when there is one. */
+export const imageFields = (p: { image_key: string | null; original_key: string; small_key?: string | null }): { image: string; imageSmall: string | null } => ({
+  image: media(p.image_key || p.original_key),
+  imageSmall: media(p.small_key) || null,
+});
 
 export interface PuzzleView {
   id: number;
@@ -37,6 +44,7 @@ export interface PuzzleView {
   categoryId: string | null;
   index: number;
   image: string;
+  imageSmall: string | null;
   thumb: string;
   unlockCost: number;
   unlocked: boolean;
@@ -155,7 +163,7 @@ export function toView(
     description: p.description,
     categoryId: p.category_id,
     index,
-    image: media(p.image_key || p.original_key),
+    ...imageFields(p),
     thumb: media(p.thumb_key || p.image_key || p.original_key),
     unlockCost: cost,
     unlocked: a.unlocked,

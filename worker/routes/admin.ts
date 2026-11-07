@@ -133,20 +133,45 @@ app.post('/puzzles/:id/publish', async (c) => {
   const meta = { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' };
   await c.env.MEDIA.put(imageKey, await image.arrayBuffer(), { httpMetadata: meta });
   await c.env.MEDIA.put(thumbKey, await thumb.arrayBuffer(), { httpMetadata: meta });
+  const small = form.get('small');
+  const smallKey = small instanceof File ? `small/${slug}-${randomId(4)}.webp` : null;
+  if (small instanceof File) await c.env.MEDIA.put(smallKey!, await small.arrayBuffer(), { httpMetadata: meta });
   const maxSort = await c.env.DB.prepare("SELECT COALESCE(MAX(sort), -1) AS m FROM puzzles WHERE category_id = ? AND status = 'published'")
     .bind(categoryId)
     .first<{ m: number }>();
   const sort = p.status === 'published' && p.category_id === categoryId ? p.sort : (maxSort?.m ?? -1) + 1;
   // Clean up previous web copies if re-publishing.
-  for (const k of [p.image_key, p.thumb_key]) if (k) await c.env.MEDIA.delete(k);
+  for (const k of [p.image_key, p.thumb_key, p.small_key]) if (k) await c.env.MEDIA.delete(k);
   await c.env.DB.prepare(
-    `UPDATE puzzles SET status = 'published', slug = ?, title = ?, description = ?, category_id = ?, image_key = ?, thumb_key = ?,
+    `UPDATE puzzles SET status = 'published', slug = ?, title = ?, description = ?, category_id = ?, image_key = ?, thumb_key = ?, small_key = ?,
      width = ?, height = ?, sort = ?, published_at = COALESCE(published_at, ?) WHERE id = ?`,
   )
-    .bind(slug, title, description || p.description, categoryId, imageKey, thumbKey, int(form.get('width')) || null, int(form.get('height')) || null, sort, now(), id)
+    .bind(slug, title, description || p.description, categoryId, imageKey, thumbKey, smallKey, int(form.get('width')) || null, int(form.get('height')) || null, sort, now(), id)
     .run();
   const out = await c.env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(id).first<PuzzleRow>();
   return c.json({ puzzle: adminPuzzle(out!) });
+});
+
+/** Published puzzles that don't have a phone-sized copy yet. */
+app.get('/puzzles/needs-small', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, title, image_key, original_key FROM puzzles WHERE status = 'published' AND small_key IS NULL ORDER BY id",
+  ).all<{ id: number; title: string; image_key: string | null; original_key: string }>();
+  return c.json({ puzzles: results.map((p) => ({ id: p.id, title: p.title, image: media(p.image_key || p.original_key) })) });
+});
+
+/** Store a phone-sized copy (made in the admin's browser) for a published puzzle. */
+app.post('/puzzles/:id/small', async (c) => {
+  const id = int(c.req.param('id'));
+  const p = await c.env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(id).first<PuzzleRow>();
+  if (!p) fail(404, 'Not found.');
+  const small = (await c.req.formData()).get('small');
+  if (!(small instanceof File) || small.size < 1000) fail(422, 'Image required.');
+  const key = `small/${p.slug}-${randomId(4)}.webp`;
+  await c.env.MEDIA.put(key, await small.arrayBuffer(), { httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' } });
+  if (p.small_key) await c.env.MEDIA.delete(p.small_key);
+  await c.env.DB.prepare('UPDATE puzzles SET small_key = ? WHERE id = ?').bind(key, id).run();
+  return c.json({ ok: true });
 });
 
 app.post('/puzzles/:id/reject', async (c) => {
@@ -160,7 +185,7 @@ app.post('/puzzles/:id/reject', async (c) => {
     // Played before: hide it but keep the files so old results still make sense.
     await c.env.DB.prepare("UPDATE puzzles SET status = 'rejected' WHERE id = ?").bind(id).run();
   } else {
-    for (const k of [p.original_key, p.image_key, p.thumb_key]) if (k) await c.env.MEDIA.delete(k);
+    for (const k of [p.original_key, p.image_key, p.thumb_key, p.small_key]) if (k) await c.env.MEDIA.delete(k);
     await c.env.DB.batch([
       c.env.DB.prepare('UPDATE generation_jobs SET puzzle_id = NULL WHERE puzzle_id = ?').bind(id),
       c.env.DB.prepare('DELETE FROM puzzles WHERE id = ?').bind(id),
@@ -505,6 +530,7 @@ app.put('/site', async (c) => {
     supporterMonthlyUrl: text('supporterMonthlyUrl', 300),
     supporterYearlyUrl: text('supporterYearlyUrl', 300),
     contactEmail: text('contactEmail', 190) || SITE_DEFAULTS.contactEmail,
+    analyticsToken: b.analyticsToken !== undefined ? str(b.analyticsToken, 64).replace(/[^a-zA-Z0-9]/g, '') : cur.analyticsToken,
     theme: b.theme !== undefined ? cleanTheme(b.theme as object, cur.theme) : cur.theme,
     banners: b.banners !== undefined ? cleanBanners(b.banners) : cur.banners,
   };

@@ -1,6 +1,7 @@
 import '../styles/site.css';
 import { api, type Me } from './api';
 import { h, hasPaidPlus, toast } from './ui';
+import { setupInstall } from './install';
 import { applyTheme, cacheTheme, pageKey, type Banner, type Theme } from './theme';
 
 let current: Me | null = null;
@@ -108,6 +109,13 @@ export async function shell(opts: { title?: string; bodyClass?: string } = {}): 
   if (site) {
     applyTheme(site.theme);
     cacheTheme(site.theme);
+    if (site.analyticsToken && !document.querySelector('script[data-cf-beacon]')) {
+      const s = document.createElement('script');
+      s.defer = true;
+      s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+      s.dataset.cfBeacon = JSON.stringify({ token: site.analyticsToken });
+      document.head.append(s);
+    }
     if (site.announcement) top.append(h('div', { class: 'notice' }, site.announcement));
     for (const [slot, position] of [[top, 'top'], [bottom, 'bottom']] as const) {
       const b = pickBanner(site.banners, position);
@@ -117,6 +125,7 @@ export async function shell(opts: { title?: string; bodyClass?: string } = {}): 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+  setupInstall();
   return main;
 }
 
@@ -141,6 +150,7 @@ export function showError(main: HTMLElement, message: string): void {
 
 interface SitePublic {
   announcement: string;
+  analyticsToken?: string;
   theme: Theme;
   banners: Banner[];
 }

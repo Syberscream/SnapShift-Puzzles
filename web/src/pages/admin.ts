@@ -117,7 +117,7 @@ async function overview() {
 }
 
 /** Resize in the browser: a web-sized WebP for play and a thumbnail. */
-async function makeWebCopies(src: string): Promise<{ image: Blob; thumb: Blob; width: number; height: number }> {
+async function makeWebCopies(src: string): Promise<{ image: Blob; thumb: Blob; small: Blob; width: number; height: number }> {
   const img = new Image();
   img.src = src;
   await img.decode();
@@ -132,7 +132,7 @@ async function makeWebCopies(src: string): Promise<{ image: Blob; thumb: Blob; w
     ctx.drawImage(img, 0, 0, w, hgt);
     return new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Could not encode image'))), 'image/webp', quality));
   };
-  return { image: await scaled(2400, 0.88), thumb: await scaled(640, 0.8), width: img.naturalWidth, height: img.naturalHeight };
+  return { image: await scaled(2400, 0.88), thumb: await scaled(640, 0.8), small: await scaled(1200, 0.85), width: img.naturalWidth, height: img.naturalHeight };
 }
 
 function reviewCard(p: AdminPuzzle, onDone: () => void) {
@@ -150,6 +150,7 @@ function reviewCard(p: AdminPuzzle, onDone: () => void) {
       const f = new FormData();
       f.set('image', copies.image, 'image.webp');
       f.set('thumb', copies.thumb, 'thumb.webp');
+      f.set('small', copies.small, 'small.webp');
       f.set('width', String(copies.width));
       f.set('height', String(copies.height));
       f.set('title', title.value);
@@ -311,8 +312,59 @@ async function generate() {
 }
 
 async function published() {
-  const { puzzles } = await api.get<{ puzzles: AdminPuzzle[] }>('/admin/puzzles?status=published');
-  mount(body, h('section', { class: 'panel' }, h('h2', {}, `Published (${puzzles.length})`), h('p', { class: 'muted' }, 'Edit titles and categories. Removing a puzzle that people have played hides it but keeps their results.')), h('div', { class: 'grid wide' }, puzzles.map((p) => reviewCard(p, published))));
+  const [{ puzzles }, needs] = await Promise.all([
+    api.get<{ puzzles: AdminPuzzle[] }>('/admin/puzzles?status=published'),
+    api.get<{ puzzles: { id: number; title: string; image: string }[] }>('/admin/puzzles/needs-small'),
+  ]);
+  mount(
+    body,
+    h('section', { class: 'panel' }, h('h2', {}, `Published (${puzzles.length})`), h('p', { class: 'muted' }, 'Edit titles and categories. Removing a puzzle that people have played hides it but keeps their results.')),
+    needs.puzzles.length ? phoneCopiesPanel(needs.puzzles) : null,
+    h('div', { class: 'grid wide' }, puzzles.map((p) => reviewCard(p, published))),
+  );
+}
+
+/** Older puzzles have no phone-sized copy: make them here, in the browser, a few at a time. */
+function phoneCopiesPanel(list: { id: number; title: string; image: string }[]): HTMLElement {
+  const status = h('span', { class: 'muted small' }, '');
+  const go = h('button', { class: 'btn primary' }, `Make phone copies (${list.length})`);
+  go.addEventListener('click', async () => {
+    go.setAttribute('disabled', '');
+    let done = 0;
+    let failed = 0;
+    for (const p of list) {
+      status.textContent = `${done + failed + 1} of ${list.length}: ${p.title}`;
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = p.image;
+        await img.decode();
+        const w = Math.min(1200, img.naturalWidth);
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = Math.round((img.naturalHeight / img.naturalWidth) * w);
+        const ctx = c.getContext('2d')!;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('encode'))), 'image/webp', 0.85));
+        const f = new FormData();
+        f.set('small', blob, 'small.webp');
+        await api.post(`/admin/puzzles/${p.id}/small`, f);
+        done++;
+      } catch {
+        failed++;
+      }
+    }
+    status.textContent = `Done: ${done} made${failed ? `, ${failed} failed (try again)` : ''}.`;
+    toast('Phone copies made', `${done} pictures`, 'good');
+  });
+  return h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, 'Faster pictures on phones'),
+    h('p', { class: 'muted' }, `${list.length} published ${list.length === 1 ? 'puzzle has' : 'puzzles have'} no phone-sized copy yet. Phones load a picture about a quarter of the size when there is one. New puzzles get one when you publish.`),
+    h('div', { class: 'row' }, go, status),
+  );
 }
 
 async function categories() {
@@ -561,6 +613,7 @@ async function site() {
     supporterMonthlyUrl: string;
     supporterYearlyUrl: string;
     contactEmail: string;
+    analyticsToken: string;
     theme: Theme;
     banners: Banner[];
   }>('/admin/site');
@@ -572,6 +625,13 @@ async function site() {
     h('h2', {}, 'General'),
     h('div', { class: 'field' }, h('label', {}, 'Announcement (a notice at the top of every page; empty to hide)'), h('input', { name: 'announcement', value: s.announcement })),
     h('div', { class: 'field' }, h('label', {}, 'Contact email shown to players'), h('input', { name: 'contactEmail', value: s.contactEmail })),
+    h(
+      'div',
+      { class: 'field' },
+      h('label', {}, 'Cloudflare Web Analytics token (empty = off)'),
+      h('input', { name: 'analyticsToken', value: s.analyticsToken, placeholder: 'e.g. 0123456789abcdef…', autocomplete: 'off' }),
+      h('span', { class: 'small muted' }, 'Cloudflare dashboard → Analytics & Logs → Web Analytics → Add a site → copy the token from the snippet. Cookie-free visitor counts.'),
+    ),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
   );
   general.addEventListener('submit', async (e) => {

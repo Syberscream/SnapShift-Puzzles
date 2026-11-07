@@ -133,8 +133,8 @@ export class Board {
     return new Promise((r) => setTimeout(r, ANIM_MS + CELEBRATE_MS));
   }
 
-  showHint(positions: number[]) {
-    this.hint = { positions, until: performance.now() + 4000 };
+  showHint(positions: number[], ms = 4000) {
+    this.hint = { positions, until: performance.now() + ms };
     this.request();
   }
 

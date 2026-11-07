@@ -169,7 +169,7 @@ app.post('/reset', async (c) => {
   return c.json({ ok: true });
 });
 
-/** Email preferences: {remindStreak}. */
+/** Preferences: {remindStreak, profilePublic}. */
 app.put('/preferences', async (c) => {
   const user = requireUser(c);
   const b = await body(c);
@@ -178,6 +178,9 @@ app.put('/preferences', async (c) => {
     await c.env.DB.prepare('UPDATE users SET remind_streak = ?, unsub_token = COALESCE(unsub_token, ?) WHERE id = ?')
       .bind(b.remindStreak ? 1 : 0, randomId(16), user.id)
       .run();
+  }
+  if (typeof b.profilePublic === 'boolean') {
+    await c.env.DB.prepare('UPDATE users SET profile_public = ? WHERE id = ?').bind(b.profilePublic ? 1 : 0, user.id).run();
   }
   return c.json({ ok: true });
 });

@@ -1,7 +1,7 @@
 import { api, type Me } from '../lib/api';
 import { me, shell } from '../lib/shell';
 import { errorText, h, medalBadge, mount, qs, toast, plusTag, hasPaidPlus } from '../lib/ui';
-import { achievementsPanel, framePanel, medalsPanel, membershipPanel, remindersPanel, requestsPanel } from './account-plus';
+import { achievementsPanel, framePanel, medalsPanel, membershipPanel, profilePanel, remindersPanel, requestsPanel } from './account-plus';
 
 const main = await shell({ title: 'Account' });
 const next = qs('next') && qs('next').startsWith('/') && !qs('next').startsWith('//') ? qs('next') : '/';
@@ -178,7 +178,7 @@ async function profileView(user: Me) {
     ),
   );
   main.append(await achievementsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
-  main.append(remindersPanel(user));
+  main.append(profilePanel(user), remindersPanel(user));
   main.append(membershipPanel(user, s.freezesLeft));
   if (user.member) {
     main.append(framePanel(user));

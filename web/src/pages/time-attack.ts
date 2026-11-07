@@ -4,7 +4,7 @@
 
 import { api } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
-import { errorText, h, modal, mount, plural, plusTag, store, toast } from '../lib/ui';
+import { errorText, h, modal, mount, plural, plusTag, store, toast, userLink, pickImage } from '../lib/ui';
 import { ApiError } from '../lib/api';
 import { Board } from '../game/board';
 import { isMuted, setMuted, sfx } from '../game/sound';
@@ -15,6 +15,7 @@ interface RunPuzzle {
   slug: string;
   title: string;
   image: string;
+  imageSmall?: string | null;
   seed: number;
 }
 interface Run {
@@ -73,9 +74,9 @@ const titleEl = h('span', { class: 'pill dark small' }, '');
 const canvas = h('canvas', { id: 'board' }) as HTMLCanvasElement;
 const note = h('div', { class: 'memorize-note', hidden: true }, '');
 const progressFill = h('i');
-const skipBtn = h('button', { class: 'btn', onclick: () => void nextPuzzle() }, 'Skip puzzle');
-const endBtn = h('button', { class: 'btn', onclick: () => void endRun() }, 'Finish now');
-const muteBtn = h('button', { class: 'btn', 'aria-pressed': String(isMuted()) }, isMuted() ? 'Sound off' : 'Sound on');
+const skipBtn = h('button', { class: 'btn key', onclick: () => void nextPuzzle() }, 'Skip puzzle');
+const endBtn = h('button', { class: 'btn key', onclick: () => void endRun() }, 'Finish now');
+const muteBtn = h('button', { class: 'btn key', 'aria-pressed': String(isMuted()) }, isMuted() ? 'Sound off' : 'Sound on');
 muteBtn.addEventListener('click', () => {
   setMuted(!isMuted());
   muteBtn.textContent = isMuted() ? 'Sound off' : 'Sound on';
@@ -86,7 +87,7 @@ function loadImage(i: number): Promise<HTMLImageElement> {
   if (!run || i >= run.puzzles.length) return Promise.reject(new Error('No more puzzles.'));
   let p = images.get(i);
   if (!p) {
-    const src = run.puzzles[i].image;
+    const src = pickImage(run.puzzles[i], true);
     p = new Promise((resolve, reject) => {
       const img = new Image();
       img.decoding = 'async';
@@ -355,7 +356,7 @@ async function intro() {
             h(
               'tbody',
               {},
-              lb.rows.slice(0, 10).map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, r.username, r.plus ? plusTag() : null), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved))),
+              lb.rows.slice(0, 10).map((r) => h('tr', { class: r.isMe ? 'me' : '' }, h('td', {}, r.rank), h('td', {}, userLink(r.username), r.plus ? plusTag() : null), h('td', { class: 'num' }, r.score), h('td', { class: 'num' }, r.solved))),
             ),
           ),
         )

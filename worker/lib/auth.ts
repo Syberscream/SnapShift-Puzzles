@@ -114,5 +114,6 @@ export function publicUser(u: User) {
     billing: !!u.stripe_customer_id,
     frame: isMember(u) ? u.frame : '',
     remindStreak: !!u.remind_streak,
+    profilePublic: u.profile_public !== 0,
   };
 }

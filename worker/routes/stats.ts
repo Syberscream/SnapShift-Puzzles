@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { publicUser, requireUser } from '../lib/auth';
-import { archiveOpen, dailyStreak, freezesLeft, getDaily, media } from '../lib/catalog';
+import { archiveOpen, dailyStreak, DAILY_CATEGORY, freezesLeft, getDaily, media, imageFields } from '../lib/catalog';
 import { isMember, plusSql } from '../lib/membership';
 import { addDays, dayKey, fail, int, msUntilNextDay } from '../lib/util';
 import { PLUS } from '../../shared/rules';
@@ -51,7 +51,7 @@ app.get('/daily/day/:day', async (c) => {
     puzzle: {
       slug: d.puzzle.slug,
       title: d.puzzle.title,
-      image: media(d.puzzle.image_key || d.puzzle.original_key),
+      ...imageFields(d.puzzle),
       thumb: media(d.puzzle.thumb_key || d.puzzle.image_key || d.puzzle.original_key),
     },
     category: cat,
@@ -181,6 +181,65 @@ app.get('/me/achievements', async (c) => {
   const { results } = await c.env.DB.prepare('SELECT achievement, earned_at FROM user_achievements WHERE user_id = ?').bind(user.id).all<{ achievement: string; earned_at: number }>();
   const got = new Map(results.map((r) => [r.achievement, r.earned_at]));
   return c.json({ achievements: ACHIEVEMENTS.map((a) => ({ ...a, earnedAt: got.get(a.id) ?? null })) });
+});
+
+/** Public profile: medals, streaks, achievements and recent finishes. */
+app.get('/profile/:name', async (c) => {
+  const viewer = c.get('user');
+  const u = await c.env.DB.prepare(
+    `SELECT id, username, created_at, profile_public, frame, ${plusSql('users')} AS plus FROM users WHERE username = ?`,
+  )
+    .bind(c.req.param('name'))
+    .first<{ id: number; username: string; created_at: number; profile_public: number; frame: string; plus: number }>();
+  const self = !!viewer && viewer.id === u?.id;
+  if (!u || (!u.profile_public && !self && viewer?.role !== 'admin')) fail(404, 'No public profile with that name.');
+  const today = dayKey(c.env);
+  const [medals, ach, ta, recent, daily, streak] = await Promise.all([
+    c.env.DB.prepare('SELECT medal, COUNT(*) AS n FROM plays WHERE user_id = ? AND completed_at IS NOT NULL AND challenge_id IS NULL GROUP BY medal')
+      .bind(u.id)
+      .all<{ medal: string; n: number }>(),
+    c.env.DB.prepare('SELECT achievement, earned_at FROM user_achievements WHERE user_id = ? ORDER BY earned_at DESC').bind(u.id).all<{ achievement: string; earned_at: number }>(),
+    c.env.DB.prepare('SELECT MAX(score) AS best, COUNT(*) AS runs FROM time_attack_runs WHERE user_id = ? AND finished_at IS NOT NULL').bind(u.id).first<{ best: number | null; runs: number }>(),
+    c.env.DB.prepare(
+      `SELECT p.slug, p.title, p.thumb_key, p.image_key, p.original_key, p.category_id, pl.medal, pl.difficulty, pl.completed_at
+       FROM plays pl JOIN puzzles p ON p.id = pl.puzzle_id
+       WHERE pl.user_id = ? AND pl.completed_at IS NOT NULL AND pl.daily_day IS NULL AND pl.challenge_id IS NULL AND p.category_id != ?
+       ORDER BY pl.completed_at DESC LIMIT 40`,
+    )
+      .bind(u.id, DAILY_CATEGORY)
+      .all<Record<string, string | number>>(),
+    c.env.DB.prepare('SELECT COUNT(*) AS n, SUM(medal = \'gold\') AS golds FROM daily_results WHERE user_id = ?').bind(u.id).first<{ n: number; golds: number | null }>(),
+    dailyStreak(c.env, u.id, today),
+  ]);
+  const m = Object.fromEntries(medals.results.map((r) => [r.medal, r.n]));
+  const byId = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
+  return c.json({
+    username: u.username,
+    joined: u.created_at,
+    plus: !!u.plus,
+    frame: u.plus ? u.frame : '',
+    isPublic: !!u.profile_public,
+    self,
+    medals: { gold: m.gold ?? 0, silver: m.silver ?? 0, bronze: m.bronze ?? 0 },
+    completed: (m.gold ?? 0) + (m.silver ?? 0) + (m.bronze ?? 0),
+    streak: { current: streak.current, best: streak.best },
+    dailies: { played: daily?.n ?? 0, golds: daily?.golds ?? 0 },
+    timeAttack: { best: ta?.best ?? null, runs: ta?.runs ?? 0 },
+    achievements: ach.results.flatMap((r) => {
+      const a = byId.get(r.achievement);
+      return a ? [{ id: a.id, icon: a.icon, title: a.title, description: a.description, earnedAt: r.earned_at }] : [];
+    }),
+    achievementsTotal: ACHIEVEMENTS.length,
+    // One card per picture (its latest finish).
+    recent: recent.results.filter((r, i, all) => all.findIndex((x) => x.slug === r.slug) === i).slice(0, 8).map((r) => ({
+      slug: r.slug,
+      title: r.title,
+      thumb: media(String(r.thumb_key || r.image_key || r.original_key)),
+      medal: r.medal,
+      difficulty: r.difficulty,
+      at: r.completed_at,
+    })),
+  });
 });
 
 export default app;

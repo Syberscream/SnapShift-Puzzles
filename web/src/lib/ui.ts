@@ -134,3 +134,18 @@ export function store<T>(key: string, fallback: T): { get(): T; set(v: T): void 
 export function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong.';
 }
+
+/** A player's name, linking to their public profile. */
+export function userLink(username: string): HTMLElement {
+  return h('a', { class: 'user-link', href: `/u?name=${encodeURIComponent(username)}` }, username);
+}
+
+/**
+ * The picture to load for a board: the phone-sized copy when the screen is
+ * small enough that the full one would be wasted (or the board is small).
+ */
+export function pickImage(p: { image: string; imageSmall?: string | null }, smallBoard = false): string {
+  if (!p.imageSmall) return p.image;
+  const px = Math.max(screen.width, screen.height) * Math.min(devicePixelRatio || 1, 3);
+  return smallBoard || Math.min(screen.width, screen.height) <= 820 || px <= 1400 ? p.imageSmall : p.image;
+}

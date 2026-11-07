@@ -55,6 +55,7 @@ export interface Me {
   billing: boolean;
   frame: string;
   remindStreak: boolean;
+  profilePublic: boolean;
 }
 
 export interface PuzzleView {
