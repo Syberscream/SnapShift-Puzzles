@@ -37,3 +37,19 @@ describe('uniqueTitle', () => {
     expect(uniqueTitle('Barn Owl', taken)).toBe('Barn Owl');
   });
 });
+
+describe('photo-realistic prompts', () => {
+  it('asks for real photographs except for art and fractals', () => {
+    const rand = rng(5);
+    for (const cat of ['animals', 'landscapes', 'cities', 'space', 'scifi']) {
+      expect(pickIdea(cat, rand).prompt).toMatch(/photo/i);
+      expect(pickIdea(cat, rand).prompt).toMatch(/Not an illustration/);
+    }
+    expect(pickIdea('art', rand).prompt).toMatch(/oil painting/);
+  });
+
+  it('gives space pictures space moods', () => {
+    const rand = rng(9);
+    for (let i = 0; i < 20; i++) expect(pickIdea('space', rand).prompt).not.toMatch(/spring bloom|after rain|autumn|winter day/);
+  });
+});

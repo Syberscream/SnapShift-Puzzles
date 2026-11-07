@@ -74,17 +74,38 @@ const SETTINGS: [phrase: string, title: string][] = [
   ['in spring bloom', 'Spring'],
 ];
 
+/** Moods that suit space pictures (the everyday ones above don't). */
+const SPACE_SETTINGS: [phrase: string, title: string][] = [
+  ['against a dense star field', 'Star Field'],
+  ['lit by a distant sun', 'Sunlit'],
+  ['in natural true colour', 'True Colour'],
+  ['seen in infrared light', 'Infrared'],
+  ['at the edge of the galaxy', 'Galaxy Edge'],
+  ['in deep space', 'Deep Space'],
+];
+
+/** The default look: a real, high-end photograph. */
+const PHOTO =
+  'ultra-realistic professional photograph, shot on a full-frame camera with a sharp prime lens, natural light, ' +
+  'true-to-life colours and textures, crisp fine detail, award-winning nature and travel photography quality. ' +
+  'Not an illustration, painting, drawing, cartoon or CGI render';
+
+/** Categories that look better with their own style. Everything else gets PHOTO. */
 const STYLES: Record<string, string> = {
-  art: 'painterly fine-art style with visible brushwork',
-  fractals: 'intricate digital art with fine detail',
-  scifi: 'cinematic concept art',
-  space: 'cinematic space art',
+  art: 'museum-quality fine-art oil painting with rich visible brushwork',
+  fractals: 'hyper-detailed 3D fractal render with photoreal materials, reflections and lighting',
+  scifi:
+    'photorealistic cinematic film still, real-world materials and practical lighting, shot on a cinema camera. ' +
+    'Not an illustration, painting or cartoon',
+  space:
+    'photorealistic astrophotography like NASA Hubble and James Webb telescope images, real nebula colours and natural star fields. ' +
+    'Not an illustration, painting or cartoon',
 };
 
 /** Guidance that makes an image work well cut into tiles. */
 export const PUZZLE_SUFFIX =
-  'Detailed throughout the whole frame with varied colours and textures, a clear focal subject, ' +
-  'no large blank areas, no text, no letters, no watermark, no border.';
+  'Stunning, high dynamic range, detailed across the whole frame with varied colours and textures, a clear focal subject, ' +
+  'no large blank areas, no text, no letters, no watermark, no border, no frame.';
 
 const pick = <T>(list: T[], rand: () => number): T => list[Math.floor(rand() * list.length)];
 
@@ -99,19 +120,20 @@ export function pickIdea(categoryId: string, rand: () => number, hint = '', take
   const mixed = categoryId === 'daily' || categoryId === 'members';
   const theme = mixed ? pick(Object.keys(SUBJECTS), rand) : categoryId;
   const subjects = mixed ? Object.values(SUBJECTS).flat() : (SUBJECTS[theme] ?? ['Scenic View']);
-  const style = STYLES[theme] ?? 'high-resolution photograph';
+  const style = STYLES[theme] ?? PHOTO;
   const extra = hint ? ` Theme: ${hint}.` : '';
 
   let subject: string;
   let setting: [string, string];
   let title: string;
   const plain = subjects.filter((s) => !taken.has(s.toLowerCase()));
+  const moods = (sub: string) => (SUBJECTS.space.includes(sub) ? SPACE_SETTINGS : SETTINGS);
   if (plain.length) {
     subject = pick(plain, rand);
-    setting = pick(SETTINGS, rand);
+    setting = pick(moods(subject), rand);
     title = subject;
   } else {
-    const combos = subjects.flatMap((s) => SETTINGS.map((st) => [s, st] as const)).filter(([s, st]) => !taken.has(`${s}, ${st[1]}`.toLowerCase()));
+    const combos = subjects.flatMap((s) => moods(s).map((st) => [s, st] as const)).filter(([s, st]) => !taken.has(`${s}, ${st[1]}`.toLowerCase()));
     if (combos.length) {
       const [s, st] = pick(combos, rand);
       subject = s;
@@ -119,12 +141,12 @@ export function pickIdea(categoryId: string, rand: () => number, hint = '', take
       title = `${s}, ${st[1]}`;
     } else {
       subject = pick(subjects, rand);
-      setting = pick(SETTINGS, rand);
+      setting = pick(moods(subject), rand);
       title = uniqueTitle(`${subject}, ${setting[1]}`, taken);
     }
   }
   taken.add(title.toLowerCase());
-  const subjectStyle = mixed ? STYLES[Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? ''] ?? style : style;
+  const subjectStyle = mixed ? STYLES[Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? ''] ?? PHOTO : style;
   return { title, prompt: `${subject} ${setting[0]}, ${subjectStyle}.${extra} ${PUZZLE_SUFFIX}` };
 }
 
