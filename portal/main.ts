@@ -381,6 +381,8 @@ async function play(p: PackPuzzle) {
     after(r);
   };
 
+  // The portal's "gameplay" signal: a board is on screen and ready to play.
+  portal.start();
   moveHandlers = { swap: onSwap, rotate: onRotate };
   board = new Board(canvas, img, { showCorrect: rules.glow, onSwap, onRotate });
   board.setState(state);
@@ -491,11 +493,13 @@ async function win(p: PackPuzzle, img: HTMLImageElement, setup: GameSetup) {
 
 document.addEventListener('visibilitychange', () => {
   if (!board || finished) return;
-  if (document.hidden && startedAt) {
-    elapsedBefore = elapsed();
-    startedAt = 0;
+  if (document.hidden) {
+    if (startedAt) {
+      elapsedBefore = elapsed();
+      startedAt = 0;
+    }
     portal.stop();
-  }
+  } else portal.start();
 });
 // Portals' own keys (space, arrows) shouldn't scroll the page around the game.
 window.addEventListener('keydown', (e) => {
@@ -512,7 +516,17 @@ try {
   throw new Error('pack missing');
 }
 portal.loaded();
-menu();
+// First visit: straight into today's picture on Easy, with the how-to-play hint.
+// After that, start on the picture list.
+const firstVisit = store<boolean>('ssp_visited', false);
+if (!firstVisit.get() && !new URLSearchParams(location.search).has('menu')) {
+  firstVisit.set(true);
+  prefs.set({ ...prefs.get(), difficulty: 'easy' });
+  void play(dailyPick());
+} else {
+  firstVisit.set(true);
+  menu();
+}
 
 // Automated test hook (?selftest): solve the current board with the engine's own suggestions.
 if (new URLSearchParams(location.search).has('selftest')) {
