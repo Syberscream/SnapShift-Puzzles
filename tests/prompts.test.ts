@@ -73,3 +73,15 @@ describe('mix of looks', () => {
     for (let i = 0; i < 30; i++) expect(pickIdea('art', rand, '', new Set(), 0).prompt).toMatch(/oil painting/);
   });
 });
+
+describe('looks on Generate now', () => {
+  it('applies a chosen look to built-in ideas and custom prompts', async () => {
+    const { lookStyle } = await import('../worker/pipeline/prompts');
+    const rand = rng(3);
+    expect(pickIdea('animals', rand, '', new Set(), 100, 'watercolour').prompt).toMatch(/watercolour/);
+    expect(pickIdea('animals', rand, '', new Set(), 0, 'photo').prompt).toMatch(/photograph/);
+    expect(lookStyle('auto', 'animals', rand, 60, true)).toBe('');
+    expect(lookStyle('photo', 'space', rand, 60, true)).toMatch(/astrophotography/);
+    expect(lookStyle('gouache', null, rand, 60, true)).toMatch(/gouache/);
+  });
+});

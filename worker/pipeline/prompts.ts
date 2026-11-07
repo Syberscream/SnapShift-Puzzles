@@ -91,15 +91,38 @@ const PHOTO =
   'Not an illustration, painting, drawing, cartoon or CGI render';
 
 /** Artistic looks used for the share of pictures that aren't photo-realistic. */
-const ART_LOOKS = [
-  'luminous watercolour painting with soft washes and fine ink detail',
-  'rich oil painting with visible impasto brushwork',
-  'cinematic digital concept art with dramatic lighting',
-  'impressionist painting with broken colour and dappled light',
-  'detailed storybook illustration with warm, vivid colours',
-  'stylised 3D render with soft global illumination, like an animated film still',
-  'vibrant gouache illustration with bold shapes and fine texture',
+const ART_STYLES: Record<string, [label: string, style: string]> = {
+  watercolour: ['Watercolour', 'luminous watercolour painting with soft washes and fine ink detail'],
+  oil: ['Oil painting', 'rich oil painting with visible impasto brushwork'],
+  concept: ['Concept art', 'cinematic digital concept art with dramatic lighting'],
+  impressionist: ['Impressionist', 'impressionist painting with broken colour and dappled light'],
+  storybook: ['Storybook illustration', 'detailed storybook illustration with warm, vivid colours'],
+  render3d: ['Stylised 3D', 'stylised 3D render with soft global illumination, like an animated film still'],
+  gouache: ['Gouache', 'vibrant gouache illustration with bold shapes and fine texture'],
+};
+const ART_LOOKS = Object.values(ART_STYLES).map(([, s]) => s);
+
+/**
+ * Looks you can pick on "Generate now". "auto" uses the photo-realistic % for
+ * built-in ideas and leaves your own prompt exactly as written.
+ */
+export const LOOKS: { id: string; label: string }[] = [
+  { id: 'auto', label: 'Automatic (the % mix; your own prompt as written)' },
+  { id: 'photo', label: 'Photo-realistic' },
+  { id: 'art', label: 'Artistic (a random style)' },
+  ...Object.entries(ART_STYLES).map(([id, [label]]) => ({ id, label })),
 ];
+export const isLook = (v: unknown): v is string => typeof v === 'string' && LOOKS.some((l) => l.id === v);
+
+/** The style words for a look; '' means add nothing (auto + custom prompt). */
+export function lookStyle(look: string, categoryId: string | null, rand: () => number, photoShare: number, custom: boolean): string {
+  const photo = (categoryId && STYLES[categoryId]) || PHOTO;
+  if (look === 'photo') return photo;
+  if (look === 'art') return pick(ART_LOOKS, rand);
+  if (ART_STYLES[look]) return ART_STYLES[look][1];
+  if (custom) return '';
+  return categoryId !== 'art' && rand() * 100 >= photoShare ? pick(ART_LOOKS, rand) : photo;
+}
 
 /** Photo-realistic looks per category. Everything else gets PHOTO. */
 const STYLES: Record<string, string> = {
@@ -130,7 +153,7 @@ const pick = <T>(list: T[], rand: () => number): T => list[Math.floor(rand() * l
  * A new picture idea for a category. `photoShare` (0–100) is the chance it's
  * photo-realistic; otherwise it gets a random artistic look. Art is always painted.
  */
-export function pickIdea(categoryId: string, rand: () => number, hint = '', taken: Set<string> = new Set(), photoShare = 100): PromptIdea {
+export function pickIdea(categoryId: string, rand: () => number, hint = '', taken: Set<string> = new Set(), photoShare = 100, look = 'auto'): PromptIdea {
   // The daily pool and the members' gallery mix every theme so each picture feels different.
   const mixed = categoryId === 'daily' || categoryId === 'members';
   const theme = mixed ? pick(Object.keys(SUBJECTS), rand) : categoryId;
@@ -163,7 +186,8 @@ export function pickIdea(categoryId: string, rand: () => number, hint = '', take
   taken.add(title.toLowerCase());
   const subjectTheme = mixed ? (Object.keys(SUBJECTS).find((k) => SUBJECTS[k].includes(subject)) ?? '') : theme;
   const photoStyle = mixed ? (STYLES[subjectTheme] ?? PHOTO) : style;
-  const subjectStyle = subjectTheme !== 'art' && rand() * 100 >= photoShare ? pick(ART_LOOKS, rand) : photoStyle;
+  const subjectStyle =
+    look === 'auto' ? (subjectTheme !== 'art' && rand() * 100 >= photoShare ? pick(ART_LOOKS, rand) : photoStyle) : lookStyle(look, subjectTheme || null, rand, photoShare, false);
   return { title, prompt: `${subject} ${setting[0]}, ${subjectStyle}.${extra} ${PUZZLE_SUFFIX}` };
 }
 

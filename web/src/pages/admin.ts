@@ -207,7 +207,7 @@ async function queue() {
 }
 
 async function generate() {
-  const g = await api.get<{ settings: GenSettings; jobs: Job[]; configured: boolean; puzzleSuffix: string }>('/admin/generation');
+  const g = await api.get<{ settings: GenSettings; jobs: Job[]; configured: boolean; puzzleSuffix: string; looks: { id: string; label: string }[] }>('/admin/generation');
   const s = g.settings;
   const logBox = h('pre', { hidden: true });
   const showLog = (log: string[]) => {
@@ -267,6 +267,13 @@ async function generate() {
     h('h2', {}, 'Generate now'),
     h('p', { class: 'muted small' }, 'Leave the prompt empty to use built-in ideas for the category. Puzzle-friendly guidance is added automatically: ', h('i', {}, g.puzzleSuffix)),
     h('div', { class: 'row' }, catSelect(null), h('input', { type: 'number', name: 'count', min: 1, max: 10, value: 1, style: 'max-width:90px', 'aria-label': 'How many' })),
+    h(
+      'div',
+      { class: 'field', style: 'margin-top:8px' },
+      h('label', {}, 'Look'),
+      h('select', { name: 'look' }, g.looks.map((l) => h('option', { value: l.id }, l.label))),
+      h('span', { class: 'small muted' }, `Automatic: ${s.photoShare ?? 60}% photo-realistic for built-in ideas (set under Automatic generation); your own prompt is sent as written. Any other choice is added to your prompt too.`),
+    ),
     h('div', { class: 'field', style: 'margin-top:8px' }, h('label', {}, 'Prompt (optional)'), h('textarea', { name: 'prompt', placeholder: 'A red fox curled up in fresh snow at sunrise, photograph' })),
     h('div', { class: 'field' }, h('label', {}, 'Title (optional)'), h('input', { name: 'title' })),
     h('button', { class: 'btn primary', type: 'submit', disabled: !g.configured }, g.configured ? 'Generate' : 'Set ELEVENLABS_API_KEY first'),
@@ -276,7 +283,7 @@ async function generate() {
     e.preventDefault();
     const f = new FormData(now);
     try {
-      const r = await api.post<{ log: string[] }>('/admin/generate', { categoryId: f.get('categoryId'), count: Number(f.get('count')), prompt: f.get('prompt'), title: f.get('title') });
+      const r = await api.post<{ log: string[] }>('/admin/generate', { categoryId: f.get('categoryId'), count: Number(f.get('count')), prompt: f.get('prompt'), title: f.get('title'), look: f.get('look') });
       showLog(r.log);
       toast('Started', 'Images usually take a minute or two. They appear in the review queue.', 'good');
     } catch (x) {

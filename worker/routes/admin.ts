@@ -6,7 +6,7 @@ import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
 import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
 import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, takenTitles, type GenerationSettings } from '../pipeline/pipeline';
-import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX } from '../pipeline/prompts';
+import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX, LOOKS, isLook, lookStyle } from '../pipeline/prompts';
 import { rng, randomSeed } from '../../shared/engine';
 import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
 import { setLifetime } from '../lib/membership';
@@ -196,7 +196,7 @@ app.post('/upload', async (c) => {
 app.get('/generation', async (c) => {
   const settings = await getSetting(c.env, 'generation', GENERATION_DEFAULTS);
   const { results } = await c.env.DB.prepare('SELECT * FROM generation_jobs ORDER BY created_at DESC LIMIT 60').all();
-  return c.json({ settings, jobs: results, configured: !!c.env.ELEVENLABS_API_KEY, puzzleSuffix: PUZZLE_SUFFIX });
+  return c.json({ settings, jobs: results, configured: !!c.env.ELEVENLABS_API_KEY, puzzleSuffix: PUZZLE_SUFFIX, looks: LOOKS });
 });
 
 app.put('/generation', async (c) => {
@@ -223,19 +223,26 @@ app.post('/generate', async (c) => {
   const categoryId = str(b.categoryId, 40) || null;
   const custom = str(b.prompt, 2000);
   const count = Math.max(1, Math.min(10, int(b.count, 1)));
+  const look = isLook(b.look) ? b.look : 'auto';
+  const share = settings.photoShare ?? GENERATION_DEFAULTS.photoShare;
   const ids: string[] = [];
   if (custom) {
     const title = str(b.title, 80) || titleFromPrompt(custom);
-    const prompt = b.addPuzzleGuidance === false ? custom : `${custom} ${PUZZLE_SUFFIX}`;
+    const rand = rng(randomSeed());
     // Several copies of a custom prompt become "Title", "Title 2", … (queueJob makes each unique).
-    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, title, prompt }));
+    for (let i = 0; i < count; i++) {
+      const style = lookStyle(look, categoryId, rand, share, true);
+      const text = style ? `${custom.replace(/[.\s]+$/, '')}, ${style}.` : custom;
+      const prompt = b.addPuzzleGuidance === false ? text : `${text} ${PUZZLE_SUFFIX}`;
+      ids.push(await queueJob(c.env, settings, { categoryId, title, prompt }));
+    }
   } else {
     if (!categoryId) fail(422, 'Pick a category or write a prompt.');
     const cat = await c.env.DB.prepare('SELECT prompt_hint FROM categories WHERE id = ?').bind(categoryId).first<{ prompt_hint: string }>();
     if (!cat) fail(404, 'Unknown category.');
     const rand = rng(randomSeed());
     const taken = await takenTitles(c.env, categoryId);
-    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint, taken, settings.photoShare ?? GENERATION_DEFAULTS.photoShare) }, true));
+    for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint, taken, share, look) }, true));
   }
   const log = await runPipeline(c.env);
   return c.json({ jobs: ids, log });
