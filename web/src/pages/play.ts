@@ -606,19 +606,13 @@ function showResult(r: CompleteResult, guest: boolean) {
     h(
       'div',
       { class: 'row end' },
+      h('a', { class: 'btn', href: '/' }, 'Home'),
       h('button', { class: 'btn', onclick: share }, 'Share'),
       dailyDay ? h('a', { class: 'btn', href: `/leaderboard?day=${dailyDay}` }, 'Leaderboard') : null,
       h('button', { class: 'btn', onclick: () => { d.close(); void restart(true); } }, 'Play again'),
       puzzle.next
         ? h('a', { class: 'btn primary', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}&m=${mode}` }, 'Next puzzle →')
         : h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'More puzzles'),
-    ),
-    h(
-      'div',
-      { class: 'row result-links' },
-      h('a', { href: '/' }, '⌂ Home'),
-      !dailyDay && puzzle.categoryId ? h('a', { href: `/category?c=${puzzle.categoryId}` }, 'Back to category') : null,
-      dailyDay ? h('a', { href: '/daily' }, 'Daily archive') : null,
     ),
   );
 }

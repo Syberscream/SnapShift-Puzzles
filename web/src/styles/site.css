@@ -367,4 +367,3 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
   border: 1px solid var(--border-soft); background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer;
 }
 .modal-close:hover, .modal-close:focus-visible { color: var(--text); background: var(--section); }
-.result-links { justify-content: center; gap: 18px; margin-top: 4px; font-weight: 700; font-size: 14px; }
