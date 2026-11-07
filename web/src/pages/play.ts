@@ -2,6 +2,7 @@ import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
 import { bg, errorText, h, medalBadge, modal, mount, plusTag, qs, store, timeUntil, toast } from '../lib/ui';
 import { Board } from '../game/board';
+import { confetti, countUp } from '../game/confetti';
 import { isMuted, setMuted, sfx } from '../game/sound';
 import {
   applySuggestion,
@@ -505,6 +506,8 @@ function togglePause(force?: boolean) {
 
 async function finish() {
   finished = true;
+  // The finishing shimmer plays while the result is recorded.
+  const party = board.celebrate();
   elapsedBase = elapsed();
   runningSince = 0;
   updateHud();
@@ -517,6 +520,7 @@ async function finish() {
     guestSaves.set(saves);
     showCompleted(done);
     sfx.win(rating?.medal ?? 'silver');
+    await party;
     showResult(
       {
         rating,
@@ -541,6 +545,7 @@ async function finish() {
     setPoints(r.balance);
     showCompleted({ medal: r.rating?.medal ?? null, scorePct: r.rating?.scorePct ?? null, moves: r.moves, elapsedMs: r.elapsedMs });
     sfx.win(r.rating?.medal ?? 'silver');
+    await party;
     showResult(r, false);
   } catch (e) {
     toast('Could not record your finish', errorText(e), 'bad');
@@ -549,6 +554,9 @@ async function finish() {
 
 function showResult(r: CompleteResult, guest: boolean) {
   const rating = r.rating;
+  const pointsEl = h('b', {}, `+${r.points + r.dailyBonus} points`);
+  confetti(rating?.medal ?? 'zen');
+  if (!guest) countUp(pointsEl, r.points + r.dailyBonus, (n) => `+${n.toLocaleString()} points`);
   const label = rating ? rating.medal[0].toUpperCase() + rating.medal.slice(1) : '';
   const subtitle = `${puzzle.title} · ${RULES[difficulty].label} · ${MODE_LABELS[mode]}`;
   const share = async () => {
@@ -567,7 +575,7 @@ function showResult(r: CompleteResult, guest: boolean) {
     }
   };
   const d = modal(
-    rating ? h('div', { class: `result-medal ${rating.medal}` }, medalBadge(rating.medal), h('span', { class: 'medal-name' }, `${rating.medal} medal`)) : h('div', { class: 'result-medal', style: 'font-size:48px' }, '✓'),
+    rating ? h('div', { class: `result-medal ${rating.medal} celebrate` }, medalBadge(rating.medal), h('span', { class: 'medal-name' }, `${rating.medal} medal`)) : h('div', { class: 'result-medal celebrate', style: 'font-size:48px' }, '✓'),
     h('h2', { style: 'text-align:center' }, rating ? `${label} medal!` : 'Puzzle complete'),
     h('p', { class: 'muted', style: 'text-align:center' }, subtitle),
     rating
@@ -584,7 +592,7 @@ function showResult(r: CompleteResult, guest: boolean) {
       : h(
           'div',
           { class: 'notice' },
-          h('b', {}, `+${r.points + r.dailyBonus} points`),
+          pointsEl,
           r.firstClear ? '' : r.zen ? ' (Zen pays once per puzzle)' : ' (replay rate)',
           r.dailyBonus ? ` including a ${r.dailyBonus}-point daily bonus` : '',
           '.',

@@ -20,6 +20,13 @@ interface Anim {
 }
 
 const ANIM_MS = 170;
+/** Snap-and-settle bounce when a tile lands in its right place. */
+const SETTLE_MS = 380;
+/** Shimmer + gentle zoom when the last tile goes in. */
+const CELEBRATE_MS = 1100;
+
+/** Players who ask their device for less motion get the plain versions. */
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export class Board {
   private ctx: CanvasRenderingContext2D;
@@ -34,6 +41,16 @@ export class Board {
   private anims: Anim[] = [];
   private turns = new Map<number, { from: number; start: number }>(); // pos -> rotation animation
   private flashes = new Map<number, number>();
+  /** pos -> time its snap-and-settle starts. */
+  private settles = new Map<number, number>();
+  /** Edge key -> current seam opacity (fades out when both sides are right). */
+  private seams = new Map<number, number>();
+  private lastFrame = 0;
+  /** Drag lift: when it started and a smoothed sideways speed for the tilt. */
+  private liftStart = 0;
+  private tilt = 0;
+  private lastDragX = 0;
+  private celebrateStart = 0;
   private raf = 0;
   private keyboardUsed = false;
   /** Source rectangle of the picture (centre-cropped for square tiles). */
@@ -63,6 +80,9 @@ export class Board {
 
   setState(s: GameState) {
     this.state = s;
+    this.seams.clear();
+    this.settles.clear();
+    this.celebrateStart = 0;
     this.cursor = Math.min(this.cursor, s.tiles.length - 1);
     this.selected = -1;
     this.hint = null;
@@ -89,6 +109,7 @@ export class Board {
 
   setCompleted(v: boolean) {
     this.completed = v;
+    if (!v) this.celebrateStart = 0;
     this.selected = -1;
     this.hint = null;
     this.canvas.style.cursor = v ? 'default' : '';
@@ -99,6 +120,17 @@ export class Board {
     this.revealed = v;
     this.selected = -1;
     this.request();
+  }
+
+  /**
+   * The finishing moment: a shimmer sweeps across the picture while it gently
+   * zooms. Resolves when it's over (straight away for reduced motion).
+   */
+  celebrate(): Promise<void> {
+    if (reducedMotion()) return Promise.resolve();
+    this.celebrateStart = performance.now() + ANIM_MS;
+    this.request();
+    return new Promise((r) => setTimeout(r, ANIM_MS + CELEBRATE_MS));
   }
 
   showHint(positions: number[]) {
@@ -113,7 +145,10 @@ export class Board {
       { from: b, to: a, tile: this.state.tiles[a], rot: this.state.rot[a], start: t },
       { from: a, to: b, tile: this.state.tiles[b], rot: this.state.rot[b], start: t },
     );
-    for (const p of newlyCorrect) this.flashes.set(p, t + ANIM_MS);
+    for (const p of newlyCorrect) {
+      this.flashes.set(p, t + ANIM_MS);
+      if (!reducedMotion()) this.settles.set(p, t + ANIM_MS);
+    }
     if (this.hint && (this.hint.positions.includes(a) || this.hint.positions.includes(b))) this.hint = null;
     this.request();
   }
@@ -122,7 +157,10 @@ export class Board {
   animateRotate(p: number, newlyCorrect: boolean) {
     const t = performance.now();
     this.turns.set(p, { from: (this.state.rot[p] + 3) % 4, start: t });
-    if (newlyCorrect) this.flashes.set(p, t + ANIM_MS);
+    if (newlyCorrect) {
+      this.flashes.set(p, t + ANIM_MS);
+      if (!reducedMotion()) this.settles.set(p, t + ANIM_MS);
+    }
     if (this.hint?.positions.includes(p)) this.hint = null;
     this.request();
   }
@@ -201,6 +239,8 @@ export class Board {
       this.dragFrom = p;
       this.dragStart = { x: e.clientX, y: e.clientY };
       this.dragPoint = null;
+      this.tilt = 0;
+      this.lastDragX = e.clientX;
       this.request();
     });
     c.addEventListener('pointermove', (e) => {
@@ -212,6 +252,10 @@ export class Board {
       if (this.dragFrom >= 0 && this.dragStart) {
         // Only start showing a drag once the pointer has really moved.
         if (this.dragPoint || Math.hypot(e.clientX - this.dragStart.x, e.clientY - this.dragStart.y) > 6) {
+          if (!this.dragPoint) this.liftStart = performance.now();
+          // Tilt a little in the direction of travel, like a piece held by its top.
+          if (!reducedMotion()) this.tilt = Math.max(-0.14, Math.min(0.14, this.tilt * 0.7 + (e.clientX - this.lastDragX) * 0.006));
+          this.lastDragX = e.clientX;
           this.dragPoint = { x: e.clientX, y: e.clientY };
           this.request();
         }
@@ -297,6 +341,10 @@ export class Board {
     return { x: (pos % this.cols) * w, y: Math.floor(pos / this.cols) * hgt, w, h: hgt };
   }
 
+  private correct(p: number) {
+    return this.state.tiles[p] === p && this.state.rot[p] === 0;
+  }
+
   /** Draw a tile (by id) into a cell, turned `quarter` quarter turns clockwise. */
   private drawTile(tile: number, x: number, y: number, w: number, hgt: number, quarter = 0) {
     const sw = this.src.w / this.cols;
@@ -324,7 +372,30 @@ export class Board {
     const settling = this.anims.some((a) => now - a.start < ANIM_MS) || [...this.turns.values()].some((t) => now - t.start < ANIM_MS);
     if ((this.completed && !settling) || this.revealed) {
       // The finished picture, in one piece.
-      ctx.drawImage(this.image, this.src.x, this.src.y, this.src.w, this.src.h, 0, 0, this.canvas.width, this.canvas.height);
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const ck = this.celebrateStart && !this.revealed ? (now - this.celebrateStart) / CELEBRATE_MS : 1;
+      if (ck >= 0 && ck < 1) {
+        // Gentle zoom in and back, with a light band sweeping across.
+        const z = 1 + 0.045 * Math.sin(Math.PI * ck);
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(z, z);
+        ctx.drawImage(this.image, this.src.x, this.src.y, this.src.w, this.src.h, -W / 2, -H / 2, W, H);
+        ctx.restore();
+        const band = W * 0.35;
+        const x = -band + (W + band * 2) * Math.min(1, ck * 1.25);
+        const g = ctx.createLinearGradient(x - band, 0, x + band, H * 0.4);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0.38)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+        this.request();
+      } else {
+        ctx.drawImage(this.image, this.src.x, this.src.y, this.src.w, this.src.h, 0, 0, W, H);
+        if (ck < 0) this.request();
+      }
       if (this.completed) {
         this.anims = [];
         this.turns.clear();
@@ -339,8 +410,13 @@ export class Board {
     const moving = new Set(this.anims.map((a) => a.to));
     const n = this.state.tiles.length;
 
+    const settlingNow: number[] = [];
+    for (const [p, at] of this.settles) {
+      if (now - at >= SETTLE_MS) this.settles.delete(p);
+      else if (now >= at && !moving.has(p)) settlingNow.push(p);
+    }
     for (let p = 0; p < n; p++) {
-      if (moving.has(p) || (p === this.dragFrom && this.dragPoint)) continue;
+      if (moving.has(p) || (p === this.dragFrom && this.dragPoint) || settlingNow.includes(p)) continue;
       const r = this.rect(p);
       let quarter = this.state.rot[p];
       const turn = this.turns.get(p);
@@ -351,13 +427,33 @@ export class Board {
       }
       this.drawTile(this.state.tiles[p], r.x, r.y, r.w, r.h, quarter);
     }
-    // Grid lines between tiles that can still move.
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    // Seams between tiles. Where both neighbours are in their right place the
+    // seam fades away, so the picture visibly joins up as you go.
+    const dt = this.lastFrame ? Math.min(100, now - this.lastFrame) : 16;
+    this.lastFrame = now;
+    const fade = reducedMotion() ? 1 : 1 - Math.pow(0.001, dt / 450);
+    let seamsMoving = false;
     ctx.lineWidth = Math.max(1, dpr);
+    const { rows, cols } = this;
+    const seam = (key: number, a: number, b: number, x1: number, y1: number, x2: number, y2: number) => {
+      const target = this.correct(a) && this.correct(b) ? 0 : 1;
+      const cur = this.seams.get(key) ?? target;
+      const next = Math.abs(target - cur) < 0.02 ? target : cur + (target - cur) * fade;
+      if (next !== target) seamsMoving = true;
+      this.seams.set(key, next);
+      if (next <= 0.01) return;
+      ctx.strokeStyle = `rgba(0,0,0,${0.55 * next})`;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    };
     for (let p = 0; p < n; p++) {
-      if (this.state.locked[p]) continue;
       const r = this.rect(p);
-      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+      const col = p % cols;
+      const row = Math.floor(p / cols);
+      if (col < cols - 1) seam(p * 2, p, p + 1, Math.round(r.x + r.w) + 0.5, r.y, Math.round(r.x + r.w) + 0.5, r.y + r.h);
+      if (row < rows - 1) seam(p * 2 + 1, p, p + cols, r.x, Math.round(r.y + r.h) + 0.5, r.x + r.w, Math.round(r.y + r.h) + 0.5);
     }
     // Correct-tile outline and flash.
     for (let p = 0; p < n; p++) {
@@ -372,9 +468,19 @@ export class Board {
         }
       }
       if (this.opts.showCorrect && this.state.locked[p]) {
-        ctx.strokeStyle = 'rgba(61, 220, 132, 0.55)';
+        // Outline the edge of the finished area (not between finished tiles).
+        ctx.strokeStyle = 'rgba(61, 220, 132, 0.6)';
         ctx.lineWidth = 2 * dpr;
-        ctx.strokeRect(r.x + dpr, r.y + dpr, r.w - 2 * dpr, r.h - 2 * dpr);
+        const col = p % cols;
+        const row = Math.floor(p / cols);
+        const open = (q: number, ok: boolean) => ok && !this.state.locked[q];
+        const i = dpr;
+        ctx.beginPath();
+        if (row === 0 || open(p - cols, true)) (ctx.moveTo(r.x, r.y + i), ctx.lineTo(r.x + r.w, r.y + i));
+        if (row === rows - 1 || open(p + cols, true)) (ctx.moveTo(r.x, r.y + r.h - i), ctx.lineTo(r.x + r.w, r.y + r.h - i));
+        if (col === 0 || open(p - 1, true)) (ctx.moveTo(r.x + i, r.y), ctx.lineTo(r.x + i, r.y + r.h));
+        if (col === cols - 1 || open(p + 1, true)) (ctx.moveTo(r.x + r.w - i, r.y), ctx.lineTo(r.x + r.w - i, r.y + r.h));
+        ctx.stroke();
       }
     }
     // Swap animation.
@@ -384,6 +490,23 @@ export class Board {
       const f = this.rect(a.from);
       const t = this.rect(a.to);
       this.drawTile(a.tile, f.x + (t.x - f.x) * e, f.y + (t.y - f.y) * e, t.w, t.h, a.rot);
+    }
+    // Snap and settle: the tile pops slightly, then settles in with a bright edge.
+    for (const p of settlingNow) {
+      const k = (now - this.settles.get(p)!) / SETTLE_MS;
+      const r = this.rect(p);
+      const sc = 1 + 0.09 * Math.exp(-5 * k) * Math.cos(k * 9);
+      ctx.save();
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.scale(sc, sc);
+      ctx.shadowColor = `rgba(0,0,0,${0.5 * (1 - k)})`;
+      ctx.shadowBlur = 14 * dpr * (1 - k);
+      this.drawTile(this.state.tiles[p], -r.w / 2, -r.h / 2, r.w, r.h, this.state.rot[p]);
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = `rgba(255, 244, 200, ${0.9 * (1 - k)})`;
+      ctx.lineWidth = (3 - 2 * k) * dpr;
+      ctx.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h);
+      ctx.restore();
     }
     // Hint.
     if (this.hint) {
@@ -410,22 +533,36 @@ export class Board {
     if (this.selected >= 0) outline(this.selected, '#7cc4ff', 4);
     if (this.keyboardUsed && document.activeElement === this.canvas) outline(this.cursor, '#ffffff', 3);
     // Dragged tile follows the pointer.
+    let lifting = false;
     if (this.dragFrom >= 0 && this.dragPoint) {
       const r = this.rect(this.dragFrom);
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(r.x, r.y, r.w, r.h);
       const b = this.canvas.getBoundingClientRect();
-      const x = (this.dragPoint.x - b.left) * dpr - r.w / 2;
-      const y = (this.dragPoint.y - b.top) * dpr - r.h / 2;
+      const cx = (this.dragPoint.x - b.left) * dpr;
+      const cy = (this.dragPoint.y - b.top) * dpr;
+      // Lift: grow and cast a deeper, offset shadow over ~120 ms.
+      const lk = reducedMotion() ? 1 : Math.min(1, (now - this.liftStart) / 120);
+      lifting = lk < 1;
+      const sc = 1 + 0.12 * (1 - Math.pow(1 - lk, 3));
+      this.tilt *= 0.85; // ease back to level when the pointer stops
+      if (Math.abs(this.tilt) > 0.003) lifting = true;
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.6)';
-      ctx.shadowBlur = 18 * dpr;
-      this.drawTile(this.state.tiles[this.dragFrom], x, y, r.w * 1.06, r.h * 1.06, this.state.rot[this.dragFrom]);
+      ctx.translate(cx, cy);
+      ctx.rotate(this.tilt);
+      ctx.scale(sc, sc);
+      ctx.shadowColor = 'rgba(0,0,0,0.55)';
+      ctx.shadowBlur = 24 * dpr * lk;
+      ctx.shadowOffsetX = 6 * dpr * lk;
+      ctx.shadowOffsetY = 12 * dpr * lk;
+      this.drawTile(this.state.tiles[this.dragFrom], -r.w / 2, -r.h / 2, r.w, r.h, this.state.rot[this.dragFrom]);
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = (2 * dpr) / sc;
+      ctx.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h);
       ctx.restore();
-      ctx.strokeStyle = '#7cc4ff';
-      ctx.lineWidth = 3 * dpr;
-      ctx.strokeRect(x, y, r.w * 1.06, r.h * 1.06);
     }
-    if (this.anims.length || this.turns.size || this.hint || this.flashes.size || this.completed) this.request();
+    if (this.anims.length || this.turns.size || this.hint || this.flashes.size || this.settles.size || seamsMoving || lifting || this.completed) this.request();
+    else this.lastFrame = 0;
   }
 }

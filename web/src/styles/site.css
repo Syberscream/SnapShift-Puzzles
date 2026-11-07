@@ -346,3 +346,17 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
   .promo-icon { width: 96px; }
   .promo-prices { max-width: none; }
 }
+
+/* Medal moment */
+.result-medal.celebrate .medal { animation: medal-drop 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.result-medal.celebrate .medal-name { animation: medal-name-in 0.5s 0.6s ease-out both; }
+@keyframes medal-drop {
+  0% { transform: translateY(-80px) rotateY(0) scale(0.6); opacity: 0; }
+  55% { transform: translateY(6px) rotateY(540deg) scale(1.08); opacity: 1; }
+  75% { transform: translateY(-4px) rotateY(700deg) scale(0.98); }
+  100% { transform: translateY(0) rotateY(720deg) scale(1); }
+}
+@keyframes medal-name-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .result-medal.celebrate .medal, .result-medal.celebrate .medal-name { animation: none; }
+}
