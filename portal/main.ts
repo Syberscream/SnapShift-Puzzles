@@ -21,8 +21,12 @@ interface PackPuzzle {
 }
 interface Pack {
   puzzles: PackPuzzle[];
-  /** Show "more puzzles at snapshiftpuzzles.com" (off for portals that don't allow outside links). */
-  link: boolean;
+  /** "Full game" banner: a link, plain text (portals that forbid links) or none. */
+  banner?: 'link' | 'text' | 'none';
+  /** Older builds: true = link banner. */
+  link?: boolean;
+  /** How many pictures the full game on the website has. */
+  total?: number;
   site: string;
 }
 type PMode = 'classic' | 'rotation';
@@ -103,6 +107,35 @@ function dailyPick(): PackPuzzle {
   return pack.puzzles[seedFromString('daily:' + day) % pack.puzzles.length];
 }
 
+// ---------- "full game" banner ----------
+
+function bannerMode(): 'link' | 'text' | 'none' {
+  return pack.banner ?? (pack.link ? 'link' : 'none');
+}
+
+/** Announces the full game on the website. `compact` for the win screen. */
+function fullGameBanner(compact = false): HTMLElement | null {
+  const mode = bannerMode();
+  if (mode === 'none') return null;
+  const total = Math.max(pack.total ?? 0, pack.puzzles.length);
+  const count = total > pack.puzzles.length ? `${Math.floor(total / 10) * 10}+ pictures` : 'More pictures';
+  const text = h(
+    'span',
+    { class: 'fg-text' },
+    h('b', {}, compact ? 'Want more?' : 'Play the full game, free'),
+    h('span', {}, compact ? `${count}, a daily challenge and leaderboards at snapshiftpuzzles.com` : `${count} with new ones every week, a daily challenge, streaks, achievements and leaderboards.`),
+  );
+  const icon = h('img', { class: 'fg-icon', src: './icon.png', alt: '' });
+  if (mode === 'text') return h('div', { class: `full-game${compact ? ' compact' : ''}` }, icon, text, h('span', { class: 'fg-site' }, 'snapshiftpuzzles.com'));
+  return h(
+    'a',
+    { class: `full-game${compact ? ' compact' : ''}`, href: pack.site, target: '_blank', rel: 'noopener' },
+    icon,
+    text,
+    h('span', { class: 'btn primary fg-btn' }, compact ? 'Visit →' : 'Play full game →'),
+  );
+}
+
 // ---------- menu ----------
 
 function menu() {
@@ -145,6 +178,7 @@ function menu() {
     h(
       'div',
       { class: 'scroll' },
+      fullGameBanner(),
       h(
         'div',
         { class: 'daily' },
@@ -186,14 +220,6 @@ function menu() {
           ),
         ),
       ),
-      pack.link
-        ? h(
-            'p',
-            { class: 'small muted', style: 'text-align:center;margin:18px 0 6px' },
-            'Hundreds more pictures, a daily leaderboard and streaks at ',
-            h('a', { class: 'more-link', href: pack.site, target: '_blank', rel: 'noopener' }, 'snapshiftpuzzles.com'),
-          )
-        : null,
     ),
   );
 }
@@ -394,9 +420,7 @@ async function win(p: PackPuzzle, img: HTMLImageElement, setup: GameSetup) {
         h('button', { class: 'btn', onclick: () => (overlay.remove(), void play(p)) }, 'Play again'),
         h('button', { class: 'btn primary', onclick: () => void next() }, 'Next picture →'),
       ),
-      pack.link
-        ? h('p', { class: 'small muted', style: 'margin-top:12px' }, 'Daily leaderboard and hundreds more pictures at ', h('a', { class: 'more-link', href: pack.site, target: '_blank', rel: 'noopener' }, 'snapshiftpuzzles.com'))
-        : null,
+      fullGameBanner(true),
     ),
   );
   document.querySelector('.stage')?.append(overlay);

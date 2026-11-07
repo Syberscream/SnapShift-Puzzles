@@ -20,6 +20,9 @@ const out = join(root, 'dist-portal');
 const SITE = (process.env.SITE || 'https://snapshiftpuzzles.com').replace(/\/$/, '');
 const perArg = process.argv.indexOf('--per');
 const PER = perArg > 0 ? Number(process.argv[perArg + 1]) || 4 : 4;
+// CrazyGames and Poki don't allow links out of their sites. --portal-banner adds a
+// plain-text mention of the website (no link) to their build; ask them first.
+const PORTAL_BANNER = process.argv.includes('--portal-banner') ? 'text' : 'none';
 
 console.log(`Building the game with Vite…`);
 execSync('npx vite build --config vite.portal.config.ts', { cwd: root, stdio: 'inherit' });
@@ -109,13 +112,13 @@ function zipFolder(dir, file) {
   writeFileSync(file, Buffer.concat([...locals, cd, end]));
 }
 
-for (const [name, link] of [['snapshift-crazygames-poki', false], ['snapshift-web', true]]) {
+for (const [name, banner] of [['snapshift-crazygames-poki', PORTAL_BANNER], ['snapshift-web', 'link']]) {
   const dir = join(out, name);
   rmSync(dir, { recursive: true, force: true });
   cpSync(app, dir, { recursive: true });
   cpSync(join(root, 'portal', 'logo.png'), join(dir, 'logo.png'));
   cpSync(join(root, 'portal', 'icon.png'), join(dir, 'icon.png'));
-  writeFileSync(join(dir, 'pack.json'), JSON.stringify({ puzzles, link, site: 'https://snapshiftpuzzles.com/?utm_source=portal' }));
+  writeFileSync(join(dir, 'pack.json'), JSON.stringify({ puzzles, banner, total: pack.total ?? puzzles.length, site: 'https://snapshiftpuzzles.com/?utm_source=portal' }));
   zipFolder(dir, join(out, `${name}.zip`));
   const mb = (statSync(join(out, `${name}.zip`)).size / 1048576).toFixed(1);
   console.log(`dist-portal/${name}.zip (${mb} MB)`);

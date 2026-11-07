@@ -27,6 +27,12 @@ You get two ZIP files in `dist-portal/`:
 | `snapshift-crazygames-poki.zip` | CrazyGames and Poki: no links to other sites (their rules) |
 | `snapshift-web.zip` | itch.io, Newgrounds, Armor Games, your own pages: adds a small "more at snapshiftpuzzles.com" link |
 
+Both show a **"Play the full game, free"** banner above the pictures and on the
+win screen. In the web build it links to the website. CrazyGames and Poki don't
+allow links out of their sites, so their build has no banner by default;
+`npm run build:portal -- --portal-banner` adds a plain-text version (no link) if
+the portal agrees to it.
+
 Want more pictures? `npm run build:portal -- --per 6` puts 6 per category in the
 pack instead of 4. Keep the ZIP under about 20 MB so it loads fast.
 

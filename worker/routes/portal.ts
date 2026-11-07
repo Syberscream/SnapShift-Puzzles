@@ -26,7 +26,10 @@ app.get('/pack', async (c) => {
     const img = imageFields(p);
     return [{ slug: p.slug, title: p.title, category: p.category_name, image: img.imageSmall || img.image, thumb: media(p.thumb_key || p.small_key || p.image_key) }];
   });
-  return c.json({ puzzles, made: now() }, 200, { 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=600' });
+  const total = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM puzzles WHERE status = 'published' AND category_id NOT IN ${HIDDEN_CATEGORIES_SQL}`,
+  ).first<{ n: number }>();
+  return c.json({ puzzles, total: total?.n ?? puzzles.length, made: now() }, 200, { 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=600' });
 });
 
 export default app;

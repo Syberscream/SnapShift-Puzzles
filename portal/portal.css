@@ -65,3 +65,17 @@ h1 { font-size: 20px; margin: 4px 0 10px; }
 .more-link { color: var(--accent); }
 @media (max-width: 560px) { .bar { padding: 6px; gap: 6px; } .btn { padding: 6px 10px; font-size: 13px; } .logo { height: 26px; } .daily img { width: 96px; } }
 .spread { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+/* "Play the full game" banner */
+.full-game { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 10px 14px; border-radius: 14px; color: inherit; text-decoration: none;
+  background: linear-gradient(110deg, rgba(42, 125, 225, 0.35), rgba(245, 130, 32, 0.28)), var(--panel); border: 1px solid #3b6fb0; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35); }
+a.full-game:hover { filter: brightness(1.12); }
+.fg-icon { width: 44px; height: 44px; border-radius: 10px; flex: none; }
+.fg-text { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--muted); text-align: left; }
+.fg-text b { color: var(--text); font-size: 16px; }
+.fg-btn, .fg-site { flex: none; }
+.fg-site { font-weight: 800; color: var(--accent); }
+.full-game.compact { margin: 14px 0 0; padding: 8px 10px; gap: 10px; }
+.full-game.compact .fg-icon { width: 34px; height: 34px; }
+.full-game.compact .fg-text { font-size: 12.5px; }
+.full-game.compact .fg-text b { font-size: 14px; }
+@media (max-width: 560px) { .full-game { flex-wrap: wrap; } .fg-btn { width: 100%; text-align: center; } .full-game.compact .fg-btn { width: auto; } }
