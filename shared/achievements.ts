@@ -51,6 +51,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'slider-fast', title: 'Quick Slide', description: 'Finish a 4×4 Slider Puzzle in under a minute.', icon: '💨', reward: 150 },
   { id: 'collection-3', title: 'Curator', description: 'Complete 3 whole categories.', icon: '🖼️', reward: 300 },
   { id: 'challenge-5', title: 'Rival', description: 'Beat 5 friends’ challenges.', icon: '⚔️', reward: 150 },
+  { id: 'invite-1', title: 'Bring a Friend', description: 'A friend you invited joins and finishes 3 puzzles.', icon: '💌', reward: 50 },
+  { id: 'invite-5', title: 'Party Starter', description: '5 friends you invited join and finish 3 puzzles.', icon: '🎈', reward: 250 },
 ];
 
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));

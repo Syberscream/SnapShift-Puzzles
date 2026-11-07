@@ -238,3 +238,54 @@ export function profilePanel(user: Me): HTMLElement {
     h('p', {}, h('a', { class: 'btn', href: `/u?name=${encodeURIComponent(user.username)}` }, 'View my profile')),
   );
 }
+
+/** Invite friends: your link, and how each friend is getting on. */
+export async function invitesPanel(): Promise<HTMLElement> {
+  const d = await api.get<{
+    link: string;
+    points: number;
+    finishes: number;
+    earned: number;
+    friends: { username: string; joined: number; verified: boolean; finished: number; rewarded: boolean }[];
+  }>('/invites');
+  const text = `I’ve been playing SnapShift Puzzles: free picture tile puzzles with a daily challenge. Join me! ${d.link}`;
+  const share = async () => {
+    try {
+      if (navigator.share) await navigator.share({ text });
+      else {
+        await navigator.clipboard.writeText(d.link);
+        toast('Invite link copied', 'Paste it in a message to a friend.', 'good');
+      }
+    } catch {
+      /* closed the share sheet */
+    }
+  };
+  const input = h('input', { class: 'invite-link', readonly: true, value: d.link, 'aria-label': 'Your invite link', onclick: (e: Event) => (e.target as HTMLInputElement).select() });
+  return h(
+    'section',
+    { class: 'panel', id: 'invite' },
+    h('h2', {}, '💌 Invite friends'),
+    h('p', {}, `When a friend joins with your link, verifies their email and finishes ${d.finishes} puzzles, you each get `, h('b', {}, `${d.points} points`), '.'),
+    h('div', { class: 'row' }, input, h('button', { class: 'btn primary', onclick: share }, 'Share invite')),
+    d.friends.length
+      ? h(
+          'table',
+          { style: 'margin-top:12px' },
+          h(
+            'tbody',
+            {},
+            d.friends.map((f) =>
+              h(
+                'tr',
+                {},
+                h('td', {}, h('a', { href: `/u?name=${encodeURIComponent(f.username)}` }, f.username)),
+                h('td', { class: 'small muted' }, f.rewarded ? 'Bonus paid' : !f.verified ? 'Needs to verify their email' : `${f.finished} of ${d.finishes} puzzles`),
+                h('td', { class: 'num', style: `color:${f.rewarded ? 'var(--ok)' : 'var(--muted)'}` }, f.rewarded ? `+${d.points}` : '…'),
+              ),
+            ),
+          ),
+        )
+      : h('p', { class: 'small muted' }, 'No friends have joined with your link yet.'),
+    d.earned ? h('p', { class: 'small' }, `You’ve earned ${d.earned.toLocaleString()} points from invites.`) : null,
+  );
+}

@@ -274,6 +274,8 @@ async function overview() {
         stat('Failed generations (24h)', o.jobsFailed24h),
         stat('Daily pool (unused)', o.dailyPoolLeft),
         stat('Unread messages', o.unreadMessages),
+        stat('Daily reminder devices', o.pushSubscribers ?? 0),
+        stat('Joined by invite', o.invitedPlayers ?? 0),
       ),
     ),
   );
@@ -826,6 +828,9 @@ async function site() {
     supporterYearlyUrl: string;
     contactEmail: string;
     analyticsToken: string;
+    androidPackage: string;
+    androidFingerprints: string;
+    androidPlayUrl: string;
     theme: Theme;
     banners: Banner[];
   }>('/admin/site');
@@ -850,6 +855,40 @@ async function site() {
     e.preventDefault();
     await api.put('/admin/site', Object.fromEntries(new FormData(general)));
     toast('Saved', '', 'good');
+  });
+
+  // ---- Android app (Google Play) ----
+  const android = h(
+    'form',
+    { class: 'panel', id: 'android' },
+    h('h2', {}, 'Android app (Google Play)'),
+    h('p', { class: 'small muted' }, 'These link the Play Store app to this site, so it opens full screen with no browser bar. Follow docs/google-play.md in the project for the whole process.'),
+    h('div', { class: 'field' }, h('label', {}, 'Package name'), h('input', { name: 'androidPackage', value: s.androidPackage })),
+    h(
+      'div',
+      { class: 'field' },
+      h('label', {}, 'SHA-256 signing fingerprints (one per line)'),
+      h('textarea', { name: 'androidFingerprints', rows: 3, placeholder: 'AB:CD:EF:…  (from PWABuilder’s download, and from Play Console → App integrity)' }, s.androidFingerprints),
+      h('span', { class: 'small muted' }, 'Add both: your upload key’s fingerprint and the one Google Play shows under App integrity → App signing. Check it at ', h('a', { href: '/.well-known/assetlinks.json', target: '_blank' }, '/.well-known/assetlinks.json'), '.'),
+    ),
+    h(
+      'div',
+      { class: 'field' },
+      h('label', {}, 'Play Store link (once the app is live)'),
+      h('input', { name: 'androidPlayUrl', value: s.androidPlayUrl, placeholder: 'https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.twa' }),
+      h('span', { class: 'small muted' }, 'When set, Android visitors see a “Get it on Google Play” option instead of “Install”.'),
+    ),
+    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+  );
+  android.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api.put<{ androidFingerprints: string }>('/admin/site', Object.fromEntries(new FormData(android)));
+      (android.querySelector('textarea') as HTMLTextAreaElement).value = r.androidFingerprints;
+      toast('Saved', r.androidFingerprints ? '' : 'No valid fingerprints yet. They look like AB:CD:… (32 pairs).', r.androidFingerprints ? 'good' : '');
+    } catch (x) {
+      toast('Couldn’t save', errorText(x), 'bad');
+    }
   });
 
   // ---- look & feel (live preview on the whole admin page while editing) ----
@@ -1012,7 +1051,7 @@ async function site() {
   );
   drawBanners();
 
-  mount(body, h('div', { class: 'two-col' }, look, general), bannerSection);
+  mount(body, h('div', { class: 'two-col' }, look, h('div', { class: 'stack' }, general, android)), bannerSection);
   apply();
 }
 

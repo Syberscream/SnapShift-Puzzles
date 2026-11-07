@@ -618,3 +618,7 @@ dialog.modal { max-height: calc(100svh - 16px); overflow-y: auto; overscroll-beh
 .event-badge.place-3 .eb-icon { background: radial-gradient(circle at 35% 30%, #ffe2c4, #d08a4e 50%, #7a4a20); }
 .pill.winner a { color: inherit; }
 .event-rules .pill { white-space: normal; text-align: left; }
+
+/* Invite friends */
+.invite-link { flex: 1 1 260px; min-width: 0; font-size: 14px; }
+.push-offer .btn { margin-top: 6px; }

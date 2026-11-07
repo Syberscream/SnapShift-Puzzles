@@ -19,11 +19,15 @@
     "paths": {
       "@shared/*": [
         "shared/*"
+      ],
+      "@web/*": [
+        "web/src/*"
       ]
     }
   },
   "include": [
     "web/src",
-    "shared"
+    "shared",
+    "portal"
   ]
 }

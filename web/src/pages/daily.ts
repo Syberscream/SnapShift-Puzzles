@@ -1,3 +1,4 @@
+import { pushOffer } from '../lib/push';
 import { api } from '../lib/api';
 import { plusStrip } from '../lib/plus-promo';
 import { me, shell, showError } from '../lib/shell';
@@ -74,6 +75,7 @@ try {
             t.puzzle ? h('a', { class: 'btn primary big', href: `/play?daily=${t.day}` }, t.result ? 'Play again' : 'Play today') : null,
             h('a', { class: 'btn', href: '/leaderboard' }, 'Leaderboard'),
           ),
+          pushOffer(),
         ),
         h('div', { class: 'art', style: bg(t.puzzle?.thumb ?? '') }),
       ),

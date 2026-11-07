@@ -1,22 +1,97 @@
 {
+  "id": "/",
   "name": "SnapShift Puzzles",
   "short_name": "SnapShift",
   "description": "Picture tile puzzles with a daily challenge, medals and streaks.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/?app=1",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#05080f",
   "theme_color": "#0b1220",
-  "categories": ["games", "entertainment"],
+  "categories": [
+    "games",
+    "puzzle",
+    "entertainment"
+  ],
+  "prefer_related_applications": false,
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/img/app/screen-1.webp",
+      "sizes": "540x960",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Swap the tiles to rebuild the picture"
+    },
+    {
+      "src": "/img/app/screen-2.webp",
+      "sizes": "540x960",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "A new daily puzzle every day"
+    },
+    {
+      "src": "/img/app/screen-3.webp",
+      "sizes": "540x960",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Rotation mode"
+    }
   ],
   "shortcuts": [
-    { "name": "Today's daily", "url": "/daily", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Time Attack", "url": "/time-attack", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Slider Puzzle", "url": "/slider?daily=1", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Today's daily",
+      "url": "/daily",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Time Attack",
+      "url": "/time-attack",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Slider Puzzle",
+      "url": "/slider?daily=1",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

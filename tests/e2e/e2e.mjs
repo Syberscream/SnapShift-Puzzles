@@ -629,7 +629,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   const ach = await j(player.request.get(BASE + '/api/me/achievements'));
   const got = new Set(ach.achievements.filter((a) => a.earnedAt).map((a) => a.id));
   check('achievements: earned while playing', got.has('first-finish') && got.has('gold-1'), [...got].join(','));
-  check('achievements: 40 to unlock', ach.achievements.length === 40);
+  check('achievements: 42 to unlock', ach.achievements.length === 42);
   const popped = await player.evaluate(() => JSON.parse(localStorage.getItem('__ach') || '[]'));
   check('achievements: “Achievement unlocked!” popup shown', popped.length > 0 && popped.every((a) => a.title && /^\+\d+ points$/.test(a.reward)), JSON.stringify(popped));
   const ledger = await j(player.request.get(BASE + '/api/me/ledger'));
@@ -1128,6 +1128,197 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('seo: robots.txt keeps admin out', robots.includes('Disallow: /admin') && robots.includes('sitemap.xml'));
   const adminHtml = await (await guest.request.get(BASE + '/admin')).text();
   check('seo: admin page is noindex', adminHtml.includes('name="robots" content="noindex"'));
+}
+
+// ---- invite friends, daily push reminders, Android app, portal pack ----
+{
+  const j = async (r) => (await r).json();
+  const setupOf = (p) => ({ version: p.engine, difficulty: p.difficulty, mode: p.mode, daily: !!p.daily, hardMode: false });
+  async function solveVia(ctx, startBody) {
+    const { play } = await j(ctx.request.post(BASE + '/api/plays', { data: startBody }));
+    const g = E.replay(play.seed, setupOf(play), play.actions).state;
+    const actions = [...play.actions];
+    for (let m = E.suggest(g); m && !E.isSolved(g); m = E.suggest(g)) {
+      actions.push(m.kind === 'swap' ? [m.a, m.b] : ['r', m.p]);
+      E.applySuggestion(g, m);
+    }
+    return j(ctx.request.post(BASE + `/api/plays/${play.id}/complete`, { data: { actions, elapsedMs: actions.length * 300 } }));
+  }
+
+  // Invites: a friend opens the link, signs up, verifies and finishes 3 puzzles.
+  const mine = await j(player.request.get(BASE + '/api/invites'));
+  check('invites: personal link', mine.link.endsWith('/?ref=PuzzleFan') && mine.friends.length === 0, mine.link);
+  const fCtx = await newCtx(true);
+  const friend = await fCtx.newPage();
+  const friendErrors = [];
+  errorsFor(friend, friendErrors);
+  await friend.goto(BASE + '/?ref=PuzzleFan');
+  await friend.waitForSelector('text=PuzzleFan invited you to SnapShift!', { timeout: 8000 });
+  check('invites: welcome note for the invited guest', true);
+  check('invites: link tidied from the address bar', !friend.url().includes('ref='), friend.url());
+  await friend.goto(BASE + '/account?signup=1');
+  check('invites: sign-up form says who invited you', !!(await friend.waitForSelector('text=Invited by PuzzleFan', { timeout: 8000 }).catch(() => null)));
+  await friend.fill('#email', 'friend@example.com');
+  await friend.fill('#username', 'NewFriend');
+  await friend.fill('#password', 'friendpass1');
+  await friend.click('button[type=submit]');
+  await friend.waitForURL(BASE + '/', { timeout: 10000 });
+  let inv = await j(player.request.get(BASE + '/api/invites'));
+  check('invites: friend shows up as joined', inv.friends.length === 1 && inv.friends[0].username === 'NewFriend' && !inv.friends[0].rewarded, JSON.stringify(inv.friends));
+  // Three finishes (the free puzzle on three difficulties), before verifying the email.
+  const free = pub.puzzles.find((p) => p.categoryId === 'animals');
+  let last = null;
+  for (const d of ['easy', 'medium', 'hard']) last = await solveVia(fCtx, { puzzle: free.slug, difficulty: d });
+  check('invites: no bonus before the email is verified', last.rating && !last.invite, JSON.stringify(last.invite));
+  inv = await j(player.request.get(BASE + '/api/invites'));
+  check('invites: progress shows “needs to verify”', inv.friends[0].finished === 3 && !inv.friends[0].verified);
+  const { devLink } = await j(fCtx.request.post(BASE + '/api/auth/resend-verification'));
+  await friend.goto(devLink);
+  await friend.waitForSelector('text=Invite bonus!', { timeout: 8000 });
+  check('invites: bonus paid when the email is verified', true);
+  inv = await j(player.request.get(BASE + '/api/invites'));
+  check('invites: inviter sees the bonus', inv.friends[0].rewarded && inv.earned === inv.points);
+  const pLedger = await j(player.request.get(BASE + '/api/me/ledger'));
+  const fLedger = await j(fCtx.request.get(BASE + '/api/me/ledger'));
+  check('invites: both players got the points', pLedger.rows.some((r) => r.reason === 'invite' && r.delta === 100) && fLedger.rows.some((r) => r.reason === 'invited' && r.delta === 100));
+  const again = await solveVia(fCtx, { puzzle: free.slug, difficulty: 'easy', fresh: true });
+  check('invites: paid only once', !again.invite && (await j(player.request.get(BASE + '/api/me/ledger'))).rows.filter((r) => r.reason === 'invite').length === 1);
+  const pAch = await j(player.request.get(BASE + '/api/me/achievements'));
+  check('invites: “Bring a Friend” achievement', pAch.achievements.some((a) => a.id === 'invite-1' && a.earnedAt));
+  await player.goto(BASE + '/account');
+  await player.waitForSelector('#invite');
+  check('invites: account panel lists the friend', (await player.locator('#invite').innerText()).includes('NewFriend'));
+  const selfRef = await j(fCtx.request.get(BASE + '/api/invites/from/nobody_here'));
+  check('invites: unknown names are ignored', selfRef.username === null);
+
+  // Daily reminders by push: a fake push service checks the VAPID signature and decrypts the message.
+  const http = await import('node:http');
+  const wc = globalThis.crypto.subtle;
+  const b64u = (b) => Buffer.from(b).toString('base64url');
+  const received = [];
+  const keysFor = new Map();
+  const server = http.createServer(async (req, res) => {
+    const chunks = [];
+    for await (const ch of req) chunks.push(ch);
+    const body = new Uint8Array(Buffer.concat(chunks));
+    const id = req.url.split('/').pop();
+    if (id === 'gone') return res.writeHead(410).end();
+    const auth = req.headers.authorization || '';
+    const [, jwt, k] = auth.match(/^vapid t=([^,]+), k=(.+)$/) || [];
+    let sigOk = false;
+    let msg = null;
+    try {
+      const [hd, cl, sg] = jwt.split('.');
+      const pub = await wc.importKey('raw', Buffer.from(k, 'base64url'), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+      sigOk = await wc.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, Buffer.from(sg, 'base64url'), new TextEncoder().encode(`${hd}.${cl}`));
+      const claims = JSON.parse(Buffer.from(cl, 'base64url').toString());
+      sigOk = sigOk && claims.aud === 'http://127.0.0.1:8793' && claims.exp > Date.now() / 1000;
+      const { priv, pubRaw, authSecret } = keysFor.get(id);
+      const salt = body.slice(0, 16), idlen = body[20], asPub = body.slice(21, 21 + idlen), cipher = body.slice(21 + idlen);
+      const asKey = await wc.importKey('raw', asPub, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+      const shared = new Uint8Array(await wc.deriveBits({ name: 'ECDH', public: asKey }, priv, 256));
+      const hk = async (s, ikm, info, n) => new Uint8Array(await wc.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: s, info }, await wc.importKey('raw', ikm, 'HKDF', false, ['deriveBits']), n * 8));
+      const te = new TextEncoder();
+      const ikm = await hk(authSecret, shared, Buffer.concat([te.encode('WebPush: info\0'), pubRaw, asPub]), 32);
+      const cek = await hk(salt, ikm, te.encode('Content-Encoding: aes128gcm\0'), 16);
+      const nonce = await hk(salt, ikm, te.encode('Content-Encoding: nonce\0'), 12);
+      const plain = new Uint8Array(await wc.decrypt({ name: 'AES-GCM', iv: nonce }, await wc.importKey('raw', cek, 'AES-GCM', false, ['decrypt']), cipher));
+      msg = JSON.parse(new TextDecoder().decode(plain.slice(0, -1)));
+    } catch (e) {
+      msg = { error: String(e) };
+    }
+    received.push({ id, sigOk, msg, encoding: req.headers['content-encoding'], ttl: req.headers.ttl, k });
+    res.writeHead(201).end();
+  });
+  await new Promise((ok) => server.listen(8793, '127.0.0.1', ok));
+  const device = async (id) => {
+    const pair = await wc.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    const pubRaw = new Uint8Array(await wc.exportKey('raw', pair.publicKey));
+    const authSecret = globalThis.crypto.getRandomValues(new Uint8Array(16));
+    keysFor.set(id, { priv: pair.privateKey, pubRaw, authSecret });
+    return { endpoint: `http://127.0.0.1:8793/push/${id}`, keys: { p256dh: b64u(pubRaw), auth: b64u(authSecret) } };
+  };
+  const { publicKey } = await j(guest.request.get(BASE + '/api/push/key'));
+  check('push: site has a VAPID key', publicKey && Buffer.from(publicKey, 'base64url').length === 65);
+  const fanDevice = await device('fan');
+  const sub1 = await j(player.request.post(BASE + '/api/push/subscribe', { data: { subscription: fanDevice, tz: 'UTC', hour: 0 } }));
+  check('push: device signed up', sub1.ok && sub1.hour === 0);
+  const st = await j(player.request.post(BASE + '/api/push/status', { data: { endpoint: fanDevice.endpoint } }));
+  check('push: status shows it’s on', st.subscribed && st.hour === 0);
+  const test = await player.request.post(BASE + '/api/push/test', { data: { endpoint: fanDevice.endpoint } });
+  const got = received.find((r) => r.id === 'fan');
+  check('push: test notification sent', test.ok() && !!got, await test.text());
+  check('push: VAPID signature verifies with the site key', got?.sigOk && got.k === publicKey);
+  check('push: message is encrypted (aes128gcm) and readable', got?.encoding === 'aes128gcm' && /puzzle|streak/i.test(got.msg?.title || '') && got.msg.url.endsWith('/daily'), JSON.stringify(got?.msg));
+  const guestDevice = await device('guest1');
+  await guest.request.post(BASE + '/api/push/subscribe', { data: { subscription: guestDevice, tz: 'Pacific/Kiritimati', hour: 0 } });
+  const before = received.length;
+  const run1 = await j(admin.request.post(BASE + '/api/admin/push/run'));
+  const guestMsg = received.slice(before).find((r) => r.id === 'guest1');
+  check('push: daily run reaches guests too', !!guestMsg && guestMsg.msg.title.includes('Today’s puzzle'), JSON.stringify(run1.log));
+  check('push: skipped for players who already played today', !received.slice(before).some((r) => r.id === 'fan'), JSON.stringify(run1.log));
+  const n2 = received.length;
+  await j(admin.request.post(BASE + '/api/admin/push/run'));
+  check('push: once a day only', received.length === n2);
+  const goneDevice = await device('gone');
+  await guest.request.post(BASE + '/api/push/subscribe', { data: { subscription: goneDevice, tz: 'UTC', hour: 0 } });
+  const goneTest = await guest.request.post(BASE + '/api/push/test', { data: { endpoint: goneDevice.endpoint } });
+  const goneSt = await j(guest.request.post(BASE + '/api/push/status', { data: { endpoint: goneDevice.endpoint } }));
+  check('push: dropped subscriptions are removed', goneTest.status() === 502 && !goneSt.subscribed);
+  await guest.request.post(BASE + '/api/push/unsubscribe', { data: { endpoint: guestDevice.endpoint } });
+  check('push: turning off works', !(await j(guest.request.post(BASE + '/api/push/status', { data: { endpoint: guestDevice.endpoint } }))).subscribed);
+  check('push: bad addresses refused', (await guest.request.post(BASE + '/api/push/subscribe', { data: { subscription: { endpoint: 'javascript:alert(1)', keys: { p256dh: 'x', auth: 'y' } } } })).status() === 422);
+  server.close();
+  const ov = await j(admin.request.get(BASE + '/api/admin/overview'));
+  check('push: admin overview counts devices and invites', ov.pushSubscribers === 1 && ov.invitedPlayers === 1, JSON.stringify({ p: ov.pushSubscribers, i: ov.invitedPlayers }));
+  await player.goto(BASE + '/account');
+  await player.waitForSelector('#notifications');
+  check('push: account page has the reminder panel', /Daily reminder on this device/.test(await player.locator('#notifications').innerText()));
+  const g2Ctx = await newCtx();
+  // Headless browsers always report notifications as blocked; act like a normal first visit.
+  await g2Ctx.addInitScript(() => Object.defineProperty(Notification, 'permission', { get: () => 'default' }));
+  const g2 = await g2Ctx.newPage();
+  await g2.goto(BASE + '/daily');
+  await g2.waitForSelector('.push-offer', { timeout: 8000 });
+  check('push: daily page offers reminders', await g2.locator('.push-offer button', { hasText: 'Notify me' }).isVisible());
+  await g2.locator('.push-offer button', { hasText: 'No thanks' }).click();
+  await g2.reload();
+  await g2.waitForSelector('text=Daily Challenge');
+  check('push: “No thanks” hides the offer', (await g2.locator('.push-offer').count()) === 0);
+  const sw = await (await guest.request.get(BASE + '/sw.js')).text();
+  check('push: service worker shows the notification and opens the daily', sw.includes("addEventListener('push'") && sw.includes('notificationclick'));
+
+  // Android app: Digital Asset Links from the admin settings; no Plus checkout inside the app.
+  check('android: assetlinks empty until set up', JSON.stringify(await j(guest.request.get(BASE + '/.well-known/assetlinks.json'))) === '[]');
+  const fp = Array.from({ length: 32 }, (_, i) => (i * 7 + 16).toString(16).toUpperCase().padStart(2, '0').slice(-2)).join(':');
+  const saved = await j(admin.request.put(BASE + '/api/admin/site', { data: { androidPackage: 'com.snapshiftpuzzles.twa', androidFingerprints: `${fp.toLowerCase()}\nnot-a-fingerprint`, androidPlayUrl: 'https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.twa' } }));
+  check('android: fingerprints cleaned on save', saved.androidFingerprints === fp, saved.androidFingerprints);
+  const al = await j(guest.request.get(BASE + '/.well-known/assetlinks.json'));
+  check('android: assetlinks.json links the app', al[0]?.target?.package_name === 'com.snapshiftpuzzles.twa' && al[0].target.sha256_cert_fingerprints[0] === fp && al[0].relation[0] === 'delegate_permission/common.handle_all_urls');
+  check('android: Play link public for the install offer', (await j(guest.request.get(BASE + '/api/site'))).androidPlayUrl.includes('play.google.com'));
+  const appPage = await (await newCtx(true)).newPage();
+  await appPage.goto(BASE + '/plus?app=android');
+  await appPage.waitForSelector('text=can’t be bought inside the Android app');
+  check('android: no checkout buttons in the app', (await appPage.locator('.plans button').count()) === 0);
+  await appPage.goto(BASE + '/');
+  await appPage.waitForSelector('.topbar');
+  check('android: no “Get Plus” in the app menu', (await appPage.locator('a.plus-btn').count()) === 0);
+  const mf = await j(guest.request.get(BASE + '/manifest.webmanifest'));
+  check('android: manifest has an id and screenshots', mf.id === '/' && mf.screenshots.length >= 3 && (await guest.request.get(BASE + mf.screenshots[0].src)).ok());
+  await admin.request.put(BASE + '/api/admin/site', { data: { androidFingerprints: '', androidPlayUrl: '' } });
+
+  // Portal pack: picture list for the game-portal build.
+  sql('UPDATE puzzles SET published_at = published_at - 3 * 86400000');
+  const packRes = await guest.request.get(BASE + '/api/portal/pack?per=2');
+  const pack = await packRes.json();
+  check('portal: pack open to other sites (CORS)', packRes.headers()['access-control-allow-origin'] === '*');
+  const cats = new Map();
+  for (const p of pack.puzzles) cats.set(p.category, (cats.get(p.category) || 0) + 1);
+  check('portal: pack has pictures, at most 2 per category', pack.puzzles.length > 0 && [...cats.values()].every((n) => n <= 2), JSON.stringify([...cats]));
+  const hiddenSlugs = pub.puzzles.filter((p) => ['daily', 'members', 'events'].includes(p.categoryId)).map((p) => p.slug);
+  check('portal: no daily, members or event pictures', !pack.puzzles.some((p) => hiddenSlugs.includes(p.slug)));
+  check('portal: pictures load', (await guest.request.get(BASE + pack.puzzles[0].image)).ok() && (await guest.request.get(BASE + pack.puzzles[0].thumb)).ok());
+  check('invites/push: no page errors for the invited friend', friendErrors.length === 0, friendErrors.join(' | '));
 }
 
 // Static pages render

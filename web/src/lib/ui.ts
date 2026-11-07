@@ -56,6 +56,24 @@ export function bg(url: string): string {
   return url ? `background-image:url("${url.replace(/"/g, '%22')}")` : '';
 }
 
+/**
+ * Running inside the Android app (Google Play). Google's rules mean Plus can't
+ * be bought there with our own checkout, so purchase buttons are hidden.
+ * The app opens the site with an android-app:// referrer; remember it for the session.
+ */
+export function inAndroidApp(): boolean {
+  try {
+    if (sessionStorage.getItem('ss_twa') === '1') return true;
+    if (document.referrer.startsWith('android-app://') || new URLSearchParams(location.search).get('app') === 'android') {
+      sessionStorage.setItem('ss_twa', '1');
+      return true;
+    }
+  } catch {
+    /* storage blocked */
+  }
+  return false;
+}
+
 /** Has a paid (or admin-given) membership, as opposed to an admin's built-in perks. */
 export function hasPaidPlus(u: { lifetime: boolean; memberUntil: number | null } | null | undefined): boolean {
   return !!u && (u.lifetime || (!!u.memberUntil && u.memberUntil > Date.now()));

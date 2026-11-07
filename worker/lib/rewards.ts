@@ -173,7 +173,8 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
          (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL AND size = 4 AND elapsed_ms < 60000) AS sliderFast,
          (SELECT COUNT(*) FROM challenge_results cr JOIN challenges ch ON ch.id = cr.challenge_id
             WHERE cr.user_id = ?1 AND ch.user_id != ?1
-              AND ((ABS(cr.elapsed_ms - ch.elapsed_ms) <= 500 AND cr.moves < ch.moves) OR (ABS(cr.elapsed_ms - ch.elapsed_ms) > 500 AND cr.elapsed_ms < ch.elapsed_ms))) AS challengeWins`,
+              AND ((ABS(cr.elapsed_ms - ch.elapsed_ms) <= 500 AND cr.moves < ch.moves) OR (ABS(cr.elapsed_ms - ch.elapsed_ms) > 500 AND cr.elapsed_ms < ch.elapsed_ms))) AS challengeWins,
+         (SELECT COUNT(*) FROM referral_rewards WHERE inviter_id = ?1) AS invites`,
     ).bind(userId),
     env.DB.prepare('SELECT achievement FROM user_achievements WHERE user_id = ?').bind(userId),
   ]);
@@ -219,6 +220,8 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
   when(s.sliderFast >= 1, 'slider-fast');
   when(s.collections >= 3, 'collection-3');
   when(s.challengeWins >= 5, 'challenge-5');
+  when(s.invites >= 1, 'invite-1');
+  when(s.invites >= 5, 'invite-5');
   const fresh = [...earned].filter((id) => !owned.has(id) && ACHIEVEMENT_BY_ID.has(id));
   if (!fresh.length) return [];
   const t = now();

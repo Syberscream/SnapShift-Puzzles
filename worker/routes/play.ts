@@ -1,3 +1,4 @@
+import { checkReferral } from '../lib/invites';
 import { Hono } from 'hono';
 import type { AppEnv, User } from '../env';
 import { requireUser } from '../lib/auth';
@@ -406,6 +407,7 @@ app.post('/:id/complete', async (c) => {
   if (streak && streak.current >= 7) extra.push('streak-7');
   if (streak && streak.current >= 30) extra.push('streak-30');
   if (streak && streak.current >= 100) extra.push('streak-100');
+  const invite = await checkReferral(c.env, user.id);
   const achievements = await checkAchievements(c.env, user.id, extra);
 
   let rank = null;
@@ -436,6 +438,7 @@ app.post('/:id/complete', async (c) => {
     collection,
     events,
     achievements,
+    invite,
     balance: await balance(c.env, user.id),
   });
 });

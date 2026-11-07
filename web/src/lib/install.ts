@@ -2,7 +2,7 @@
 // couple of games. Uses the browser's install prompt where there is one
 // (Android, desktop Chrome/Edge) and short instructions on iPhone/iPad.
 
-import { h, store } from './ui';
+import { h, inAndroidApp, store } from './ui';
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -21,7 +21,13 @@ export function noteFinish(): void {
   finishes.set(finishes.get() + 1);
 }
 
-export function setupInstall(): void {
+let playUrl = '';
+const android = () => /Android/i.test(navigator.userAgent);
+
+/** `play`: the Google Play listing, offered to Android visitors instead of installing the web app. */
+export function setupInstall(play = ''): void {
+  playUrl = play;
+  if (inAndroidApp()) return;
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferred = e as InstallPromptEvent;
@@ -33,13 +39,20 @@ export function setupInstall(): void {
 }
 
 function offer(): void {
-  if (!deferred && !ios()) return; // this browser can't install
+  const usePlay = !!playUrl && android();
+  if (!usePlay && !deferred && !ios()) return; // this browser can't install
   const close = () => {
     dismissed.set(Date.now());
     card.remove();
   };
   const install = h('button', { class: 'btn primary' }, deferred ? 'Install' : 'Got it') as HTMLButtonElement;
+  if (usePlay) install.textContent = 'Get it on Google Play';
   install.addEventListener('click', async () => {
+    if (usePlay) {
+      close();
+      location.href = playUrl;
+      return;
+    }
     if (deferred) {
       await deferred.prompt();
       await deferred.userChoice.catch(() => null);
@@ -55,7 +68,9 @@ function offer(): void {
       'div',
       { class: 'stack', style: 'gap:4px' },
       h('b', {}, 'Add SnapShift to your home screen'),
-      deferred
+      usePlay
+        ? h('span', { class: 'small muted' }, 'Get the free SnapShift app: one tap to today’s daily, with reminders.')
+        : deferred
         ? h('span', { class: 'small muted' }, 'One tap to today’s daily, full screen, no browser bars.')
         : h('span', { class: 'small muted' }, 'Tap the Share button ', h('b', {}, '⬆︎'), ' in Safari, then “Add to Home Screen”.'),
       h('div', { class: 'row' }, install, h('button', { class: 'btn ghost', onclick: close }, 'Not now')),

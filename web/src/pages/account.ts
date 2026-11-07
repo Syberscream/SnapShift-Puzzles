@@ -1,7 +1,8 @@
+import { pushPanel } from '../lib/push';
 import { api, type Me } from '../lib/api';
-import { me, shell } from '../lib/shell';
+import { invitedBy, inviteStore, me, shell } from '../lib/shell';
 import { errorText, h, medalBadge, mount, qs, toast, plusTag, hasPaidPlus } from '../lib/ui';
-import { achievementsPanel, framePanel, medalsPanel, membershipPanel, profilePanel, remindersPanel, requestsPanel } from './account-plus';
+import { achievementsPanel, framePanel, invitesPanel, medalsPanel, membershipPanel, profilePanel, remindersPanel, requestsPanel } from './account-plus';
 
 const main = await shell({ title: 'Account' });
 const next = qs('next') && qs('next').startsWith('/') && !qs('next').startsWith('//') ? qs('next') : '/';
@@ -62,12 +63,18 @@ function signUpView() {
       ],
       'Create account',
       async (d) => {
-        const r = await api.post<{ devLink?: string }>('/auth/signup', d);
+        const r = await api.post<{ devLink?: string }>('/auth/signup', { ...d, ref: invitedBy() ?? '' });
+        inviteStore.set(null);
         devLink(r.devLink);
         toast('Welcome to SnapShift!', 'Check your email to verify your address.', 'good');
         setTimeout(() => (location.href = next), r.devLink ? 2500 : 800);
       },
-      [h('p', { class: 'small', style: 'margin-top:12px' }, 'Already have an account? ', h('a', { href: '#', onclick: (e: Event) => (e.preventDefault(), signInView()) }, 'Sign in'))],
+      [
+        invitedBy()
+          ? h('div', { class: 'notice', style: 'margin-top:12px' }, `💌 Invited by ${invitedBy()}: you’ll both get bonus points once you’ve verified your email and finished 3 puzzles.`)
+          : null,
+        h('p', { class: 'small', style: 'margin-top:12px' }, 'Already have an account? ', h('a', { href: '#', onclick: (e: Event) => (e.preventDefault(), signInView()) }, 'Sign in')),
+      ],
     ),
   );
 }
@@ -102,7 +109,7 @@ async function profileView(user: Me) {
     freezesLeft: number | null;
     ledger: { delta: number; reason: string; ref: string | null; created_at: number }[];
   }>('/me/summary');
-  const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', timeattack: 'Time Attack', slider: 'Slider Puzzle', achievement: 'Achievement', 'event-prize': 'Event prize', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment' };
+  const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', timeattack: 'Time Attack', slider: 'Slider Puzzle', achievement: 'Achievement', 'event-prize': 'Event prize', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment', invite: 'Friend joined', invited: 'Joined with an invite' };
   const pw = form(
     'Change password',
     [field('Current password', 'current', 'password', { autocomplete: 'current-password' }), field('New password', 'next', 'password', { autocomplete: 'new-password', minlength: '8' })],
@@ -177,8 +184,9 @@ async function profileView(user: Me) {
       pw,
     ),
   );
+  main.append(await invitesPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
   main.append(await achievementsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
-  main.append(profilePanel(user), remindersPanel(user));
+  main.append(profilePanel(user), pushPanel(), remindersPanel(user));
   main.append(membershipPanel(user, s.freezesLeft));
   if (user.member) {
     main.append(framePanel(user));
@@ -193,8 +201,9 @@ const verify = qs('verify');
 const reset = qs('reset');
 if (verify) {
   try {
-    await api.post('/auth/verify', { token: verify });
+    const r = await api.post<{ invite: { inviter: string; points: number } | null }>('/auth/verify', { token: verify });
     toast('Email verified', 'Thanks!', 'good');
+    if (r.invite) toast('Invite bonus!', `You and ${r.invite.inviter} each got ${r.invite.points} points.`, 'good', 8000);
   } catch (e) {
     toast('Verification failed', errorText(e), 'bad');
   }

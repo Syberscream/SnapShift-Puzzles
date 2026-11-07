@@ -2,7 +2,7 @@
 
 import { api } from './api';
 import { me } from './shell';
-import { h, hasPaidPlus, plusTag } from './ui';
+import { h, hasPaidPlus, inAndroidApp, plusTag } from './ui';
 
 interface Plans {
   enabled: boolean;
@@ -26,6 +26,7 @@ const PERKS: [string, string][] = [
 
 /** Who sees it: guests and free players. Admins see it too, with a note. */
 function audience(): 'show' | 'admin' | 'hide' {
+  if (inAndroidApp()) return 'hide';
   const u = me();
   if (!u) return 'show';
   if (hasPaidPlus(u)) return 'hide';

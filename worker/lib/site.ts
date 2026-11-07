@@ -45,6 +45,11 @@ export interface SiteSettings {
   contactEmail: string;
   /** Cloudflare Web Analytics site token (empty = off). */
   analyticsToken: string;
+  /** Android app (Google Play): its package name and signing-key fingerprints, for /.well-known/assetlinks.json. */
+  androidPackage: string;
+  androidFingerprints: string;
+  /** Google Play listing link; once set, the site offers the app to Android visitors. */
+  androidPlayUrl: string;
   theme: Theme;
   banners: Banner[];
 }
@@ -68,6 +73,9 @@ export const SITE_DEFAULTS: SiteSettings = {
   supporterYearlyUrl: '',
   contactEmail: 'contact@snapshiftpuzzles.com',
   analyticsToken: '',
+  androidPackage: 'com.snapshiftpuzzles.twa',
+  androidFingerprints: '',
+  androidPlayUrl: '',
   theme: THEME_DEFAULTS,
   banners: [],
 };
@@ -105,6 +113,16 @@ export function cleanTheme(t: Partial<Theme> | undefined, cur: Theme): Theme {
   };
 }
 
+/** SHA-256 signing fingerprints: 32 hex pairs separated by colons, one per line. */
+export function cleanFingerprints(v: unknown): string {
+  return str(v, 2000)
+    .split(/[\s,]+/)
+    .map((f) => f.trim().toUpperCase())
+    .filter((f) => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(f))
+    .slice(0, 5)
+    .join('\n');
+}
+
 export function cleanBanners(list: unknown): Banner[] {
   if (!Array.isArray(list)) return [];
   return list.slice(0, 40).flatMap((b): Banner[] => {
@@ -138,6 +156,7 @@ export async function publicSite(env: Env, member = false) {
     supporterYearlyUrl: s.supporterYearlyUrl,
     contactEmail: s.contactEmail,
     analyticsToken: s.analyticsToken,
+    androidPlayUrl: s.androidPlayUrl,
     theme: s.theme,
     banners: s.banners.filter((b) => b.enabled && !(member && b.audience === 'free') && (!b.start || b.start <= today) && (!b.end || b.end >= today)),
   };

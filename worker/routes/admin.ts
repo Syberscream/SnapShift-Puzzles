@@ -5,13 +5,14 @@ import { dailyPoolLeft, EVENT_CATEGORY, media, type PuzzleRow } from '../lib/cat
 import { EVENT_THEMES, splitIdea } from '../pipeline/event-themes';
 import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
-import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
+import { cleanBanners, cleanFingerprints, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
 import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, takenTitles, type GenerationSettings, type LastRun } from '../pipeline/pipeline';
 import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX, LOOKS, isLook, lookStyle } from '../pipeline/prompts';
 import { rng, randomSeed } from '../../shared/engine';
 import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
 import { setLifetime } from '../lib/membership';
 import { sendStreakReminders } from '../lib/reminders';
+import { sendDailyPushes } from '../lib/push';
 import analytics from './analytics';
 
 const app = new Hono<AppEnv>();
@@ -50,7 +51,7 @@ app.route('/analytics', analytics);
 app.get('/overview', async (c) => {
   const today = dayKey(c.env);
   const q = (sql: string, ...args: unknown[]) => c.env.DB.prepare(sql).bind(...args).first<{ n: number }>();
-  const [users, newUsers, playsToday, dailyPlayers, pending, published, queued, failed, messages] = await Promise.all([
+  const [users, newUsers, playsToday, dailyPlayers, pending, published, queued, failed, messages, pushSubs, invited] = await Promise.all([
     q('SELECT COUNT(*) AS n FROM users'),
     q('SELECT COUNT(*) AS n FROM users WHERE created_at > ?', now() - 7 * 86400_000),
     q('SELECT COUNT(*) AS n FROM plays WHERE completed_at > ?', now() - 86400_000),
@@ -60,6 +61,8 @@ app.get('/overview', async (c) => {
     q("SELECT COUNT(*) AS n FROM generation_jobs WHERE status IN ('queued','submitting','submitted','downloading')"),
     q("SELECT COUNT(*) AS n FROM generation_jobs WHERE status = 'failed' AND updated_at > ?", now() - 86400_000),
     q('SELECT COUNT(*) AS n FROM contact_messages WHERE handled = 0'),
+    q('SELECT COUNT(*) AS n FROM push_subs'),
+    q('SELECT COUNT(*) AS n FROM users WHERE referred_by IS NOT NULL'),
   ]);
   return c.json({
     users: users?.n,
@@ -71,6 +74,8 @@ app.get('/overview', async (c) => {
     jobsInFlight: queued?.n,
     jobsFailed24h: failed?.n,
     unreadMessages: messages?.n,
+    pushSubscribers: pushSubs?.n,
+    invitedPlayers: invited?.n,
     dailyPoolLeft: await dailyPoolLeft(c.env),
     elevenlabsConfigured: !!c.env.ELEVENLABS_API_KEY,
     emailConfigured: !!c.env.RESEND_API_KEY,
@@ -465,6 +470,7 @@ app.post('/users/:id/supporter', async (c) => {
 
 /** Send any streak reminders that are due now, ignoring the evening start time. */
 app.post('/reminders/run', async (c) => c.json({ log: await sendStreakReminders(c.env, Date.now(), true) }));
+app.post('/push/run', async (c) => c.json({ log: await sendDailyPushes(c.env, Date.now(), true) }));
 
 // ---------- events ----------
 
@@ -609,6 +615,9 @@ app.put('/site', async (c) => {
     supporterYearlyUrl: text('supporterYearlyUrl', 300),
     contactEmail: text('contactEmail', 190) || SITE_DEFAULTS.contactEmail,
     analyticsToken: b.analyticsToken !== undefined ? str(b.analyticsToken, 64).replace(/[^a-zA-Z0-9]/g, '') : cur.analyticsToken,
+    androidPackage: b.androidPackage !== undefined ? str(b.androidPackage, 100).replace(/[^A-Za-z0-9_.]/g, '') || SITE_DEFAULTS.androidPackage : cur.androidPackage,
+    androidFingerprints: b.androidFingerprints !== undefined ? cleanFingerprints(b.androidFingerprints) : cur.androidFingerprints,
+    androidPlayUrl: b.androidPlayUrl !== undefined ? (/^https:\/\/play\.google\.com\//.test(str(b.androidPlayUrl, 300)) ? str(b.androidPlayUrl, 300) : '') : cur.androidPlayUrl,
     theme: b.theme !== undefined ? cleanTheme(b.theme as object, cur.theme) : cur.theme,
     banners: b.banners !== undefined ? cleanBanners(b.banners) : cur.banners,
   };

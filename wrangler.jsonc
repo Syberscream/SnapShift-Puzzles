@@ -10,7 +10,7 @@
     "directory": "dist",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/media/*", "/sitemap.xml", "/play", "/daily", "/slider", "/event", "/category", "/u"]
+    "run_worker_first": ["/api/*", "/media/*", "/sitemap.xml", "/.well-known/assetlinks.json", "/play", "/daily", "/slider", "/event", "/category", "/u"]
   },
   "d1_databases": [
     {

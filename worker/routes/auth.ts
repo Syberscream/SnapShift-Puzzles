@@ -10,7 +10,8 @@ import {
   verifyPassword,
 } from '../lib/auth';
 import { sendEmail } from '../lib/email';
-import { body, fail, int, now, randomId, sha256, str } from '../lib/util';
+import { body, fail, int, now, randomId, sha256, siteUrl, str } from '../lib/util';
+import { checkReferral } from '../lib/invites';
 
 const app = new Hono<AppEnv>();
 
@@ -26,9 +27,6 @@ async function issueEmailToken(c: { env: AppEnv['Bindings'] }, userId: number, k
 }
 
 /** Links point at the site the request came from in development, APP_URL in production. */
-function siteUrl(env: AppEnv['Bindings'], reqUrl: string): string {
-  return env.DEV_MODE === '1' ? new URL(reqUrl).origin : env.APP_URL;
-}
 
 async function sendVerification(env: AppEnv['Bindings'], user: { id: number; email: string }, base: string) {
   const token = await issueEmailToken({ env }, user.id, 'verify', 48 * 60);
@@ -73,10 +71,15 @@ app.post('/signup', async (c) => {
   if (clash) fail(409, clash.email.toLowerCase() === email ? 'That email already has an account.' : 'That username is taken.');
 
   const role = isAdminEmail(c.env, email) ? 'admin' : 'player';
+  // Joined through a friend's invite link?
+  const refName = str(b.ref, 20);
+  const inviter = USERNAME_RE.test(refName)
+    ? await c.env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(refName).first<{ id: number }>()
+    : null;
   const res = await c.env.DB.prepare(
-    'INSERT INTO users (email, username, password_hash, role, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO users (email, username, password_hash, role, created_at, last_login_at, referred_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
   )
-    .bind(email, username, await hashPassword(password), role, now(), now())
+    .bind(email, username, await hashPassword(password), role, now(), now(), inviter?.id ?? null)
     .run();
   const id = Number(res.meta.last_row_id);
   await startSession(c, id);
@@ -123,7 +126,8 @@ app.post('/verify', async (c) => {
     c.env.DB.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').bind(row.user_id),
     c.env.DB.prepare('UPDATE email_tokens SET used_at = ? WHERE id = ?').bind(now(), row.id),
   ]);
-  return c.json({ ok: true });
+  const invite = await checkReferral(c.env, row.user_id);
+  return c.json({ ok: true, invite });
 });
 
 app.post('/resend-verification', async (c) => {

@@ -106,3 +106,8 @@ export function weekOf(day: string): string {
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400_000);
 }
+
+/** The site's public address (the request's own origin when developing). */
+export function siteUrl(env: { DEV_MODE?: string; APP_URL: string }, reqUrl: string): string {
+  return env.DEV_MODE === '1' ? new URL(reqUrl).origin : env.APP_URL;
+}

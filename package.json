@@ -10,7 +10,8 @@
     "db:migrate:local": "wrangler d1 migrations apply snapshift --local",
     "db:migrate:remote": "wrangler d1 migrations apply snapshift --remote",
     "start": "wrangler dev",
-    "deploy": "vite build && wrangler d1 migrations apply snapshift --remote && wrangler deploy"
+    "deploy": "vite build && wrangler d1 migrations apply snapshift --remote && wrangler deploy",
+    "build:portal": "node scripts/build-portal.mjs"
   },
   "dependencies": {
     "hono": "^4.13.16"

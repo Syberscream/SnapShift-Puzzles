@@ -1,3 +1,4 @@
+import { pushOffer } from '../lib/push';
 import { fullscreenButton } from '../lib/fullscreen';
 import { suggestLandscape } from '../lib/rotate-hint';
 import { celebrateAchievements } from '../lib/achievement-popup';
@@ -99,6 +100,7 @@ interface CompleteResult {
   collection?: { categoryId: string; name: string; points: number } | null;
   events?: { id: string; title: string; done: number; total: number; bonus: number | null }[];
   achievements?: { id: string; title: string; description: string; icon: string }[];
+  invite?: { inviter: string; points: number } | null;
 }
 
 interface ChallengeInfo {
@@ -742,6 +744,7 @@ function showResult(r: CompleteResult, guest: boolean) {
           guest ? h('span', { class: 'muted small' }, ' Sign in to put your time on the challenge board.') : null,
         )
       : null,
+    r.invite ? h('div', { class: 'notice' }, h('b', {}, '💌 Invite bonus! '), `You and ${r.invite.inviter} each got ${r.invite.points} points.`) : null,
     r.collection ? h('div', { class: 'notice' }, h('b', {}, `📚 ${r.collection.name} collection complete! `), `+${r.collection.points} bonus points.`) : null,
     ...(r.events ?? []).map((e) =>
       h(
@@ -757,7 +760,8 @@ function showResult(r: CompleteResult, guest: boolean) {
     r.achievements?.length
       ? h('div', { class: 'notice achievements-new' }, h('b', {}, 'New achievement' + (r.achievements.length > 1 ? 's' : '') + ': '), r.achievements.map((a) => `${a.icon} ${a.title}`).join(' · '))
       : null,
-    !guest && dailyDay && r.streak && r.streak.current >= 2 && user && !user.remindStreak && user.emailVerified ? reminderOffer() : null,
+    (dailyDay ? pushOffer() : null) ??
+      (!guest && dailyDay && r.streak && r.streak.current >= 2 && user && !user.remindStreak && user.emailVerified ? reminderOffer() : null),
     r.milestone ? h('div', { class: 'notice warn' }, h('b', {}, `${r.milestone.title}! `), `${r.milestone.days}-day streak: +${r.milestone.points} bonus points.`) : null,
     h(
       'div',
@@ -765,6 +769,7 @@ function showResult(r: CompleteResult, guest: boolean) {
       h('a', { class: 'btn', href: '/' }, 'Home'),
       h('button', { class: 'btn', onclick: share }, 'Share'),
       challengeBtn,
+      !guest ? h('a', { class: 'btn', href: '/account#invite', title: 'Invite friends and you both get bonus points' }, '💌 Invite') : null,
       dailyDay ? h('a', { class: 'btn', href: `/leaderboard?day=${dailyDay}` }, 'Leaderboard') : null,
       h('button', { class: 'btn', onclick: () => { d.close(); void restart(true); } }, 'Play again'),
       puzzle.next

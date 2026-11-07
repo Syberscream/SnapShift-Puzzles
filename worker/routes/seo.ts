@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 import type { AppEnv, Env } from '../env';
 import { DAILY_CATEGORY, EVENT_CATEGORY, getDaily, media, type PuzzleRow } from '../lib/catalog';
 import { dayKey } from '../lib/util';
+import { getSite } from '../lib/site';
 
 const app = new Hono<AppEnv>();
 
@@ -214,6 +215,21 @@ app.get('/u', async (c) => {
 });
 
 /** Every public page, for search engines. */
+/** Digital Asset Links: lets the Google Play app open this site full screen. */
+app.get('/.well-known/assetlinks.json', async (c) => {
+  const s = await getSite(c.env);
+  const fingerprints = s.androidFingerprints.split('\n').filter(Boolean);
+  const body = fingerprints.length
+    ? [
+        {
+          relation: ['delegate_permission/common.handle_all_urls'],
+          target: { namespace: 'android_app', package_name: s.androidPackage, sha256_cert_fingerprints: fingerprints },
+        },
+      ]
+    : [];
+  return c.json(body, 200, { 'cache-control': 'public, max-age=300' });
+});
+
 app.get('/sitemap.xml', async (c) => {
   const base = origin(c.env, c.req.url);
   const today = dayKey(c.env);

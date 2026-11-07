@@ -14,6 +14,10 @@ import challenges from './routes/challenges';
 import events from './routes/events';
 import slider from './routes/slider';
 import seo from './routes/seo';
+import invites from './routes/invites';
+import push from './routes/push';
+import portal from './routes/portal';
+import { sendDailyPushes } from './lib/push';
 import { settleEventPrizes } from './lib/rewards';
 import { runPipeline } from './pipeline/pipeline';
 import { sendStreakReminders } from './lib/reminders';
@@ -33,6 +37,9 @@ app.route('/api/time-attack', timeAttack);
 app.route('/api/billing', billing);
 app.route('/api/plus', plus);
 app.route('/api/challenges', challenges);
+app.route('/api/invites', invites);
+app.route('/api/push', push);
+app.route('/api/portal', portal);
 app.route('/api/events', events);
 app.route('/api/slider', slider);
 app.route('/api', catalog);
@@ -75,6 +82,12 @@ export default {
       sendStreakReminders(env).then(
         (log) => log.length && console.log('[reminders]', log.join('\n')),
         (e) => console.error('[reminders] error', e),
+      ),
+    );
+    ctx.waitUntil(
+      sendDailyPushes(env).then(
+        (log) => log.length && console.log('[push]', log.join('\n')),
+        (e) => console.error('[push] error', e),
       ),
     );
     ctx.waitUntil(settleEventPrizes(env).catch((e) => console.error('[events] prizes', e)));

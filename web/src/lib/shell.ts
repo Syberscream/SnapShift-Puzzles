@@ -1,6 +1,6 @@
 import '../styles/site.css';
 import { api, type Me } from './api';
-import { h, hasPaidPlus, store, toast } from './ui';
+import { h, hasPaidPlus, inAndroidApp, store, toast } from './ui';
 import { setupInstall } from './install';
 import { applyTheme, cacheTheme, pageKey, type Banner, type Theme } from './theme';
 
@@ -35,7 +35,7 @@ function header(user: Me | null): HTMLElement {
     h('a', { class: 'btn', href: '/time-attack' }, 'Time Attack'),
     h('a', { class: 'btn', href: '/slider' }, 'Slider'),
     h('a', { class: 'btn', href: '/leaderboard' }, 'Leaderboard'),
-    !user?.member ? h('a', { class: 'btn plus-btn', href: '/plus' }, '✦ Get Plus') : null,
+    !user?.member && !inAndroidApp() ? h('a', { class: 'btn plus-btn', href: '/plus' }, '✦ Get Plus') : null,
     user?.role === 'admin' ? h('a', { class: 'btn green', href: '/admin' }, 'Admin') : null,
     user ? pointsPill : null,
   );
@@ -87,6 +87,7 @@ function footer(): HTMLElement {
  */
 export async function shell(opts: { title?: string; bodyClass?: string } = {}): Promise<HTMLElement> {
   if (opts.title) document.title = `${opts.title} | SnapShift Puzzles`;
+  rememberInvite();
   if (opts.bodyClass) document.body.classList.add(opts.bodyClass);
   const sitePromise = api.get<SitePublic>('/site').catch(() => null);
   try {
@@ -126,8 +127,42 @@ export async function shell(opts: { title?: string; bodyClass?: string } = {}): 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
-  setupInstall();
+  setupInstall(site?.androidPlayUrl ?? '');
   return main;
+}
+
+/** Invites last 30 days: long enough to come back and sign up later. */
+const INVITE_DAYS = 30;
+export const inviteStore = store<{ name: string; at: number } | null>('ss_ref', null);
+
+/** The friend who invited this visitor, if any (and not expired). */
+export function invitedBy(): string | null {
+  const v = inviteStore.get();
+  return v && Date.now() - v.at < INVITE_DAYS * 864e5 ? v.name : null;
+}
+
+/** A visit through /?ref=name: keep the name, tidy the address bar and say hello once. */
+function rememberInvite() {
+  const params = new URLSearchParams(location.search);
+  const ref = params.get('ref');
+  if (!ref) return;
+  params.delete('ref');
+  history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(ref) || invitedBy() === ref) return;
+  inviteStore.set({ name: ref, at: Date.now() });
+  void api
+    .get<{ username: string | null; points: number; finishes: number }>(`/invites/from/${encodeURIComponent(ref)}`)
+    .then((r) => {
+      if (!r.username) return inviteStore.set(null);
+      if (current) return; // already a player
+      toast(
+        `${r.username} invited you to SnapShift!`,
+        `Create a free account and you’ll both get ${r.points} points once you’ve finished ${r.finishes} puzzles.`,
+        'good',
+        9000,
+      );
+    })
+    .catch(() => {});
 }
 
 export function requireSignIn(main: HTMLElement, what: string): boolean {
@@ -152,6 +187,7 @@ export function showError(main: HTMLElement, message: string): void {
 interface SitePublic {
   announcement: string;
   analyticsToken?: string;
+  androidPlayUrl?: string;
   theme: Theme;
   banners: Banner[];
 }

@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { me, shell } from '../lib/shell';
-import { errorText, h, hasPaidPlus, mount, plusTag, qs, toast } from '../lib/ui';
+import { errorText, h, hasPaidPlus, inAndroidApp, mount, plusTag, qs, toast } from '../lib/ui';
 import { PLUS } from '@shared/rules';
 
 interface Plans {
@@ -120,7 +120,9 @@ function render() {
           'section',
           { class: 'panel' },
           h('h2', {}, 'Choose a plan'),
-          plans.enabled
+          inAndroidApp()
+            ? h('div', { class: 'notice' }, 'Plus can’t be bought inside the Android app. If you’re already a member, sign in and all your Plus perks work here too.')
+            : plans.enabled
             ? h('div', { class: 'plans' }, plans.plans.map(planCard))
             : h('p', { class: 'muted' }, 'Memberships open very soon. Check back shortly!'),
           !user ? h('p', { class: 'small muted' }, 'You’ll sign in or create a free account first.') : null,
