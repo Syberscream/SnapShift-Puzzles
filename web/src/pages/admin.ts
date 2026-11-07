@@ -372,7 +372,7 @@ async function queue() {
 
 /** What automatic generation is doing right now, and what its last run said. */
 function genStatus(
-  st: { started24h: number; waiting: number; inflight: number; failed24h: number; openCategories: number },
+  st: { started24h: number; manual24h: number; waiting: number; inflight: number; failed24h: number; openCategories: number },
   last: { at: number; source: 'schedule' | 'manual'; log: string[] } | null,
   s: GenSettings,
 ): HTMLElement {
@@ -384,7 +384,7 @@ function genStatus(
   return h(
     'div',
     { class: `notice small${stale && s.enabled ? ' warn' : ''}` },
-    h('div', {}, `Last 24 hours: ${st.started24h} started of ${s.perDay} · ${st.inflight} generating now · ${st.waiting} waiting for review (pauses at ${s.maxPending})${st.failed24h ? ` · ${st.failed24h} failed` : ''}`),
+    h('div', {}, `Last 24 hours: ${st.started24h} automatic of ${s.perDay}${st.manual24h ? ` (+ ${st.manual24h} by hand)` : ''} · ${st.inflight} generating now · ${st.waiting} waiting for review (pauses at ${s.maxPending})${st.failed24h ? ` · ${st.failed24h} failed` : ''}`),
     last
       ? h('div', {}, h('b', {}, `Last scheduled run ${ago(last.at)}: `), last.log.length ? last.log.slice(0, 6).join(' · ') : 'nothing to do.')
       : h('div', {}, h('b', {}, 'No run recorded yet. '), 'The schedule records each run here; if this stays empty after deploying, the 10-minute schedule isn’t running.'),
@@ -399,7 +399,7 @@ async function generate() {
     configured: boolean;
     puzzleSuffix: string;
     looks: { id: string; label: string }[];
-    status: { started24h: number; waiting: number; inflight: number; failed24h: number; openCategories: number };
+    status: { started24h: number; manual24h: number; waiting: number; inflight: number; failed24h: number; openCategories: number };
     lastRun: { at: number; source: 'schedule' | 'manual'; log: string[] } | null;
   }>('/admin/generation');
   const s = g.settings;
@@ -417,7 +417,7 @@ async function generate() {
     genStatus(g.status, g.lastRun, s),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'enabled', checked: s.enabled }), 'Generate automatically'),
     h('div', { class: 'row' },
-      h('div', { class: 'field' }, h('label', {}, 'Images per 24 hours'), h('input', { type: 'number', name: 'perDay', min: 0, max: 100, value: s.perDay })),
+      h('div', { class: 'field' }, h('label', {}, 'Automatic images per 24 hours'), h('input', { type: 'number', name: 'perDay', min: 0, max: 100, value: s.perDay })),
       h('div', { class: 'field' }, h('label', {}, 'Pause when this many are waiting'), h('input', { type: 'number', name: 'maxPending', min: 1, max: 500, value: s.maxPending })),
       h('div', { class: 'field' }, h('label', {}, 'Keep this many daily puzzles ready'), h('input', { type: 'number', name: 'dailyPoolTarget', min: 0, max: 365, value: s.dailyPoolTarget })),
     ),

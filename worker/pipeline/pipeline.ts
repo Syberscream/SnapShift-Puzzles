@@ -83,14 +83,15 @@ export async function queueJob(
   settings: GenerationSettings,
   job: { categoryId: string | null; title: string; prompt: string },
   reserved = false,
+  auto = false,
 ): Promise<string> {
   if (!reserved) job = { ...job, title: uniqueTitle(job.title, await takenTitles(env, job.categoryId)) };
   const id = randomId(10);
   await env.DB.prepare(
-    `INSERT INTO generation_jobs (id, status, category_id, title, prompt, model, options, created_at, updated_at)
-     VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO generation_jobs (id, status, category_id, title, prompt, model, options, auto, created_at, updated_at)
+     VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, job.categoryId, job.title, job.prompt, settings.model, JSON.stringify(settings.options ?? {}), now(), now())
+    .bind(id, job.categoryId, job.title, job.prompt, settings.model, JSON.stringify(settings.options ?? {}), auto ? 1 : 0, now(), now())
     .run();
   return id;
 }
@@ -100,8 +101,8 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
     log.push('Automatic generation is off.');
     return;
   }
-  // perDay is a rolling 24-hour limit.
-  const made = await env.DB.prepare('SELECT COUNT(*) AS n FROM generation_jobs WHERE created_at > ? AND status != ?')
+  // perDay is a rolling 24-hour limit on automatic generations (Generate now doesn't count).
+  const made = await env.DB.prepare('SELECT COUNT(*) AS n FROM generation_jobs WHERE auto = 1 AND created_at > ? AND status != ?')
     .bind(now() - 86400_000, 'failed')
     .first<{ n: number }>();
   const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM puzzles WHERE status = 'pending'").first<{ n: number }>();
@@ -112,7 +113,7 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
   if (room <= 0) {
     log.push(
       byDay <= 0
-        ? `Nothing new to start: ${made?.n ?? 0} images already started in the last 24 hours (limit ${s.perDay}).`
+        ? `Nothing new to start: ${made?.n ?? 0} automatic images already started in the last 24 hours (limit ${s.perDay}).`
         : `Paused: ${pending?.n ?? 0} waiting for review + ${inflight?.n ?? 0} still generating reaches the limit of ${s.maxPending}. Review some, or raise “Pause when this many are waiting”.`,
     );
     return;
@@ -141,7 +142,7 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
     const taken = await takenTitles(env, DAILY_CATEGORY);
     for (let i = 0; i < short && room > 0; i++, room--) {
       const idea = pickIdea(DAILY_CATEGORY, rand, hint, taken, s.photoShare ?? GENERATION_DEFAULTS.photoShare);
-      await queueJob(env, s, { categoryId: DAILY_CATEGORY, ...idea }, true);
+      await queueJob(env, s, { categoryId: DAILY_CATEGORY, ...idea }, true, true);
       log.push(`queued daily pool: ${idea.title}`);
     }
   }
@@ -150,7 +151,7 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
   for (const cat of allowed) {
     if (room-- <= 0) break;
     const idea = pickIdea(cat.id, rand, cat.prompt_hint, await takenTitles(env, cat.id), s.photoShare ?? GENERATION_DEFAULTS.photoShare);
-    await queueJob(env, s, { categoryId: cat.id, ...idea }, true);
+    await queueJob(env, s, { categoryId: cat.id, ...idea }, true, true);
     log.push(`queued ${cat.id}: ${idea.title}`);
   }
   if (log.length === before) {

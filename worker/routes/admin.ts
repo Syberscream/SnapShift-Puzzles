@@ -226,13 +226,14 @@ app.get('/generation', async (c) => {
   const settings = await getSetting(c.env, 'generation', GENERATION_DEFAULTS);
   const { results } = await c.env.DB.prepare('SELECT * FROM generation_jobs ORDER BY created_at DESC LIMIT 60').all();
   const counts = await c.env.DB.prepare(
-    `SELECT (SELECT COUNT(*) FROM generation_jobs WHERE created_at > ? AND status != 'failed') AS started24h,
+    `SELECT (SELECT COUNT(*) FROM generation_jobs WHERE auto = 1 AND created_at > ? AND status != 'failed') AS started24h,
+            (SELECT COUNT(*) FROM generation_jobs WHERE auto = 0 AND created_at > ? AND status != 'failed') AS manual24h,
             (SELECT COUNT(*) FROM puzzles WHERE status = 'pending') AS waiting,
             (SELECT COUNT(*) FROM generation_jobs WHERE status IN ('queued','submitting','submitted','downloading')) AS inflight,
             (SELECT COUNT(*) FROM generation_jobs WHERE status = 'failed' AND updated_at > ?) AS failed24h,
             (SELECT COUNT(*) FROM categories WHERE generate = 1 AND id != 'daily') AS openCategories`,
   )
-    .bind(now() - 86400_000, now() - 86400_000)
+    .bind(now() - 86400_000, now() - 86400_000, now() - 86400_000)
     .first();
   return c.json({ settings, jobs: results, status: counts, lastRun: await getSetting<LastRun | null>(c.env, 'pipeline_last', null), configured: !!c.env.ELEVENLABS_API_KEY, puzzleSuffix: PUZZLE_SUFFIX, looks: LOOKS });
 });
