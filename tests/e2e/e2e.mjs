@@ -627,6 +627,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   const ach = await j(player.request.get(BASE + '/api/me/achievements'));
   const got = new Set(ach.achievements.filter((a) => a.earnedAt).map((a) => a.id));
   check('achievements: earned while playing', got.has('first-finish') && got.has('gold-1'), [...got].join(','));
+  check('achievements: 40 to unlock', ach.achievements.length === 40);
   const popped = await player.evaluate(() => JSON.parse(localStorage.getItem('__ach') || '[]'));
   check('achievements: “Achievement unlocked!” popup shown', popped.length > 0 && popped.every((a) => a.title && /^\+\d+ points$/.test(a.reward)), JSON.stringify(popped));
   const ledger = await j(player.request.get(BASE + '/api/me/ledger'));

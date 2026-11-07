@@ -141,7 +141,20 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
          (SELECT COUNT(*) FROM event_rewards WHERE user_id = ?1) AS events,
          (SELECT COALESCE(MAX(milestone), 0) FROM streak_rewards WHERE user_id = ?1) AS streakBest,
          (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL) AS sliders,
-         (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL AND size = 5) AS sliders5`,
+         (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL AND size = 5) AS sliders5,
+         (SELECT COUNT(*) FROM plays WHERE user_id = ?1 AND completed_at IS NOT NULL AND difficulty = 'medium') AS mediums,
+         (SELECT COUNT(*) FROM plays WHERE user_id = ?1 AND completed_at IS NOT NULL AND difficulty = 'hard') AS hards,
+         (SELECT COUNT(*) FROM plays WHERE user_id = ?1 AND completed_at IS NOT NULL AND difficulty = 'hard' AND medal = 'gold') AS hardGolds,
+         (SELECT COUNT(*) FROM plays WHERE user_id = ?1 AND completed_at IS NOT NULL AND difficulty = 'easy' AND mode = 'classic' AND elapsed_ms < 30000) AS speedy30,
+         (SELECT COUNT(*) FROM plays WHERE user_id = ?1 AND completed_at IS NOT NULL AND difficulty = 'medium' AND mode = 'classic' AND elapsed_ms < 180000) AS mediumFast,
+         (SELECT COUNT(DISTINCT p.category_id) FROM plays pl JOIN puzzles p ON p.id = pl.puzzle_id
+            WHERE pl.user_id = ?1 AND pl.completed_at IS NOT NULL AND pl.daily_day IS NULL AND p.category_id IS NOT NULL AND p.category_id != 'daily') AS categories,
+         (SELECT COUNT(*) FROM daily_results WHERE user_id = ?1 AND medal = 'gold') AS dailyGolds,
+         (SELECT COUNT(*) FROM slider_results WHERE user_id = ?1) AS sliderDailies,
+         (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL AND size = 4 AND elapsed_ms < 60000) AS sliderFast,
+         (SELECT COUNT(*) FROM challenge_results cr JOIN challenges ch ON ch.id = cr.challenge_id
+            WHERE cr.user_id = ?1 AND ch.user_id != ?1
+              AND ((ABS(cr.elapsed_ms - ch.elapsed_ms) <= 500 AND cr.moves < ch.moves) OR (ABS(cr.elapsed_ms - ch.elapsed_ms) > 500 AND cr.elapsed_ms < ch.elapsed_ms))) AS challengeWins`,
     ).bind(userId),
     env.DB.prepare('SELECT achievement FROM user_achievements WHERE user_id = ?').bind(userId),
   ]);
@@ -167,6 +180,26 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
   when(s.streakBest >= 30, 'streak-30');
   when(s.sliders >= 1, 'slider-1');
   when(s.sliders5 >= 1, 'slider-5x5');
+  when(s.finished >= 10, 'finish-10');
+  when(s.finished >= 250, 'finish-250');
+  when(s.golds >= 25, 'gold-25');
+  when(s.categories >= 5, 'explorer');
+  when(s.mediums >= 10, 'medium-10');
+  when(s.hards >= 10, 'hard-10');
+  when(s.hardGolds >= 1, 'hard-gold');
+  when(s.speedy30 >= 1, 'speedy-30');
+  when(s.mediumFast >= 1, 'medium-fast');
+  when(s.rotations >= 25, 'rotation-25');
+  when(s.zens >= 50, 'zen-50');
+  when(s.dailies >= 30, 'daily-30');
+  when(s.dailyGolds >= 10, 'daily-gold-10');
+  when(s.streakBest >= 100, 'streak-100');
+  when(s.taBest >= 15, 'timeattack-15');
+  when(s.sliders >= 10, 'slider-10');
+  when(s.sliderDailies >= 7, 'slider-daily-7');
+  when(s.sliderFast >= 1, 'slider-fast');
+  when(s.collections >= 3, 'collection-3');
+  when(s.challengeWins >= 5, 'challenge-5');
   const fresh = [...earned].filter((id) => !owned.has(id) && ACHIEVEMENT_BY_ID.has(id));
   if (!fresh.length) return [];
   const t = now();

@@ -379,6 +379,7 @@ app.post('/:id/complete', async (c) => {
   if (!zen && rating.moveEffPct >= 100) extra.push('perfect');
   if (streak && streak.current >= 7) extra.push('streak-7');
   if (streak && streak.current >= 30) extra.push('streak-30');
+  if (streak && streak.current >= 100) extra.push('streak-100');
   const achievements = await checkAchievements(c.env, user.id, extra);
 
   let rank = null;
