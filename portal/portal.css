@@ -79,3 +79,11 @@ a.full-game:hover { filter: brightness(1.12); }
 .full-game.compact .fg-text { font-size: 12.5px; }
 .full-game.compact .fg-text b { font-size: 14px; }
 @media (max-width: 560px) { .full-game { flex-wrap: wrap; } .fg-btn { width: 100%; text-align: center; } .full-game.compact .fg-btn { width: auto; } }
+/* First-game "how to play" */
+.intro { position: absolute; inset: 0; pointer-events: none; z-index: 8; }
+.intro-mover { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; }
+.intro-ghost { position: absolute; transform: translate(-50%, -50%); border-radius: 8px; border: 3px solid #fff; background: rgba(124, 196, 255, 0.28); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
+.intro-finger { position: absolute; width: 34px; height: 34px; transform: translate(-4px, -2px); border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff 0 30%, #ffe0c8 31% 100%); border: 2px solid #1b2b45; box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5); }
+.intro-caption { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; background: rgba(11, 22, 42, 0.94); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); pointer-events: auto; font-size: 14px; }
+@media (max-width: 560px) { .intro-caption { font-size: 13px; padding: 8px 10px; } }
+@media (prefers-reduced-motion: reduce) { .intro-mover { opacity: 1; } }

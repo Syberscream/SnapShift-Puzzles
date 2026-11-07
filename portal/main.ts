@@ -247,6 +247,62 @@ let lastPeek = 0;
 /** The current game's move handlers (used by the self-test). */
 let moveHandlers: { swap(a: number, b: number): void; rotate(p: number): void } | null = null;
 
+/** The first-game "how to play" animation; closed by the first move. */
+let closeIntro: () => void = () => {};
+const introSeen = store<boolean>('ssp_intro_seen', false);
+
+/**
+ * First game only: a finger drags a real tile to where it belongs, with a
+ * one-line caption. Goes away on the first move or on "Got it".
+ */
+function showIntro(stage: HTMLElement, canvas: HTMLCanvasElement, rotation: boolean) {
+  if (introSeen.get()) return;
+  const m = suggest(state);
+  if (!m || m.kind !== 'swap') return;
+  const s = stage.getBoundingClientRect();
+  const c = canvas.getBoundingClientRect();
+  if (!c.width) return;
+  const tw = c.width / state.cols;
+  const th = c.height / state.rows;
+  const at = (p: number) => ({ x: c.left - s.left + ((p % state.cols) + 0.5) * tw, y: c.top - s.top + (Math.floor(p / state.cols) + 0.5) * th });
+  const a = at(m.a);
+  const b = at(m.b);
+  const ghost = h('div', { class: 'intro-ghost' });
+  ghost.style.width = `${tw}px`;
+  ghost.style.height = `${th}px`;
+  const finger = h('div', { class: 'intro-finger' });
+  const mover = h('div', { class: 'intro-mover' }, ghost, finger);
+  const got = h('button', { class: 'btn primary' }, 'Got it');
+  const caption = h(
+    'div',
+    { class: 'intro-caption' },
+    h('span', {}, h('b', {}, 'Drag a tile onto another to swap them.'), rotation ? ' Tap a tile to turn it upright.' : ' Tiles lock when they’re in the right place.'),
+    got,
+  );
+  const layer = h('div', { class: 'intro', 'aria-live': 'polite' }, mover, caption);
+  stage.append(layer);
+  board?.showHint([m.a, m.b], 60_000);
+  const anim = mover.animate(
+    [
+      { transform: `translate(${a.x}px, ${a.y}px) scale(1)`, opacity: 0, offset: 0 },
+      { transform: `translate(${a.x}px, ${a.y}px) scale(1)`, opacity: 1, offset: 0.12 },
+      { transform: `translate(${a.x}px, ${a.y}px) scale(0.92)`, opacity: 1, offset: 0.22 },
+      { transform: `translate(${b.x}px, ${b.y}px) scale(0.92)`, opacity: 1, offset: 0.7 },
+      { transform: `translate(${b.x}px, ${b.y}px) scale(1)`, opacity: 1, offset: 0.8 },
+      { transform: `translate(${b.x}px, ${b.y}px) scale(1)`, opacity: 0, offset: 1 },
+    ],
+    { duration: 2200, iterations: Infinity, easing: 'ease-in-out' },
+  );
+  closeIntro = () => {
+    closeIntro = () => {};
+    introSeen.set(true);
+    anim.cancel();
+    layer.remove();
+    board?.showHint([], 0);
+  };
+  got.addEventListener('click', () => closeIntro());
+}
+
 const elapsed = () => elapsedBefore + (startedAt ? performance.now() - startedAt : 0);
 
 async function play(p: PackPuzzle) {
@@ -296,6 +352,7 @@ async function play(p: PackPuzzle) {
     fill.style.width = `${(correctCount(state) / state.tiles.length) * 100}%`;
   };
   const begin = () => {
+    closeIntro();
     if (!startedAt && !finished) startedAt = performance.now();
     portal.start();
   };
@@ -336,6 +393,9 @@ async function play(p: PackPuzzle) {
     board.setRevealed(true);
     setTimeout(() => board?.setRevealed(false), 2500);
   }
+  // New players: show how to move a tile (after the board has its size).
+  closeIntro();
+  setTimeout(() => !finished && showIntro(stage, canvas, mode === 'rotation'), rules.preview === 'hidden' ? 2700 : 500);
 
   const cooldown = RULES[difficulty].hintCooldownMs;
   hintBtn.addEventListener('click', () => {
@@ -363,6 +423,7 @@ async function play(p: PackPuzzle) {
 }
 
 function leave() {
+  closeIntro();
   clearInterval(tickHandle);
   board = null;
   menu();
