@@ -139,7 +139,9 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
          (SELECT COALESCE(MAX(solved), 0) FROM time_attack_runs WHERE user_id = ?1) AS taBest,
          (SELECT COUNT(*) FROM collection_rewards WHERE user_id = ?1) AS collections,
          (SELECT COUNT(*) FROM event_rewards WHERE user_id = ?1) AS events,
-         (SELECT COALESCE(MAX(milestone), 0) FROM streak_rewards WHERE user_id = ?1) AS streakBest`,
+         (SELECT COALESCE(MAX(milestone), 0) FROM streak_rewards WHERE user_id = ?1) AS streakBest,
+         (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL) AS sliders,
+         (SELECT COUNT(*) FROM slider_games WHERE user_id = ?1 AND finished_at IS NOT NULL AND size = 5) AS sliders5`,
     ).bind(userId),
     env.DB.prepare('SELECT achievement FROM user_achievements WHERE user_id = ?').bind(userId),
   ]);
@@ -163,6 +165,8 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
   when(s.events >= 1, 'event');
   when(s.streakBest >= 7, 'streak-7');
   when(s.streakBest >= 30, 'streak-30');
+  when(s.sliders >= 1, 'slider-1');
+  when(s.sliders5 >= 1, 'slider-5x5');
   const fresh = [...earned].filter((id) => !owned.has(id) && ACHIEVEMENT_BY_ID.has(id));
   if (!fresh.length) return [];
   const t = now();

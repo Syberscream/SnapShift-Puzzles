@@ -843,6 +843,7 @@ try {
           pauseBtn,
           h('button', { class: 'btn', onclick: () => (document.fullscreenElement ? document.exitFullscreen() : wrap.requestFullscreen?.()) }, 'Full screen'),
           muteBtn,
+          !dailyDay && !challengeId ? h('a', { class: 'btn', href: `/slider?p=${encodeURIComponent(puzzle.slug)}` }, 'Play as slider') : null,
           h('a', { class: 'btn', href: '/how-to-play', target: '_blank' }, 'How to play'),
           moreBtn,
         ),

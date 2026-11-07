@@ -128,6 +128,17 @@ async function render(d: Home) {
     ),
   );
 
+  const slider = h(
+    'section',
+    { class: 'panel' },
+    h(
+      'div',
+      { class: 'panel-head' },
+      h('div', {}, h('h2', {}, 'Slider Puzzle'), h('p', { class: 'muted small' }, 'Slide tiles into the empty square to rebuild the picture. A new 4×4 slider every day, fastest time wins.')),
+      h('div', { class: 'row' }, h('a', { class: 'btn primary', href: '/slider?daily=1' }, 'Play today’s slider'), h('a', { class: 'btn', href: '/slider' }, 'More sizes')),
+    ),
+  );
+
   const events = d.events.map((e) =>
     h(
       'section',
@@ -156,5 +167,5 @@ async function render(d: Home) {
       )
     : null;
 
-  mount(main, welcome, hero, ...events, cont, ta, cats, latest, await plusSection());
+  mount(main, welcome, hero, ...events, cont, ta, slider, cats, latest, await plusSection());
 }

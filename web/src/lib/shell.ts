@@ -33,6 +33,7 @@ function header(user: Me | null): HTMLElement {
     h('a', { class: 'btn', href: '/categories' }, 'Play'),
     h('a', { class: 'btn', href: '/daily' }, 'Daily'),
     h('a', { class: 'btn', href: '/time-attack' }, 'Time Attack'),
+    h('a', { class: 'btn', href: '/slider' }, 'Slider'),
     h('a', { class: 'btn', href: '/leaderboard' }, 'Leaderboard'),
     !user?.member ? h('a', { class: 'btn plus-btn', href: '/plus' }, '✦ Get Plus') : null,
     user?.role === 'admin' ? h('a', { class: 'btn green', href: '/admin' }, 'Admin') : null,

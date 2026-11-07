@@ -16,6 +16,7 @@
   ],
   "shortcuts": [
     { "name": "Today's daily", "url": "/daily", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Time Attack", "url": "/time-attack", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Time Attack", "url": "/time-attack", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Slider Puzzle", "url": "/slider?daily=1", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -2,6 +2,7 @@
 import pw from 'playwright';
 const { chromium } = pw;
 import * as E from './.engine/engine.js';
+import * as SL from './.engine/slider.js';
 
 const BASE = 'http://127.0.0.1:8787';
 import { execSync } from 'node:child_process';
@@ -851,6 +852,113 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('analytics: traffic totals and days', t.total?.pageViews === 274 && t.series.visits.length === 30 && t.labels.length === 30, JSON.stringify(t).slice(0, 200));
   check('analytics: top pages, referrers, countries, devices', t.pages[0].name === '/' && t.referrers[0].name === 'Direct / unknown' && t.countries.length === 2 && t.devices.length === 2);
   check('analytics tab: traffic charts drawn', (await admin.locator('.chart-svg').count()) >= 6);
+}
+
+// ---- Slider Puzzle ----
+{
+  const j = async (r) => (await r).json();
+  /** A quick (not shortest) solve for any size: weighted A* on the tile distances. */
+  const solveSlider = (seed, n) => {
+    const start = SL.sliderNew(seed, n);
+    const key = (t) => t.join(',');
+    const h = (t) => SL.distance({ n, tiles: t, blank: 0, moves: 0 });
+    const open = [{ t: [...start.tiles], b: start.blank, path: [], f: 0 }];
+    const seen = new Set([key(start.tiles)]);
+    while (open.length) {
+      let bi = 0;
+      for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+      const cur = open.splice(bi, 1)[0];
+      if (h(cur.t) === 0) return cur.path;
+      for (const q of SL.sliderNeighbors(n, cur.b)) {
+        const t = [...cur.t];
+        t[cur.b] = t[q];
+        t[q] = n * n - 1;
+        const k = key(t);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        open.push({ t, b: q, path: [...cur.path, q], f: cur.path.length + 1 + 4 * h(t) });
+      }
+      if (seen.size > 400000) return null;
+    }
+    return null;
+  };
+  const d = await j(guest.request.get(BASE + '/api/slider/daily'));
+  check('slider: today’s slider is 4×4 with a picture', d.size === 4 && !!d.puzzle.slug && !!d.puzzle.image);
+  const again = await j(guest.request.get(BASE + '/api/slider/daily'));
+  check('slider: same picture all day', again.puzzle.slug === d.puzzle.slug);
+  const gs = await j(guest.request.post(BASE + '/api/slider/start', { data: { daily: true } }));
+  check('slider: guests get the shuffle, nothing recorded', gs.gameId === null && gs.size === 4 && gs.seed > 0);
+  const big = await guest.request.post(BASE + '/api/slider/start', { data: { slug: d.puzzle.slug, size: 5 } });
+  check('slider: 5×5 is for Plus members', big.status() === 403);
+  const locked = (await j(guest.request.get(BASE + '/api/home'))).latest.find((p) => !p.unlocked);
+  if (locked) {
+    const lr = await guest.request.post(BASE + '/api/slider/start', { data: { slug: locked.slug, size: 3 } });
+    check('slider: locked pictures can’t be slid', lr.status() === 403);
+  }
+  // Signed-in player: a 3×3 on any picture.
+  const bal0 = (await j(player.request.get(BASE + '/api/auth/me'))).user.points;
+  const g3 = await j(player.request.post(BASE + '/api/slider/start', { data: { slug: d.puzzle.slug, size: 3 } }));
+  const bad = await player.request.post(BASE + `/api/slider/${g3.gameId}/finish`, { data: { actions: [99] } });
+  check('slider: illegal moves are refused', bad.status() === 422);
+  const half = await player.request.post(BASE + `/api/slider/${g3.gameId}/finish`, { data: { actions: [] } });
+  check('slider: unfinished boards are refused', half.status() === 422);
+  const m3 = SL.sliderSolve(SL.sliderNew(g3.seed, 3));
+  await player.waitForTimeout(Math.max(1200, m3.length * 40));
+  const f3 = await j(player.request.post(BASE + `/api/slider/${g3.gameId}/finish`, { data: { actions: m3 } }));
+  check('slider: 3×3 solve counts, with a medal and points', f3.moves === m3.length && f3.medal === 'gold' && f3.points === 5, JSON.stringify(f3).slice(0, 200));
+  check('slider: achievement for the first slider', (f3.achievements || []).some((a) => a.title === 'Smooth Operator'));
+  const twice = await player.request.post(BASE + `/api/slider/${g3.gameId}/finish`, { data: { actions: m3 } });
+  check('slider: a game counts once', twice.status() === 409);
+  // Today's slider, solved for real, goes on the leaderboard with the daily bonus.
+  const gd = await j(player.request.post(BASE + '/api/slider/start', { data: { daily: true } }));
+  const md = solveSlider(gd.seed, 4);
+  check('slider: test solver found a 4×4 solution', !!md, md ? `${md.length} moves` : '');
+  await player.waitForTimeout(Math.max(1500, md.length * 40));
+  const fd = await j(player.request.post(BASE + `/api/slider/${gd.gameId}/finish`, { data: { actions: md } }));
+  check('slider: today’s slider pays the bonus', fd.firstDaily === true && fd.points === 35 && fd.daily?.rank === 1, JSON.stringify(fd).slice(0, 200));
+  const bal1 = (await j(player.request.get(BASE + '/api/auth/me'))).user.points;
+  check('slider: points reach the balance', bal1 - bal0 === 40, `${bal0} -> ${bal1}`);
+  const lb = await j(guest.request.get(BASE + '/api/slider/leaderboard'));
+  check('slider: leaderboard shows the player', lb.rows.length === 1 && lb.rows[0].moves === md.length);
+  // Too fast is refused.
+  const gf = await j(player.request.post(BASE + '/api/slider/start', { data: { slug: d.puzzle.slug, size: 3 } }));
+  const mf = SL.sliderSolve(SL.sliderNew(gf.seed, 3));
+  const fast = await player.request.post(BASE + `/api/slider/${gf.gameId}/finish`, { data: { actions: mf } });
+  check('slider: impossibly fast games are refused', mf.length * 35 > 1000 ? fast.status() === 422 : true, String(fast.status()));
+
+  // In the browser on a phone: play a 3×3 by tapping.
+  const sCtx = await newCtx(true);
+  const sp = await sCtx.newPage();
+  const sErr = [];
+  errorsFor(sp, sErr);
+  await sp.goto(BASE + '/slider');
+  await sp.waitForSelector('text=Slide any picture');
+  check('slider page: today’s slider and sizes', (await sp.locator('h1', { hasText: 'Today’s Slider' }).count()) === 1 && (await sp.locator('button[data-size]').count()) === 3);
+  const startResp = sp.waitForResponse((r) => r.url().includes('/api/slider/start'));
+  await sp.goto(BASE + `/slider?p=${encodeURIComponent(d.puzzle.slug)}&size=3`);
+  const st = await (await startResp).json();
+  await sp.waitForSelector('.slider-tile');
+  await sp.waitForTimeout(300);
+  const ms = SL.sliderSolve(SL.sliderNew(st.seed, 3));
+  for (const pos of ms) {
+    const box = await sp.locator('.slider-board').boundingBox();
+    await sp.mouse.click(box.x + ((pos % 3) + 0.5) * (box.width / 3), box.y + (Math.floor(pos / 3) + 0.5) * (box.height / 3));
+    await sp.waitForTimeout(40);
+  }
+  await sp.waitForSelector('dialog.modal', { timeout: 8000 });
+  const txt = await sp.locator('dialog.modal').innerText();
+  check('slider page: solving by tapping shows the result', /Solved!|New best!/.test(txt) && /medal/i.test(txt), txt.slice(0, 120));
+  await sp.screenshot({ path: `${OUT}/slider-done.png` });
+  check('slider page: phone controls in the bottom bar', await sp.locator('.game .side > .key', { hasText: 'Peek' }).isVisible());
+  check('no JS errors (slider)', sErr.length === 0, sErr.join(' | '));
+  await sCtx.close();
+  // Entry points.
+  await guest.goto(BASE + '/');
+  await guest.waitForSelector('text=Slider Puzzle');
+  check('home: slider panel', await guest.locator('a[href="/slider?daily=1"]').first().isVisible());
+  await guest.goto(BASE + `/play?p=${encodeURIComponent(d.puzzle.slug)}&d=easy`);
+  await guest.waitForSelector('#board');
+  check('play page: “Play as slider” link', (await guest.locator('a', { hasText: 'Play as slider' }).count()) === 1);
 }
 
 // Static pages render

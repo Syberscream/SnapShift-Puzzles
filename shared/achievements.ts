@@ -26,6 +26,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'collection', title: 'Collector', description: 'Finish every puzzle in a category.', icon: '📚' },
   { id: 'challenge-win', title: 'Challenger', description: 'Beat a friend’s challenge.', icon: '🤝' },
   { id: 'event', title: 'Event Champion', description: 'Finish every puzzle in an event.', icon: '🎉' },
+  { id: 'slider-1', title: 'Smooth Operator', description: 'Finish a Slider Puzzle.', icon: '🔲' },
+  { id: 'slider-5x5', title: 'Sliding Master', description: 'Finish a 5×5 Slider Puzzle.', icon: '🧠' },
 ];
 
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));

@@ -485,3 +485,32 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
 /* Numbers in the game bar keep the same width as they change, so the pills don't jiggle. */
 .pill { font-variant-numeric: tabular-nums; }
 .pill.time-pill { min-width: 13.5ch; justify-content: center; }
+
+/* Slider Puzzle */
+.slider-wrap { border-radius: 16px; }
+.slider-board { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #050913; touch-action: none; user-select: none; -webkit-user-select: none; outline: none; }
+.slider-board:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+.slider-tile {
+  position: absolute; left: 0; top: 0; width: calc(100% / var(--n)); height: calc(100% / var(--n));
+  background-repeat: no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  transition: transform 0.12s ease-out, box-shadow 0.25s; cursor: pointer; will-change: transform;
+}
+.slider-board.instant .slider-tile { transition: none; }
+.slider-tile.home { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), inset 0 0 0 2px rgba(80, 220, 140, 0.45); }
+.slider-tile.blank { opacity: 0; pointer-events: none; transition: transform 0.12s ease-out, opacity 0.5s; }
+.slider-tile .num { display: none; position: absolute; left: 4px; top: 4px; min-width: 20px; padding: 1px 5px; border-radius: 8px; font: 800 12px/1.4 var(--font); text-align: center; color: #fff; background: rgba(0, 0, 0, 0.62); font-variant-numeric: tabular-nums; }
+.slider-board.show-numbers .slider-tile .num { display: block; }
+.slider-board.solved .slider-tile { box-shadow: none; cursor: default; }
+.slider-board.solved .slider-tile.blank { opacity: 1; }
+.slider-board.solved .slider-tile .num { display: none; }
+.slider-board.solved { animation: slider-glow 1.2s ease-out; }
+@keyframes slider-glow { 0% { box-shadow: 0 0 0 0 rgba(245, 197, 66, 0.9); } 100% { box-shadow: 0 0 0 18px rgba(245, 197, 66, 0); } }
+.slider-peek { position: absolute; inset: 0; background-repeat: no-repeat; z-index: 3; animation: peek-in 0.15s ease-out; }
+@keyframes peek-in { from { opacity: 0; } }
+.slider-hero { display: grid; grid-template-columns: minmax(0, 260px) 1fr; gap: 20px; align-items: center; }
+.slider-hero-art { aspect-ratio: 4 / 3; border-radius: 14px; background: center / cover no-repeat; position: relative; overflow: hidden; }
+.slider-hero-art::after { content: ''; position: absolute; inset: 0; background:
+  linear-gradient(90deg, transparent calc(25% - 1px), rgba(0,0,0,.6) calc(25% - 1px), rgba(0,0,0,.6) calc(25% + 1px), transparent calc(25% + 1px), transparent calc(50% - 1px), rgba(0,0,0,.6) calc(50% - 1px), rgba(0,0,0,.6) calc(50% + 1px), transparent calc(50% + 1px), transparent calc(75% - 1px), rgba(0,0,0,.6) calc(75% - 1px), rgba(0,0,0,.6) calc(75% + 1px), transparent calc(75% + 1px)),
+  linear-gradient(180deg, transparent calc(25% - 1px), rgba(0,0,0,.6) calc(25% - 1px), rgba(0,0,0,.6) calc(25% + 1px), transparent calc(25% + 1px), transparent calc(50% - 1px), rgba(0,0,0,.6) calc(50% - 1px), rgba(0,0,0,.6) calc(50% + 1px), transparent calc(50% + 1px), transparent calc(75% - 1px), rgba(0,0,0,.6) calc(75% - 1px), rgba(0,0,0,.6) calc(75% + 1px), transparent calc(75% + 1px)); }
+.slider-hero-art::before { content: ''; position: absolute; right: 0; bottom: 0; width: 25%; height: 25%; background: #050913; z-index: 1; }
+@media (max-width: 700px) { .slider-hero { grid-template-columns: 1fr; } }

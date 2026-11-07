@@ -12,6 +12,7 @@ import billing from './routes/billing';
 import plus from './routes/plus';
 import challenges from './routes/challenges';
 import events from './routes/events';
+import slider from './routes/slider';
 import { runPipeline } from './pipeline/pipeline';
 import { sendStreakReminders } from './lib/reminders';
 
@@ -31,6 +32,7 @@ app.route('/api/billing', billing);
 app.route('/api/plus', plus);
 app.route('/api/challenges', challenges);
 app.route('/api/events', events);
+app.route('/api/slider', slider);
 app.route('/api', catalog);
 app.route('/api', stats);
 
