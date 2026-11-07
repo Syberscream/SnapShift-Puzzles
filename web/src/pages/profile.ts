@@ -18,6 +18,7 @@ interface Profile {
   timeAttack: { best: number | null; runs: number };
   achievements: { id: string; icon: string; title: string; description: string; earnedAt: number }[];
   achievementsTotal: number;
+  eventBadges: { id: string; title: string; year: string; place: number | null; completed: boolean }[];
   recent: { slug: string; title: string; thumb: string; medal: string | null; difficulty: string; at: number }[];
 }
 
@@ -80,6 +81,25 @@ try {
           )
         : h('p', { class: 'muted' }, 'None yet.'),
     ),
+    p.eventBadges.length
+      ? h(
+          'section',
+          { class: 'panel' },
+          h('h2', {}, 'Event badges'),
+          h(
+            'div',
+            { class: 'event-badges' },
+            p.eventBadges.map((b) =>
+              h(
+                'a',
+                { class: `event-badge${b.place ? ` place-${b.place}` : ''}`, href: `/event?e=${encodeURIComponent(b.id)}`, title: b.place ? `Finished #${b.place}` : 'Finished every puzzle' },
+                h('span', { class: 'eb-icon', 'aria-hidden': 'true' }, b.place ? ['🥇', '🥈', '🥉'][b.place - 1] : '🎟️'),
+                h('span', {}, h('b', {}, b.title), h('span', { class: 'small muted' }, `${b.year}${b.place ? ` · #${b.place}` : ''}${b.completed ? ' · completed' : ''}`)),
+              ),
+            ),
+          ),
+        )
+      : null,
     p.recent.length
       ? h(
           'section',

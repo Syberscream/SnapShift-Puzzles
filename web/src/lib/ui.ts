@@ -149,3 +149,18 @@ export function pickImage(p: { image: string; imageSmall?: string | null }, smal
   const px = Math.max(screen.width, screen.height) * Math.min(devicePixelRatio || 1, 3);
   return smallBoard || Math.min(screen.width, screen.height) <= 820 || px <= 1400 ? p.imageSmall : p.image;
 }
+
+/** Countdown that reads "2d 5h" while more than a day is left, then a running clock. */
+export function longCountdown(el: HTMLElement, msLeft: number, onZero?: () => void): void {
+  const end = Date.now() + msLeft;
+  const tick = () => {
+    const left = end - Date.now();
+    if (left > 86400_000) {
+      const d = Math.floor(left / 86400_000);
+      const hrs = Math.floor((left % 86400_000) / 3600_000);
+      el.textContent = `${d}d ${hrs}h`;
+      setTimeout(tick, 60_000);
+    } else countdown(el, left, onZero);
+  };
+  tick();
+}

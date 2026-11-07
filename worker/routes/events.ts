@@ -4,9 +4,8 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { activeEventPuzzleIds, categoryIndexes, media, membersOnlyCategories, toView, userPuzzleState, viewerOf, type PuzzleRow, imageFields } from '../lib/catalog';
-import { eventImage, EVENTS_WITH_COVER, type EventRow } from '../lib/rewards';
-import { dayKey, fail, msUntilNextDay, addDays } from '../lib/util';
-import { plusSql } from '../lib/membership';
+import { eventImage, eventLeaderboard, eventPrizes, EVENTS_WITH_COVER, settleEventPrizes, type EventRow } from '../lib/rewards';
+import { dayKey, fail, msUntilNextDay, addDays, daysBetween } from '../lib/util';
 
 const app = new Hono<AppEnv>();
 
@@ -18,6 +17,9 @@ const view = (e: EventRow, today: string) => ({
   starts: e.starts,
   ends: e.ends,
   bonus: e.bonus,
+  difficulty: e.difficulty ?? 'medium',
+  mode: e.mode ?? 'classic',
+  prizes: eventPrizes(e),
   status: e.starts > today ? 'upcoming' : e.ends < today ? 'ended' : 'live',
 });
 
@@ -31,6 +33,7 @@ app.get('/', async (c) => {
 app.get('/:id', async (c) => {
   const user = c.get('user');
   const today = dayKey(c.env);
+  await settleEventPrizes(c.env, today);
   const e = await c.env.DB.prepare(`${EVENTS_WITH_COVER} WHERE e.id = ?`).bind(c.req.param('id')).first<EventRow>();
   if (!e) fail(404, 'Event not found.');
   const { results: rows } = await c.env.DB.prepare(
@@ -51,13 +54,12 @@ app.get('/:id', async (c) => {
       ).results
     : [];
   const mine = new Map(mineRows.map((r) => [r.puzzle_id, r]));
-  const { results: board } = await c.env.DB.prepare(
-    `SELECT u.username, r.user_id, COUNT(*) AS done, SUM(r.score_pct) AS total, SUM(r.elapsed_ms) AS time, ${plusSql('u')} AS plus
-     FROM event_results r JOIN users u ON u.id = r.user_id WHERE r.event_id = ?
-     GROUP BY r.user_id ORDER BY done DESC, total DESC, time ASC LIMIT 50`,
+  const board = await eventLeaderboard(c.env, e.id, 50);
+  const { results: winners } = await c.env.DB.prepare(
+    'SELECT u.username, p.place, p.points FROM event_prizes p JOIN users u ON u.id = p.user_id WHERE p.event_id = ? ORDER BY p.place',
   )
     .bind(e.id)
-    .all<{ username: string; user_id: number; done: number; total: number; time: number; plus: number }>();
+    .all<{ username: string; place: number; points: number }>();
   return c.json({
     event: view(e, today),
     nextDayInMs: msUntilNextDay(c.env),
@@ -68,6 +70,9 @@ app.get('/:id', async (c) => {
     })),
     leaderboard: board.map((r, i) => ({ rank: i + 1, username: r.username, done: r.done, total: r.total, plus: !!r.plus, isMe: r.user_id === user?.id })),
     me: user ? { done: mine.size, total: rows.length } : null,
+    winners,
+    // Days until it starts (upcoming events): for the countdown.
+    startsInMs: e.starts > today ? msUntilNextDay(c.env) + (daysBetween(today, e.starts) - 1) * 86400_000 : null,
   });
 });
 

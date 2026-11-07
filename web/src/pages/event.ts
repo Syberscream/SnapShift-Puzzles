@@ -2,7 +2,7 @@
 
 import { api, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
-import { bg, countdown, errorText, h, medalBadge, mount, plusTag, qs, userLink } from '../lib/ui';
+import { bg, countdown, errorText, h, longCountdown, medalBadge, mount, plusTag, qs, userLink } from '../lib/ui';
 import { puzzleCard } from './shared';
 
 interface EventView {
@@ -13,8 +13,17 @@ interface EventView {
   starts: string;
   ends: string;
   bonus: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  mode: 'classic' | 'rotation';
+  prizes: number[];
   status: 'live' | 'upcoming' | 'ended';
 }
+
+const DIFF: Record<string, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const PLACES = ['🥇', '🥈', '🥉'];
+/** "Medium · Classic · same shuffle for everyone · no hints" */
+const rulesLine = (e: EventView) => `${DIFF[e.difficulty] ?? 'Medium'} · ${e.mode === 'rotation' ? 'Rotation' : 'Classic'} · the same shuffle for everyone · no hints or placed tiles`;
+const prizesLine = (e: EventView) => (e.prizes.some((p) => p > 0) ? e.prizes.map((p, i) => `${PLACES[i]} ${p.toLocaleString()}`).join('  ') : '');
 
 const main = await shell({ title: 'Events' });
 const id = qs('e');
@@ -59,10 +68,13 @@ async function showEvent(eventId: string) {
     puzzles: (PuzzleView & { eventResult: { scorePct: number; medal: string | null } | null })[];
     leaderboard: { rank: number; username: string; done: number; total: number; plus: boolean; isMe: boolean }[];
     me: { done: number; total: number } | null;
+    winners: { username: string; place: number; points: number }[];
+    startsInMs: number | null;
   }>(`/events/${encodeURIComponent(eventId)}`);
   const e = d.event;
   document.title = `${e.title} | SnapShift Puzzles`;
   const cd = h('span', { class: 'countdown' });
+  const startCd = h('b', { class: 'countdown' });
   const pct = d.me && d.me.total ? Math.round((d.me.done / d.me.total) * 100) : 0;
   mount(
     main,
@@ -76,11 +88,13 @@ async function showEvent(eventId: string) {
         h('div', { class: 'row' }, statusPill(e), h('span', { class: 'muted small' }, `${fmt(e.starts)} – ${fmt(e.ends)}`)),
         h('h1', {}, e.title),
         e.description ? h('p', { class: 'muted' }, e.description) : null,
+        h('div', { class: 'row event-rules' }, h('span', { class: 'pill dark' }, '📏 ' + rulesLine(e))),
+        prizesLine(e) ? h('div', { class: 'row' }, h('span', { class: 'pill gold' }, `🏆 Top 3 win: ${prizesLine(e)} points`)) : null,
         e.status === 'live'
-          ? h('p', { class: 'small' }, 'Every puzzle here is free to play until the event ends. Your best score on each one counts.', e.bonus ? ` Finish them all for +${e.bonus} bonus points.` : '')
+          ? h('p', { class: 'small' }, 'Every puzzle here is free to play until the event ends. Your best score on each one counts.', e.bonus ? ` Finish them all for +${e.bonus} bonus points and an event badge on your profile.` : ' Finish them all for an event badge on your profile.')
           : e.status === 'upcoming'
-            ? h('p', { class: 'small' }, `Starts ${fmt(e.starts)}.`)
-            : h('p', { class: 'small muted' }, 'This event has ended. The puzzles stay in their categories.'),
+            ? h('p', { class: 'small' }, `Starts ${fmt(e.starts)} · `, h('b', {}, 'in '), startCd)
+            : h('p', { class: 'small muted' }, 'This event has ended.'),
         d.me && e.status !== 'upcoming'
           ? h(
               'div',
@@ -102,6 +116,8 @@ async function showEvent(eventId: string) {
         { class: 'grid' },
         d.puzzles.map((p) => {
           const card = puzzleCard(p);
+          // Play it the event's way (its rules and shuffle) while it's on.
+          if (e.status === 'live' && card instanceof HTMLAnchorElement) card.href = `/play?p=${encodeURIComponent(p.slug)}&event=${encodeURIComponent(e.id)}`;
           if (p.eventResult) {
             card.querySelector('.corner')?.remove();
             card.append(h('span', { class: 'corner' }, p.eventResult.medal ? medalBadge(p.eventResult.medal, true) : h('span', { class: 'pill' }, `${p.eventResult.scorePct}%`)));
@@ -110,6 +126,18 @@ async function showEvent(eventId: string) {
         }),
       ),
     ),
+    d.winners.length
+      ? h(
+          'section',
+          { class: 'panel' },
+          h('h2', {}, '🏆 Winners'),
+          h(
+            'div',
+            { class: 'row' },
+            d.winners.map((w) => h('span', { class: 'pill dark winner' }, `${PLACES[w.place - 1]} `, userLink(w.username), w.points ? ` · +${w.points.toLocaleString()} points` : '')),
+          ),
+        )
+      : null,
     h(
       'section',
       { class: 'panel' },
@@ -132,4 +160,5 @@ async function showEvent(eventId: string) {
     ),
   );
   countdown(cd, d.nextDayInMs);
+  if (d.startsInMs != null) longCountdown(startCd, d.startsInMs, () => location.reload());
 }

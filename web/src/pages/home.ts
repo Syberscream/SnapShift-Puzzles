@@ -1,6 +1,6 @@
 import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
-import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag, store } from '../lib/ui';
+import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag, store, longCountdown } from '../lib/ui';
 import { categoryCard, puzzleCard } from './shared';
 import { plusSection } from '../lib/plus-promo';
 
@@ -11,7 +11,8 @@ interface Home {
   dailyResult: { score_pct: number; elapsed_ms: number; moves: number; medal: string } | null;
   streak: { current: number; best: number; doneToday: boolean } | null;
   continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; challenge: string | null; thumb: string }[];
-  events: { id: string; title: string; description: string; image: string; ends: string; bonus: number }[];
+  events: { id: string; title: string; description: string; image: string; ends: string; bonus: number; prizes: number[] }[];
+  upcoming: { id: string; title: string; description: string; image: string; starts: string; startsInMs: number; prizes: number[] }[];
   categories: Category[];
   latest: PuzzleView[];
 }
@@ -150,11 +151,31 @@ async function render(d: Home) {
         h('div', { class: 'row' }, h('span', { class: 'pill event-pill' }, '🎉 Event'), h('span', { class: 'muted small' }, `Until ${new Date(e.ends + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`)),
         h('h2', {}, e.title),
         e.description ? h('p', { class: 'muted' }, e.description) : null,
-        h('p', { class: 'small' }, `Every event puzzle is free to play while it runs.${e.bonus ? ` Finish them all for +${e.bonus} bonus points.` : ''}`),
+        h('p', { class: 'small' }, `Every event puzzle is free to play while it runs.${e.bonus ? ` Finish them all for +${e.bonus} bonus points.` : ''}${e.prizes.some((x) => x > 0) ? ` Top 3 win up to ${Math.max(...e.prizes).toLocaleString()} points.` : ''}`),
         h('div', { class: 'row' }, h('a', { class: 'btn primary', href: `/event?e=${encodeURIComponent(e.id)}` }, 'Play the event')),
       ),
     ),
   );
+
+  // Coming soon: a countdown to events about to start.
+  const upcoming = (d.upcoming ?? []).map((e) => {
+    const cd = h('b', { class: 'countdown' });
+    longCountdown(cd, e.startsInMs, () => location.reload());
+    return h(
+      'section',
+      { class: 'panel event-panel coming-soon' },
+      e.image ? h('div', { class: 'event-art', style: bg(e.image) }) : null,
+      h(
+        'div',
+        { class: 'stack' },
+        h('div', { class: 'row' }, h('span', { class: 'pill dark' }, '⏳ Coming soon'), h('span', { class: 'pill gold' }, 'Starts in ', cd)),
+        h('h2', {}, e.title),
+        e.description ? h('p', { class: 'muted' }, e.description) : null,
+        e.prizes.some((x) => x > 0) ? h('p', { class: 'small' }, `🏆 Top 3 win ${e.prizes.map((x) => x.toLocaleString()).join(' / ')} points.`) : null,
+        h('div', { class: 'row' }, h('a', { class: 'btn', href: `/event?e=${encodeURIComponent(e.id)}` }, 'See the event')),
+      ),
+    );
+  });
 
   // New visitors (no account, never finished a game here) get the guided first game.
   const fresh = !user && !store<boolean>('ss_tutorial_done', false).get() && store<number>('ss_finishes', 0).get() === 0;
@@ -167,5 +188,5 @@ async function render(d: Home) {
       )
     : null;
 
-  mount(main, welcome, hero, ...events, cont, ta, slider, cats, latest, await plusSection());
+  mount(main, welcome, hero, ...events, ...upcoming, cont, ta, slider, cats, latest, await plusSection());
 }

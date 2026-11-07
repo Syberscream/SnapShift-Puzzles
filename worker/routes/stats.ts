@@ -211,6 +211,16 @@ app.get('/profile/:name', async (c) => {
     c.env.DB.prepare('SELECT COUNT(*) AS n, SUM(medal = \'gold\') AS golds FROM daily_results WHERE user_id = ?').bind(u.id).first<{ n: number; golds: number | null }>(),
     dailyStreak(c.env, u.id, today),
   ]);
+  const { results: evs } = await c.env.DB.prepare(
+    `SELECT e.id, e.title, e.ends, (SELECT place FROM event_prizes p WHERE p.event_id = e.id AND p.user_id = ?1) AS place,
+       EXISTS (SELECT 1 FROM event_rewards r WHERE r.event_id = e.id AND r.user_id = ?1) AS completed
+     FROM events e
+     WHERE EXISTS (SELECT 1 FROM event_rewards r WHERE r.event_id = e.id AND r.user_id = ?1)
+        OR EXISTS (SELECT 1 FROM event_prizes p WHERE p.event_id = e.id AND p.user_id = ?1)
+     ORDER BY e.ends DESC LIMIT 30`,
+  )
+    .bind(u.id)
+    .all<{ id: string; title: string; ends: string; place: number | null; completed: number }>();
   const m = Object.fromEntries(medals.results.map((r) => [r.medal, r.n]));
   const byId = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
   return c.json({
@@ -230,6 +240,7 @@ app.get('/profile/:name', async (c) => {
       return a ? [{ id: a.id, icon: a.icon, title: a.title, description: a.description, earnedAt: r.earned_at }] : [];
     }),
     achievementsTotal: ACHIEVEMENTS.length,
+    eventBadges: evs.map((e) => ({ id: e.id, title: e.title, year: e.ends.slice(0, 4), place: e.place, completed: !!e.completed })),
     // One card per picture (its latest finish).
     recent: recent.results.filter((r, i, all) => all.findIndex((x) => x.slug === r.slug) === i).slice(0, 8).map((r) => ({
       slug: r.slug,

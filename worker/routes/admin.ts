@@ -477,13 +477,21 @@ app.put('/events/:id', async (c) => {
   const ends = day(b.ends);
   if (!starts || !ends || ends < starts) fail(422, 'Pick a start and end date (the end on or after the start).');
   const ids = Array.isArray(b.puzzleIds) ? [...new Set(b.puzzleIds.map((x) => int(x)).filter((x) => x > 0))].slice(0, 50) : [];
+  const difficulty = ['easy', 'medium', 'hard'].includes(String(b.difficulty)) ? String(b.difficulty) : 'medium';
+  const mode = b.mode === 'rotation' ? 'rotation' : 'classic';
+  const prizes = (Array.isArray(b.prizes) ? b.prizes : [500, 300, 150]).slice(0, 3).map((x) => Math.max(0, Math.min(10000, int(x))));
+  const teaser = Math.max(0, Math.min(14, int(b.teaserDays, 3)));
+  // Moving the end date into the future (re)opens prizes.
+  const reopen = ends >= dayKey(c.env);
   const t = now();
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO events (id, title, description, image_url, starts, ends, bonus, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO events (id, title, description, image_url, starts, ends, bonus, difficulty, mode, prizes, teaser_days, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description, image_url = excluded.image_url,
-         starts = excluded.starts, ends = excluded.ends, bonus = excluded.bonus`,
-    ).bind(id, title, str(b.description, 400), str(b.image_url, 300), starts, ends, Math.max(0, Math.min(5000, int(b.bonus))), t),
+         starts = excluded.starts, ends = excluded.ends, bonus = excluded.bonus, difficulty = excluded.difficulty, mode = excluded.mode,
+         prizes = excluded.prizes, teaser_days = excluded.teaser_days, prizes_paid_at = ${reopen ? 'NULL' : 'events.prizes_paid_at'}`,
+    ).bind(id, title, str(b.description, 400), str(b.image_url, 300), starts, ends, Math.max(0, Math.min(5000, int(b.bonus))), difficulty, mode, JSON.stringify(prizes), teaser, t),
     c.env.DB.prepare('DELETE FROM event_puzzles WHERE event_id = ?').bind(id),
     ...ids.map((pid, i) => c.env.DB.prepare('INSERT OR IGNORE INTO event_puzzles (event_id, puzzle_id, sort) VALUES (?, ?, ?)').bind(id, pid, i)),
   ]);

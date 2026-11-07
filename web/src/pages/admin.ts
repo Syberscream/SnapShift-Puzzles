@@ -1093,6 +1093,10 @@ interface AdminEvent {
   puzzles: number;
   players: number;
   puzzleIds: number[];
+  difficulty?: string;
+  mode?: string;
+  prizes?: string;
+  teaser_days?: number;
 }
 
 /** Generate pictures only for one event: one per idea line, from a theme pack or your own. */
@@ -1166,6 +1170,13 @@ async function events() {
   const editor = h('div');
   const edit = (e: AdminEvent | null) => {
     const chosen = new Set(e?.puzzleIds ?? []);
+    let prizes = [500, 300, 150];
+    try {
+      if (e?.prizes) prizes = JSON.parse(e.prizes);
+    } catch {
+      /* keep defaults */
+    }
+    const prizeInputs = [0, 1, 2].map((i) => h('input', { type: 'number', min: 0, max: 10000, value: prizes[i] ?? 0, 'aria-label': ['1st', '2nd', '3rd'][i] + ' place', style: 'max-width:110px' }) as HTMLInputElement);
     const img = h('input', { name: 'image_url', value: e?.image_url ?? '', placeholder: '/media/site/… or https://…' }) as HTMLInputElement;
     const upload = h('input', { type: 'file', accept: 'image/*' }) as HTMLInputElement;
     // Pick the event's picture from its own puzzles.
@@ -1240,6 +1251,30 @@ async function events() {
           h('div', { class: 'field' }, h('label', {}, 'Bonus for finishing every puzzle (points)'), h('input', { type: 'number', name: 'bonus', min: 0, max: 5000, value: e?.bonus ?? 300 })),
           h(
             'div',
+            { class: 'row' },
+            h(
+              'div',
+              { class: 'field' },
+              h('label', {}, 'Difficulty'),
+              h('select', { name: 'difficulty' }, ['easy', 'medium', 'hard'].map((d) => h('option', { value: d, selected: d === (e?.difficulty ?? 'medium') }, d[0].toUpperCase() + d.slice(1)))),
+            ),
+            h(
+              'div',
+              { class: 'field' },
+              h('label', {}, 'Mode'),
+              h('select', { name: 'mode' }, h('option', { value: 'classic', selected: (e?.mode ?? 'classic') === 'classic' }, 'Classic'), h('option', { value: 'rotation', selected: e?.mode === 'rotation' }, 'Rotation (a “Spin Week”)')),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'field' },
+            h('label', {}, 'Prizes for 1st, 2nd and 3rd (points, paid when it ends)'),
+            h('div', { class: 'row' }, prizeInputs),
+          ),
+          h('div', { class: 'field' }, h('label', {}, 'Show as “Coming soon” on the home page (days before it starts; 0 = no)'), h('input', { type: 'number', name: 'teaserDays', min: 0, max: 14, value: e?.teaser_days ?? 3 })),
+          h('p', { class: 'small muted' }, 'Everyone gets the same shuffle for each puzzle, and hints and placed tiles are off, so the leaderboard is fair. Only games started from the event page count.'),
+          h(
+            'div',
             { class: 'field' },
             h('label', {}, 'Picture (optional)'),
             h('span', { class: 'small muted' }, 'Tap one of the event’s puzzles, upload one, or leave it empty to use the first puzzle’s picture.'),
@@ -1266,6 +1301,10 @@ async function events() {
           starts: d.get('starts'),
           ends: d.get('ends'),
           bonus: Number(d.get('bonus')),
+          difficulty: d.get('difficulty'),
+          mode: d.get('mode'),
+          prizes: prizeInputs.map((x) => Number(x.value) || 0),
+          teaserDays: Number(d.get('teaserDays')),
           puzzleIds: [...chosen],
         });
         toast('Event saved', '', 'good');

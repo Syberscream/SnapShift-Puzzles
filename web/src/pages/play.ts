@@ -127,6 +127,9 @@ interface GuestSave {
 const main = await shell({ bodyClass: 'game-page' });
 const user = me();
 const dailyDay = qs('daily');
+/** Playing from an event: its difficulty, mode and shared shuffle; no helpers. */
+const eventParam = qs('event');
+let eventInfo = null as { id: string; title: string; difficulty: Difficulty; mode: Mode; puzzleId: number } | null;
 const challengeId = qs('challenge');
 let challenge: ChallengeInfo | null = null;
 let slug = qs('p');
@@ -226,6 +229,19 @@ async function shareOrCopy(text: string, done = 'Copied to the clipboard.') {
 const helpText = h('p', { class: 'small muted', style: 'margin-top:8px' });
 
 async function loadPuzzle(): Promise<void> {
+  if (eventParam && slug) {
+    const ev = await api
+      .get<{ event: { id: string; title: string; status: string; difficulty: Difficulty; mode: Mode }; puzzles: { id: number; slug: string }[] }>(`/events/${encodeURIComponent(eventParam)}`)
+      .catch(() => null);
+    const p = ev?.puzzles.find((x) => x.slug === slug);
+    if (ev && p && ev.event.status === 'live') {
+      eventInfo = { id: ev.event.id, title: ev.event.title, difficulty: ev.event.difficulty, mode: ev.event.mode, puzzleId: p.id };
+      difficulty = eventInfo.difficulty;
+      mode = eventInfo.mode;
+    } else if (ev) {
+      toast(ev.event.status === 'upcoming' ? 'The event hasn’t started yet' : 'This event has ended', 'This game won’t count for the event.');
+    }
+  }
   if (challengeId) {
     challenge = await api.get<ChallengeInfo>(`/challenges/${encodeURIComponent(challengeId)}`);
     slug = challenge.puzzle.slug;
@@ -260,7 +276,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-const guestBase = () => (challengeId ? 'challenge:' + challengeId : dailyDay ? 'daily:' + dailyDay : slug);
+const guestBase = () => (challengeId ? 'challenge:' + challengeId : eventInfo ? `event:${eventInfo.id}:${slug}` : dailyDay ? 'daily:' + dailyDay : slug);
 const guestKey = () => `${guestBase()}:${difficulty}:${mode}:v2`;
 
 /** Guest save for the current difficulty/mode, including games saved before modes existed. */
@@ -281,7 +297,9 @@ async function startGame(fresh = false): Promise<void> {
   if (user) {
     const r = await api.post<{ play: ServerPlay; resumed: boolean }>(
       '/plays',
-      challenge ? { challenge: challenge.id, fresh } : { puzzle: puzzle.slug, difficulty, mode, daily: dailyDay || undefined, fresh },
+      challenge
+        ? { challenge: challenge.id, fresh }
+        : { puzzle: puzzle.slug, difficulty, mode, daily: dailyDay || undefined, event: eventInfo?.id, fresh },
     );
     play = r.play;
     seed = play.seed;
@@ -299,7 +317,13 @@ async function startGame(fresh = false): Promise<void> {
       delete saves[guestKey()];
       guestSaves.set(saves);
     }
-    seed = challenge ? challenge.seed : dailyDay ? seedFromString('daily:' + dailyDay) : (saved?.seed ?? randomSeed());
+    seed = challenge
+      ? challenge.seed
+      : eventInfo
+        ? seedFromString(`event:${eventInfo.id}:${eventInfo.puzzleId}`)
+        : dailyDay
+          ? seedFromString('daily:' + dailyDay)
+          : (saved?.seed ?? randomSeed());
     setup = { version: challenge ? challenge.engine : (saved?.version ?? ENGINE_VERSION), difficulty, mode, daily: !!dailyDay, hardMode: false };
     actions = saved?.actions ?? [];
     elapsedBase = saved?.elapsedMs ?? 0;
@@ -401,22 +425,28 @@ function syncControls() {
     diffSel,
     DIFFICULTIES.map((d) => h('option', { value: d, selected: d === difficulty }, `${RULES[d].label} (${r(d).rows}×${r(d).cols})`)),
   );
-  diffSel.disabled = !!dailyDay || !!challenge;
+  diffSel.disabled = !!dailyDay || !!challenge || !!eventInfo;
   modeSel.value = mode;
   modeSel.hidden = !!dailyDay || setup.version === 1;
-  modeSel.disabled = !!challenge;
-  placeBtn.hidden = !rules.placeAllowed;
+  modeSel.disabled = !!challenge || !!eventInfo;
+  placeBtn.hidden = !rules.placeAllowed || !!eventInfo;
+  hintBtn.hidden = !!eventInfo;
   peekBtn.hidden = rules.preview !== 'peek';
   pauseBtn.hidden = !rules.timed;
   preview.hidden = rules.preview !== 'always';
   for (const el of [timeEl, scoreEl, streakEl]) el.hidden = !rules.timed;
-  modeEl.textContent = dailyDay ? `Daily · ${dailyDay}` : `${puzzle.categoryName || 'Puzzle'} · ${MODE_LABELS[mode]}`;
+  modeEl.textContent = eventInfo
+    ? `🎉 ${eventInfo.title} · ${RULES[difficulty].label}`
+    : dailyDay
+      ? `Daily · ${dailyDay}`
+      : `${puzzle.categoryName || 'Puzzle'} · ${MODE_LABELS[mode]}`;
   hintBtn.textContent = rules.hintCost ? `Hint (${rules.hintCost} pts)` : 'Hint (free)';
   placeBtn.textContent = rules.placeCost ? `Place 1 tile (${rules.placeCost} pts)` : 'Place 1 tile (free)';
   const lockText = rules.lock ? 'Tiles lock when they land in the right place.' : 'Tiles do not lock on this difficulty: a correct tile can be swapped out again.';
   helpText.textContent = rules.rotation
     ? `Drag a tile onto another to swap them; tap a tile to turn it. A tile is right when it's in place and upright. ${lockText} Keyboard: arrows, Enter to swap, R to rotate.`
     : `Drag a tile onto another to swap them, or click two tiles. ${lockText} Keyboard: arrows + Enter.`;
+  if (eventInfo) helpText.textContent += ' Event rules: the same shuffle for everyone, and no hints or placed tiles.';
 }
 
 function scheduleSave(now = false) {
@@ -487,7 +517,7 @@ function onRotate(p: number) {
 const hintPositions = (m: Suggestion) => (m.kind === 'swap' ? [m.a, m.b] : [m.p]);
 
 async function useHint() {
-  if (finished) return;
+  if (finished || eventInfo) return;
   if (Date.now() - lastHintAt < rules.hintCooldownMs) {
     toast('Hint cooling down', `Ready in ${Math.ceil((rules.hintCooldownMs - (Date.now() - lastHintAt)) / 1000)}s.`);
     return;
@@ -647,11 +677,15 @@ function showResult(r: CompleteResult, guest: boolean) {
   if (!guest) countUp(pointsEl, r.points + r.dailyBonus, (n) => `+${n.toLocaleString()} points`);
   const label = rating ? rating.medal[0].toUpperCase() + rating.medal.slice(1) : '';
   const subtitle = `${puzzle.title} · ${RULES[difficulty].label} · ${MODE_LABELS[mode]}`;
-  const link = dailyDay ? `${location.origin}/daily` : challenge ? `${location.origin}/play?challenge=${challenge.id}` : `${location.origin}/play?p=${encodeURIComponent(puzzle.slug)}`;
+  const link = eventInfo
+    ? `${location.origin}/event?e=${encodeURIComponent(eventInfo.id)}`
+    : dailyDay
+      ? `${location.origin}/daily`
+      : challenge ? `${location.origin}/play?challenge=${challenge.id}` : `${location.origin}/play?p=${encodeURIComponent(puzzle.slug)}`;
   const share = () => shareOrCopy(shareText({ rating, elapsedMs: r.elapsedMs, moves: r.moves }, link), 'Result copied. Paste it anywhere!');
   // Challenge a friend: your exact board, by link.
   const challengeBtn =
-    user && play && !dailyDay && rating && !r.zen
+    user && play && !dailyDay && !eventInfo && rating && !r.zen
       ? (h('button', { class: 'btn' }, '⚔ Challenge a friend') as HTMLButtonElement)
       : null;
   challengeBtn?.addEventListener('click', async () => {
@@ -834,7 +868,7 @@ try {
         h(
           'aside',
           { class: 'side panel', 'aria-label': 'Game controls' },
-          h('a', { class: 'btn', href: puzzle.categoryId && !dailyDay ? `/category?c=${puzzle.categoryId}` : '/' }, '← Back'),
+          h('a', { class: 'btn', href: eventInfo ? `/event?e=${encodeURIComponent(eventInfo.id)}` : puzzle.categoryId && !dailyDay ? `/category?c=${puzzle.categoryId}` : '/' }, '← Back'),
           h('b', { class: 'sidebar-title' }, puzzle.title),
           preview,
           diffSel,
@@ -846,7 +880,7 @@ try {
           pauseBtn,
           fullscreenButton(() => wrap),
           muteBtn,
-          !dailyDay && !challengeId ? h('a', { class: 'btn', href: `/slider?p=${encodeURIComponent(puzzle.slug)}` }, 'Play as slider') : null,
+          !dailyDay && !challengeId && !eventInfo ? h('a', { class: 'btn', href: `/slider?p=${encodeURIComponent(puzzle.slug)}` }, 'Play as slider') : null,
           h('a', { class: 'btn', href: '/how-to-play', target: '_blank' }, 'How to play'),
           moreBtn,
         ),

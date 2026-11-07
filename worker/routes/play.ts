@@ -3,7 +3,7 @@ import type { AppEnv, User } from '../env';
 import { requireUser } from '../lib/auth';
 import { archiveOpen, canPlay, dailyStreak, getDaily, media, useStreakFreezes, type PuzzleRow, imageFields } from '../lib/catalog';
 import { isMember } from '../lib/membership';
-import { checkAchievements, checkCollection, recordEventFinish } from '../lib/rewards';
+import { checkAchievements, checkCollection, eventSeed, recordEventFinish, type EventRow } from '../lib/rewards';
 import { balance, creditStatements, spend } from '../lib/points';
 import { body, dayKey, fail, int, now, randomId } from '../lib/util';
 import {
@@ -59,6 +59,7 @@ interface PlayRow {
   medal: string | null;
   points: number | null;
   challenge_id: string | null;
+  event_id: string | null;
 }
 
 export interface ChallengeRow {
@@ -95,6 +96,7 @@ function playView(p: PlayRow) {
     hardMode: !!p.hard_mode,
     daily: p.daily_day,
     challenge: p.challenge_id,
+    event: p.event_id,
     actions: JSON.parse(p.actions) as Action[],
     elapsedMs: p.elapsed_ms,
     completed: !!p.completed_at,
@@ -147,7 +149,25 @@ app.post('/', async (c) => {
   let puzzle: PuzzleRow | null;
   let seed: number;
   let challenge: ChallengeRow | null = null;
-  if (typeof b.challenge === 'string' && b.challenge) {
+  let eventId: string | null = null;
+  if (typeof b.event === 'string' && b.event) {
+    // An event game: the event's difficulty and mode, and its shuffle (the same for everyone).
+    const today = dayKey(c.env);
+    const ev = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(b.event).first<EventRow>();
+    if (!ev) fail(404, 'Event not found.');
+    if (ev.starts > today) fail(403, 'This event hasn’t started yet.');
+    if (ev.ends < today) fail(403, 'This event has ended.');
+    puzzle = await c.env.DB.prepare(
+      "SELECT p.* FROM puzzles p JOIN event_puzzles ep ON ep.puzzle_id = p.id WHERE ep.event_id = ? AND p.slug = ? AND p.status = 'published'",
+    )
+      .bind(ev.id, slug)
+      .first<PuzzleRow>();
+    if (!puzzle) fail(404, 'That puzzle isn’t part of this event.');
+    eventId = ev.id;
+    seed = eventSeed(ev.id, puzzle.id);
+    difficulty = (DIFFICULTIES as string[]).includes(ev.difficulty ?? '') ? (ev.difficulty as Difficulty) : 'medium';
+    mode = ev.mode === 'rotation' ? 'rotation' : 'classic';
+  } else if (typeof b.challenge === 'string' && b.challenge) {
     // A friend's challenge: their exact board, even if the puzzle is locked for you.
     challenge = await c.env.DB.prepare('SELECT * FROM challenges WHERE id = ?').bind(b.challenge).first<ChallengeRow>();
     if (!challenge) fail(404, 'Challenge not found.');
@@ -187,9 +207,10 @@ app.post('/', async (c) => {
           `SELECT * FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ? AND mode = ? AND challenge_id IS NULL
            AND completed_at IS ${completed ? 'NOT NULL' : 'NULL'}
            AND ${dailyDay ? 'daily_day = ?' : 'daily_day IS NULL AND ? IS NULL'}
+           AND ${eventId ? 'event_id = ?' : 'event_id IS NULL AND ? IS NULL'}
            ORDER BY ${completed ? 'completed_at' : 'updated_at'} DESC LIMIT 1`,
         )
-          .bind(user.id, puzzle.id, difficulty, mode, dailyDay)
+          .bind(user.id, puzzle.id, difficulty, mode, dailyDay, eventId)
           .first<PlayRow>();
   const existing = await latest(false);
   const done = await latest(true);
@@ -209,10 +230,10 @@ app.post('/', async (c) => {
   const id = randomId(12);
   const t = now();
   await c.env.DB.prepare(
-    `INSERT INTO plays (id, user_id, puzzle_id, difficulty, mode, engine, hard_mode, daily_day, seed, started_at, updated_at, challenge_id)
-     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
+    `INSERT INTO plays (id, user_id, puzzle_id, difficulty, mode, engine, hard_mode, daily_day, seed, started_at, updated_at, challenge_id, event_id)
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, user.id, puzzle.id, difficulty, mode, challenge ? challenge.engine : ENGINE_VERSION, challenge ? null : dailyDay, seed, t, t, challenge?.id ?? null)
+    .bind(id, user.id, puzzle.id, difficulty, mode, challenge ? challenge.engine : ENGINE_VERSION, challenge || eventId ? null : dailyDay, seed, t, t, challenge?.id ?? null, eventId)
     .run();
   const play = await c.env.DB.prepare('SELECT * FROM plays WHERE id = ?').bind(id).first<PlayRow>();
   return c.json({ play: playView(play!), resumed: false });
@@ -243,6 +264,7 @@ app.post('/:id/hint', async (c) => {
   const user = requireUser(c);
   const play = await loadPlay(c, user, c.req.param('id'));
   if (play.completed_at) fail(409, 'This game is finished.');
+  if (play.event_id) fail(403, 'Hints are off during events, so everyone plays on equal terms.');
   const actions = parseActions((await body(c)).actions);
   const state = validate(play, actions);
   const rules = gameRules(setupOf(play));
@@ -266,6 +288,7 @@ app.post('/:id/place', async (c) => {
   const play = await loadPlay(c, user, c.req.param('id'));
   if (play.completed_at) fail(409, 'This game is finished.');
   const rules = gameRules(setupOf(play));
+  if (play.event_id) fail(403, 'Placing tiles is off during events, so everyone plays on equal terms.');
   if (!rules.placeAllowed) fail(403, 'Not available on the daily challenge.');
   const actions = parseActions((await body(c)).actions);
   const state = validate(play, actions);
@@ -375,7 +398,10 @@ app.post('/:id/complete', async (c) => {
   }
   const puzzleRow = await c.env.DB.prepare('SELECT category_id FROM puzzles WHERE id = ?').bind(play.puzzle_id).first<{ category_id: string | null }>();
   const collection = play.daily_day ? null : await checkCollection(c.env, user.id, puzzleRow?.category_id ?? null);
-  const events = zen || play.daily_day ? [] : await recordEventFinish(c.env, user.id, play.puzzle_id, { scorePct: rating.scorePct, elapsedMs: elapsed, medal: rating.medal });
+  const events =
+    zen || play.daily_day || !play.event_id
+      ? []
+      : await recordEventFinish(c.env, user.id, play.puzzle_id, { scorePct: rating.scorePct, elapsedMs: elapsed, medal: rating.medal }, play.event_id);
   if (!zen && rating.moveEffPct >= 100) extra.push('perfect');
   if (streak && streak.current >= 7) extra.push('streak-7');
   if (streak && streak.current >= 30) extra.push('streak-30');

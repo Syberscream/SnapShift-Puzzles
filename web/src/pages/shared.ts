@@ -57,7 +57,9 @@ export function puzzleCard(p: PuzzleView, onChange?: () => void): HTMLElement {
     'button',
     { class: 'card', style: 'text-align:left;cursor:pointer;font:inherit', onclick: () => unlockDialog(p, onChange) },
     h('div', { class: 'thumb locked', style: bg(p.thumb) }),
-    p.lock === 'points' ? h('span', { class: 'corner lock-badge', 'aria-hidden': 'true' }, '🔒') : h('span', { class: 'corner' }, plusTag(p.lock === 'early' ? 'EARLY ACCESS' : 'PLUS')),
+    p.lock === 'points' || p.lock === 'event'
+      ? h('span', { class: 'corner lock-badge', 'aria-hidden': 'true' }, p.lock === 'event' ? '⏳' : '🔒')
+      : h('span', { class: 'corner' }, plusTag(p.lock === 'early' ? 'EARLY ACCESS' : 'PLUS')),
     h(
       'div',
       { class: 'meta' },
@@ -66,7 +68,7 @@ export function puzzleCard(p: PuzzleView, onChange?: () => void): HTMLElement {
         'div',
         { class: 'spread' },
         h('span', {}, `#${p.index + 1}`),
-        h('span', {}, p.lock === 'members' ? 'Members only' : p.lock === 'early' && p.publicAt ? `Free ${timeUntil(p.publicAt)}` : `Unlock · ${p.unlockCost} pts`),
+        h('span', {}, p.lock === 'event' ? 'When the event is on' : p.lock === 'members' ? 'Members only' : p.lock === 'early' && p.publicAt ? `Free ${timeUntil(p.publicAt)}` : `Unlock · ${p.unlockCost} pts`),
       ),
     ),
   );
@@ -82,6 +84,10 @@ export function plusDialog(title: string, text: string): void {
 }
 
 function unlockDialog(p: PuzzleView, onChange?: () => void) {
+  if (p.lock === 'event') {
+    const d = modal(h('h2', {}, `“${p.title}” is an event picture`), h('p', { class: 'muted' }, 'It opens to everyone while its event is on.'), h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => d.close() }, 'OK')));
+    return;
+  }
   if (p.lock === 'members') return plusDialog(`“${p.title}” is in the Members’ Gallery`, 'SnapShift Plus members get a members-only gallery with new pictures every week, plus every puzzle unlocked.');
   if (p.lock === 'early' && p.publicAt)
     return plusDialog(`“${p.title}” is brand new`, `Plus members play new puzzles first. It opens to everyone ${timeUntil(p.publicAt)}.`);

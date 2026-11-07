@@ -13,6 +13,7 @@ import plus from './routes/plus';
 import challenges from './routes/challenges';
 import events from './routes/events';
 import slider from './routes/slider';
+import { settleEventPrizes } from './lib/rewards';
 import { runPipeline } from './pipeline/pipeline';
 import { sendStreakReminders } from './lib/reminders';
 
@@ -74,5 +75,6 @@ export default {
         (e) => console.error('[reminders] error', e),
       ),
     );
+    ctx.waitUntil(settleEventPrizes(env).catch((e) => console.error('[events] prizes', e)));
   },
 } satisfies ExportedHandler<Env>;

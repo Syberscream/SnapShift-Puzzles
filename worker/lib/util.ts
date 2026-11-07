@@ -101,3 +101,8 @@ export function weekOf(day: string): string {
   const back = (new Date(day + 'T12:00:00Z').getUTCDay() + 6) % 7; // Monday = 0
   return addDays(day, -back);
 }
+
+/** Whole days from day a to day b (YYYY-MM-DD). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400_000);
+}

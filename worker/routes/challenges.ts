@@ -26,8 +26,10 @@ app.post('/', async (c) => {
     medal: string | null;
     score_pct: number | null;
     completed_at: number | null;
+    event_id: string | null;
   }>();
   if (!play || !play.completed_at) fail(404, 'Finish the puzzle first.');
+  if (play.event_id) fail(422, 'Event games can’t be challenges; everyone already plays the same board.');
   if (play.daily_day) fail(422, 'Daily puzzles can’t be challenges; everyone already plays the same board.');
   if (play.mode === 'zen') fail(422, 'Zen games have no clock, so they can’t be challenges.');
   const p = await c.env.DB.prepare('SELECT category_id FROM puzzles WHERE id = ?').bind(play.puzzle_id).first<{ category_id: string }>();

@@ -4,6 +4,8 @@ import type { Env } from '../env';
 import { DAILY_CATEGORY } from './catalog';
 import { creditStatements } from './points';
 import { dayKey, now } from './util';
+import { plusSql } from './membership';
+import { seedFromString } from '../../shared/engine';
 import { ACHIEVEMENT_BY_ID, collectionBonus, COLLECTION_MIN, type Achievement } from '../../shared/achievements';
 
 /** Finished / total puzzles per category for a player (published puzzles only). */
@@ -47,6 +49,12 @@ export interface EventRow {
   starts: string;
   ends: string;
   bonus: number;
+  difficulty?: string;
+  mode?: string;
+  /** JSON: points for 1st, 2nd, 3rd. */
+  prizes?: string;
+  prizes_paid_at?: number | null;
+  teaser_days?: number;
   /** The first puzzle's picture, used when the event has no picture of its own. */
   cover_key?: string | null;
 }
@@ -89,12 +97,14 @@ export async function recordEventFinish(
   userId: number,
   puzzleId: number,
   result: { scorePct: number; elapsedMs: number; medal: string | null },
+  eventId: string,
 ): Promise<EventProgress[]> {
+  // Only games started from the event (its rules, its shuffle) count, and only while it's on.
   const day = dayKey(env);
   const { results: events } = await env.DB.prepare(
-    'SELECT e.* FROM events e JOIN event_puzzles ep ON ep.event_id = e.id WHERE ep.puzzle_id = ? AND e.starts <= ? AND e.ends >= ?',
+    'SELECT e.* FROM events e JOIN event_puzzles ep ON ep.event_id = e.id WHERE ep.puzzle_id = ? AND e.id = ? AND e.starts <= ? AND e.ends >= ?',
   )
-    .bind(puzzleId, day, day)
+    .bind(puzzleId, eventId, day, day)
     .all<EventRow>();
   const out: EventProgress[] = [];
   for (const e of events) {
@@ -222,4 +232,61 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
     got.push(a);
   }
   return got;
+}
+
+export const eventPrizes = (e: EventRow): number[] => {
+  try {
+    const p = JSON.parse(e.prizes || '[]');
+    return Array.isArray(p) ? p.slice(0, 3).map((x) => Math.max(0, Math.min(10000, Math.round(Number(x) || 0)))) : [];
+  } catch {
+    return [];
+  }
+};
+
+/** The event's shuffle for one puzzle: the same for every player. */
+export const eventSeed = (eventId: string, puzzleId: number) => seedFromString(`event:${eventId}:${puzzleId}`);
+
+export interface EventBoardRow {
+  username: string;
+  user_id: number;
+  done: number;
+  total: number;
+  time: number;
+  plus: number;
+}
+
+/** Most puzzles finished, then highest total score, then least total time. */
+export async function eventLeaderboard(env: Env, eventId: string, limit = 50): Promise<EventBoardRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT u.username, r.user_id, COUNT(*) AS done, SUM(r.score_pct) AS total, SUM(r.elapsed_ms) AS time, ${plusSql('u')} AS plus
+     FROM event_results r JOIN users u ON u.id = r.user_id WHERE r.event_id = ?
+     GROUP BY r.user_id ORDER BY done DESC, total DESC, time ASC LIMIT ?`,
+  )
+    .bind(eventId, limit)
+    .all<EventBoardRow>();
+  return results;
+}
+
+/** Pay 1st/2nd/3rd for events that have ended (once each). */
+export async function settleEventPrizes(env: Env, today = dayKey(env)): Promise<number> {
+  const { results } = await env.DB.prepare('SELECT * FROM events WHERE ends < ? AND prizes_paid_at IS NULL').bind(today).all<EventRow>();
+  let paid = 0;
+  for (const e of results) {
+    // Claim the event first so two runs can't both pay.
+    const claim = await env.DB.prepare('UPDATE events SET prizes_paid_at = ? WHERE id = ? AND prizes_paid_at IS NULL').bind(now(), e.id).run();
+    if (!claim.meta.changes) continue;
+    const prizes = eventPrizes(e);
+    const top = (await eventLeaderboard(env, e.id, 3)).filter((r) => r.done > 0);
+    for (let i = 0; i < top.length; i++) {
+      const pts = prizes[i] ?? 0;
+      const ins = await env.DB.prepare('INSERT OR IGNORE INTO event_prizes (event_id, user_id, place, points, created_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(e.id, top[i].user_id, i + 1, pts, now())
+        .run();
+      if (ins.meta.changes && pts > 0) {
+        await env.DB.batch(creditStatements(env, top[i].user_id, pts, 'event-prize', e.id));
+        paid++;
+      }
+    }
+  }
+  return paid;
 }
