@@ -1,3 +1,4 @@
+import { suggestLandscape } from '../lib/rotate-hint';
 import { celebrateAchievements } from '../lib/achievement-popup';
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
@@ -861,6 +862,7 @@ try {
       ),
     );
     board = new Board(canvas, image, { showCorrect: rules.glow, onSwap, onRotate });
+    suggestLandscape();
     diffSel.addEventListener('change', () => void switchTo({ difficulty: diffSel.value as Difficulty }));
     modeSel.addEventListener('change', () => void switchTo({ mode: modeSel.value as Mode }));
     hintBtn.addEventListener('click', useHint);

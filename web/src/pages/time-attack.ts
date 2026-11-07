@@ -2,6 +2,7 @@
 // The server hands out the puzzles and shuffles; at the end it replays every
 // move list before it counts anything.
 
+import { suggestLandscape } from '../lib/rotate-hint';
 import { celebrateAchievements } from '../lib/achievement-popup';
 import { api } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
@@ -282,6 +283,8 @@ function showResult(r: Finish, guest: boolean) {
 }
 
 function renderGame() {
+  document.body.classList.add('game-page');
+  suggestLandscape();
   mount(
     main,
     h(

@@ -537,3 +537,40 @@ dialog.ach-modal { overflow: hidden; max-width: min(420px, calc(100vw - 32px)); 
 @media (prefers-reduced-motion: reduce) { .ach-rays, .ach-badge, .ach-reward { animation: none; } }
 .brand-text { font-weight: 900; font-size: 26px; letter-spacing: -0.5px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
 .brand-text b { color: #ff8a1f; }
+
+/* Phones on their side: no site header, board fills the height, controls in a narrow column. */
+@media (orientation: landscape) and (max-height: 520px) {
+  body.game-page { padding-bottom: 0; }
+  body.game-page .topbar, body.game-page .footer, body.game-page .banner-slot, body.game-page .announcement { display: none !important; }
+  body.game-page .shell { padding: 6px max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left)); }
+  body.game-page #main { min-height: 0; }
+  body.game-page .game { grid-template-columns: minmax(0, 1fr) 140px; gap: 8px; }
+  body.game-page .game > .panel:last-child { order: 0; padding: 6px 8px; }
+  body.game-page .game .side {
+    order: 1; position: static; inset: auto; margin: 0; padding: 6px; border-radius: 14px; border: 1px solid var(--border-soft);
+    display: flex; flex-direction: column; gap: 5px; max-height: calc(100svh - 12px); overflow: auto;
+    background: var(--panel); box-shadow: none; backdrop-filter: none;
+  }
+  body.game-page .game .side > * { display: inline-flex !important; width: 100%; min-height: 34px; justify-content: center; flex: none; }
+  body.game-page .game .side > [hidden], body.game-page .game .side > .more-btn, body.game-page .game .side > .preview,
+  body.game-page .game .side > .sidebar-title, body.game-page .game .side > p { display: none !important; }
+  body.game-page .game .side > select { display: block !important; }
+  body.game-page .game .side .btn { padding: 5px 6px; font-size: 12px; white-space: nowrap; }
+  body.game-page .game .side select { padding: 4px 6px; font-size: 13px; }
+  body.game-page .hud { margin-bottom: 4px; gap: 4px; }
+  body.game-page .hud .pill { padding: 2px 8px; font-size: 11px; }
+  body.game-page .board-wrap { display: flex; justify-content: center; }
+  body.game-page .progress-bar, body.game-page .game .panel > p { display: none; }
+  body.game-page .slider-board { max-width: calc((100svh - 58px) * var(--aspect, 1.33)); margin: 0 auto; }
+}
+
+/* "Turn your phone sideways" */
+.rotate-hint { position: fixed; inset: 0; z-index: 5000; display: grid; place-items: center; padding: 20px; background: rgba(3, 7, 16, 0.82); backdrop-filter: blur(4px); }
+.rotate-card { width: min(340px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 24px 20px 18px; border-radius: 20px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+.rotate-card h2 { margin: 6px 0 0; }
+.rotate-card p { margin: 0 0 6px; }
+.rotate-card .btn { width: 100%; justify-content: center; }
+.rotate-phone { width: 46px; height: 78px; border: 4px solid #fff; border-radius: 10px; position: relative; animation: rotate-phone 2.4s ease-in-out infinite; }
+.rotate-phone i { position: absolute; left: 50%; bottom: 4px; width: 10px; height: 3px; margin-left: -5px; border-radius: 2px; background: #fff; }
+@keyframes rotate-phone { 0%, 20% { transform: rotate(0deg); } 50%, 80% { transform: rotate(-90deg); border-color: #ff8a1f; } 100% { transform: rotate(0deg); } }
+@media (prefers-reduced-motion: reduce) { .rotate-phone { animation: none; transform: rotate(-90deg); } }

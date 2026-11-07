@@ -71,6 +71,7 @@ export class Board {
     this.ctx = ctx;
     this.bind();
     new ResizeObserver(() => this.resize()).observe(canvas.parentElement!);
+    window.addEventListener('resize', () => this.resize());
   }
 
   /** Use a different picture (call setState afterwards). */
@@ -188,7 +189,13 @@ export class Board {
     const cs = getComputedStyle(parent);
     let cssW = parent.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
     let cssH = cssW / aspect;
-    const maxH = document.fullscreenElement ? window.innerHeight - 24 : Math.max(320, window.innerHeight - 140);
+    // Phones on their side: fit the board to the screen height under the score bar.
+    const shortLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches;
+    const maxH = document.fullscreenElement
+      ? window.innerHeight - 24
+      : shortLandscape
+        ? Math.max(160, window.innerHeight - (parent.getBoundingClientRect().top + window.scrollY) - 10)
+        : Math.max(320, window.innerHeight - 140);
     if (cssH > maxH) {
       cssH = maxH;
       cssW = cssH * aspect;

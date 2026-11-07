@@ -104,6 +104,7 @@ class SliderBoard {
     if (W / H > aspect) this.crop = { x: (W - H * aspect) / 2, y: 0, w: H * aspect, h: H };
     else this.crop = { x: 0, y: (H - W / aspect) / 2, w: W, h: W / aspect };
     this.el.style.aspectRatio = `${this.crop.w} / ${this.crop.h}`;
+    this.el.style.setProperty('--aspect', String(this.crop.w / this.crop.h));
     this.el.style.setProperty('--n', String(n));
     for (let t = 0; t < n * n; t++) {
       const tile = h('div', { class: `slider-tile${t === n * n - 1 ? ' blank' : ''}`, 'data-t': t }, h('span', { class: 'num' }, String(t + 1)));

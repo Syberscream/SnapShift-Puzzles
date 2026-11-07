@@ -26,6 +26,8 @@ async function newCtx(mobile = false) {
   // "Achievement unlocked!" popups would sit on top of the screens under test: note
   // each one in localStorage.__ach (so tests can check them) and close it straight away.
   await ctx.addInitScript(() => {
+    // The phone tests play upright, so skip the "turn your phone sideways" suggestion (tested separately).
+    try { localStorage.setItem('ss_rotate_never', 'true'); } catch {}
     new MutationObserver(() => {
       for (const d of document.querySelectorAll('dialog.ach-modal[open]:not([data-seen])')) {
         d.setAttribute('data-seen', '1');
@@ -978,6 +980,31 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await guest.goto(BASE + `/play?p=${encodeURIComponent(d.puzzle.slug)}&d=easy`);
   await guest.waitForSelector('#board');
   check('play page: “Play as slider” link', (await guest.locator('a', { hasText: 'Play as slider' }).count()) === 1);
+}
+
+// ---- turn the phone sideways ----
+{
+  const rCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const rp = await rCtx.newPage();
+  const slug = (await (await rp.request.get(BASE + '/api/home')).json()).latest.find((x) => x.unlocked).slug;
+  await rp.goto(BASE + `/play?p=${slug}&d=easy`);
+  await rp.waitForSelector('#board');
+  check('rotate: upright phone is asked to turn sideways', await rp.locator('.rotate-hint').isVisible());
+  await rp.setViewportSize({ width: 844, height: 390 });
+  await rp.waitForTimeout(800);
+  check('rotate: the suggestion goes when the phone is turned', (await rp.locator('.rotate-hint').count()) === 0);
+  const fit = await rp.evaluate(() => { const r = document.querySelector('#board').getBoundingClientRect(); return r.bottom <= innerHeight && r.top < 80; });
+  check('rotate: sideways, the board fits the screen with no header', fit && !(await rp.locator('.topbar').isVisible()));
+  await rp.setViewportSize({ width: 390, height: 844 });
+  await rp.reload();
+  await rp.waitForSelector('.rotate-hint');
+  await rp.check('.rotate-hint input[type=checkbox]');
+  await rp.click('text=Keep playing upright');
+  await rp.reload();
+  await rp.waitForSelector('#board');
+  await rp.waitForTimeout(500);
+  check('rotate: “Don’t ask again” is remembered', (await rp.locator('.rotate-hint').count()) === 0);
+  await rCtx.close();
 }
 
 // Static pages render
