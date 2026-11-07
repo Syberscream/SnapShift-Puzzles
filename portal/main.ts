@@ -540,5 +540,17 @@ if (new URLSearchParams(location.search).has('selftest')) {
         else moveHandlers!.rotate(m.p);
       }
     },
+    /** One suggested move (for recording gameplay videos). */
+    step() {
+      const m = suggest(state);
+      if (!m || isSolved(state)) return false;
+      if (m.kind === 'swap') moveHandlers!.swap(m.a, m.b);
+      else moveHandlers!.rotate(m.p);
+      return true;
+    },
+    play(slug: string) {
+      const x = pack.puzzles.find((q) => q.slug === slug);
+      if (x) void play(x);
+    },
   };
 }
