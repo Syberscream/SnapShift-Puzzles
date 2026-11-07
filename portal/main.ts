@@ -10,6 +10,7 @@ import { isMuted, setMuted, sfx } from '@web/game/sound';
 import { correctCount, formatTime, isCorrect, isSolved, newGame, rate, rotate, seedFromString, suggest, swap, randomSeed, type GameState, type Medal, type Rating } from '@shared/engine';
 import { PEEK_MS, RULES, type Difficulty, type GameSetup } from '@shared/rules';
 import { portal } from './sdk';
+import { medalIcon } from './medal';
 
 interface PackPuzzle {
   slug: string;
@@ -116,11 +117,20 @@ function menu() {
   const cats = ['All', ...new Set(pack.puzzles.map((x) => x.category))];
   const list = pack.puzzles.filter((x) => filter === 'All' || x.category === filter);
   const daily = dailyPick();
+  // One medal per difficulty you've finished the picture on (your best there).
   const medals = (slug: string) => {
-    const m = bestMedal(slug);
-    return m ? h('span', { class: 'medals' }, h('span', { class: `medal ${m}`, title: `${m} medal` }, m[0].toUpperCase())) : null;
+    const all = progress.get();
+    const got = (['easy', 'medium', 'hard'] as Difficulty[]).flatMap((d) => {
+      const ms = (['classic', 'rotation'] as PMode[]).map((m) => all[key(slug, d, m)]).filter(Boolean) as Medal[];
+      if (!ms.length) return [];
+      const best = ms.sort((a, b) => MEDAL_RANK[b] - MEDAL_RANK[a])[0];
+      return [medalIcon(best, 34, `${RULES[d].label}: ${best} medal`)];
+    });
+    return got.length ? h('span', { class: 'medals' }, got) : null;
   };
   const done = pack.puzzles.filter((x) => bestMedal(x.slug)).length;
+  const tally = { gold: 0, silver: 0, bronze: 0 } as Record<Medal, number>;
+  for (const m of Object.values(progress.get())) tally[m]++;
   app.className = '';
   app.replaceChildren(
     h(
@@ -147,7 +157,17 @@ function menu() {
           h('div', { style: 'margin-top:6px' }, h('button', { class: 'btn primary', onclick: () => void play(daily) }, 'Play')),
         ),
       ),
-      h('div', { class: 'spread' }, h('h1', {}, 'Pick a picture'), h('span', { class: 'muted small' }, `${done} of ${pack.puzzles.length} solved`)),
+      h(
+        'div',
+        { class: 'spread' },
+        h('h1', {}, 'Pick a picture'),
+        h(
+          'span',
+          { class: 'tally' },
+          (['gold', 'silver', 'bronze'] as Medal[]).map((m) => h('span', { class: 'tally-item' }, medalIcon(m, 26), h('b', {}, tally[m]))),
+          h('span', { class: 'muted small' }, `${done} of ${pack.puzzles.length} pictures`),
+        ),
+      ),
       h(
         'div',
         { class: 'filters' },
@@ -355,7 +375,7 @@ async function win(p: PackPuzzle, img: HTMLImageElement, setup: GameSetup) {
     h(
       'div',
       { class: 'dialog', role: 'dialog', 'aria-label': 'Puzzle solved' },
-      h('div', { class: `big-medal medal ${rating.medal}` }, rating.medal[0].toUpperCase()),
+      h('div', { class: `big-medal ${rating.medal}` }, medalIcon(rating.medal, 112), h('i', { class: 'shine' })),
       h('h1', {}, `${rating.medal[0].toUpperCase() + rating.medal.slice(1)} medal!`),
       h('div', { class: 'muted' }, `${p.title} · ${RULES[setup.difficulty].label}${setup.mode === 'rotation' ? ' · Rotation' : ''}`),
       h(
