@@ -613,6 +613,13 @@ function showResult(r: CompleteResult, guest: boolean) {
         ? h('a', { class: 'btn primary', href: `/play?p=${encodeURIComponent(puzzle.next.slug)}&d=${difficulty}&m=${mode}` }, 'Next puzzle →')
         : h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'More puzzles'),
     ),
+    h(
+      'div',
+      { class: 'row result-links' },
+      h('a', { href: '/' }, '⌂ Home'),
+      !dailyDay && puzzle.categoryId ? h('a', { href: `/category?c=${puzzle.categoryId}` }, 'Back to category') : null,
+      dailyDay ? h('a', { href: '/daily' }, 'Daily archive') : null,
+    ),
   );
 }
 

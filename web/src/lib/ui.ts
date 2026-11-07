@@ -43,7 +43,9 @@ export function toast(title: string, body = '', kind: 'good' | 'bad' | '' = '', 
 }
 
 export function modal(...content: (Child | Child[])[]): HTMLDialogElement {
-  const d = h('dialog', { class: 'modal' }, ...content);
+  const close = h('button', { class: 'modal-close', type: 'button', 'aria-label': 'Close', title: 'Close' }, '×');
+  const d = h('dialog', { class: 'modal' }, close, ...content);
+  close.addEventListener('click', () => d.close());
   document.body.append(d);
   d.addEventListener('close', () => d.remove());
   d.showModal();

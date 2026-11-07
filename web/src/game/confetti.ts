@@ -68,7 +68,7 @@ export function countUp(el: HTMLElement, to: number, render: (n: number) => stri
   }
   const start = performance.now();
   const step = (t: number) => {
-    const k = Math.min(1, (t - start) / ms);
+    const k = Math.max(0, Math.min(1, (t - start) / ms));
     el.textContent = render(Math.round(to * (1 - Math.pow(1 - k, 3))));
     if (k < 1) requestAnimationFrame(step);
   };

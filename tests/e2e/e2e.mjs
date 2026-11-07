@@ -179,6 +179,7 @@ const started = await (await player.request.post(BASE + '/api/plays', { data: { 
 check('reopening resumes the same game', started.resumed === true);
 const swaps = await solveByClicking(player, started.play.seed, 'easy', started.play.actions);
 await player.waitForSelector('dialog.modal', { timeout: 10000 });
+await player.waitForTimeout(1200); // points count up
 const resultText = await player.locator('dialog.modal').innerText();
 check('completion dialog shows medal and points', /medal/i.test(resultText) && /\+\d+ points/.test(resultText), resultText.replace(/\s+/g, ' ').slice(0, 160));
 await player.screenshot({ path: `${OUT}/07-play-complete.png` });
