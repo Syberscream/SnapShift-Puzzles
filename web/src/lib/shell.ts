@@ -55,7 +55,7 @@ function header(user: Me | null): HTMLElement {
   return h(
     'header',
     { class: 'topbar' },
-    h('a', { class: 'brand', href: '/', 'aria-label': 'SnapShift Puzzles home' }, h('img', { src: '/img/logo.png', alt: 'SnapShift Puzzles', width: 220, height: 68 })),
+    h('a', { class: 'brand', href: '/', 'aria-label': 'SnapShift Puzzles home' }, logoImg()),
     toggle,
     nav,
   );
@@ -186,4 +186,18 @@ function bannerEl(b: Banner, position: string): HTMLElement {
   return b.href
     ? h('a', { class: 'banner', href: b.href, ...(b.href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {}) }, img)
     : h('div', { class: 'banner' }, img);
+}
+
+/** The header logo. If it fails to load (a dropped connection), try once more, then show the name. */
+function logoImg(): HTMLElement {
+  const img = h('img', { src: '/img/logo.png', alt: 'SnapShift Puzzles', width: 220, height: 68, fetchpriority: 'high' }) as HTMLImageElement;
+  let tries = 0;
+  img.addEventListener('error', () => {
+    if (tries++ < 2) {
+      setTimeout(() => (img.src = `/img/logo.png?r=${tries}`), 800 * tries);
+      return;
+    }
+    img.replaceWith(h('span', { class: 'brand-text' }, 'Snap', h('b', {}, 'Shift'), ' Puzzles'));
+  });
+  return img;
 }

@@ -535,3 +535,5 @@ dialog.ach-modal { overflow: hidden; max-width: min(420px, calc(100vw - 32px)); 
 @keyframes ach-spin { to { transform: rotate(360deg); } }
 @keyframes ach-pop-in { from { transform: scale(0.3); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ach-rays, .ach-badge, .ach-reward { animation: none; } }
+.brand-text { font-weight: 900; font-size: 26px; letter-spacing: -0.5px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
+.brand-text b { color: #ff8a1f; }
