@@ -280,7 +280,23 @@ async function overview() {
 }
 
 /** Resize in the browser: a web-sized WebP for play and a thumbnail. */
-async function makeWebCopies(src: string): Promise<{ image: Blob; thumb: Blob; small: Blob; width: number; height: number }> {
+/** A 1200×630 JPEG (centre crop) for link previews on social apps. */
+async function shareCopy(img: HTMLImageElement): Promise<Blob> {
+  const W = 1200;
+  const H = 630;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+  const w = img.naturalWidth * s;
+  const hh = img.naturalHeight * s;
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, (W - w) / 2, (H - hh) / 2, w, hh);
+  return new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Could not encode image'))), 'image/jpeg', 0.85));
+}
+
+async function makeWebCopies(src: string): Promise<{ image: Blob; thumb: Blob; small: Blob; share: Blob; width: number; height: number }> {
   const img = new Image();
   img.src = src;
   await img.decode();
@@ -295,7 +311,7 @@ async function makeWebCopies(src: string): Promise<{ image: Blob; thumb: Blob; s
     ctx.drawImage(img, 0, 0, w, hgt);
     return new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Could not encode image'))), 'image/webp', quality));
   };
-  return { image: await scaled(2400, 0.88), thumb: await scaled(640, 0.8), small: await scaled(1200, 0.85), width: img.naturalWidth, height: img.naturalHeight };
+  return { image: await scaled(2400, 0.88), thumb: await scaled(640, 0.8), small: await scaled(1200, 0.85), share: await shareCopy(img), width: img.naturalWidth, height: img.naturalHeight };
 }
 
 function reviewCard(p: AdminPuzzle, onDone: () => void) {
@@ -314,6 +330,7 @@ function reviewCard(p: AdminPuzzle, onDone: () => void) {
       f.set('image', copies.image, 'image.webp');
       f.set('thumb', copies.thumb, 'thumb.webp');
       f.set('small', copies.small, 'small.webp');
+      f.set('share', copies.share, 'share.jpg');
       f.set('width', String(copies.width));
       f.set('height', String(copies.height));
       f.set('title', title.value);
@@ -509,7 +526,7 @@ async function generate() {
 async function published() {
   const [{ puzzles }, needs] = await Promise.all([
     api.get<{ puzzles: AdminPuzzle[] }>('/admin/puzzles?status=published'),
-    api.get<{ puzzles: { id: number; title: string; image: string }[] }>('/admin/puzzles/needs-small'),
+    api.get<{ puzzles: { id: number; title: string; image: string; needsSmall: boolean; needsShare: boolean }[] }>('/admin/puzzles/needs-small'),
   ]);
   mount(
     body,
@@ -520,9 +537,9 @@ async function published() {
 }
 
 /** Older puzzles have no phone-sized copy: make them here, in the browser, a few at a time. */
-function phoneCopiesPanel(list: { id: number; title: string; image: string }[]): HTMLElement {
+function phoneCopiesPanel(list: { id: number; title: string; image: string; needsSmall: boolean; needsShare: boolean }[]): HTMLElement {
   const status = h('span', { class: 'muted small' }, '');
-  const go = h('button', { class: 'btn primary' }, `Make phone copies (${list.length})`);
+  const go = h('button', { class: 'btn primary' }, `Make the copies (${list.length})`);
   go.addEventListener('click', async () => {
     go.setAttribute('disabled', '');
     let done = 0;
@@ -541,9 +558,9 @@ function phoneCopiesPanel(list: { id: number; title: string; image: string }[]):
         const ctx = c.getContext('2d')!;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, c.width, c.height);
-        const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('encode'))), 'image/webp', 0.85));
         const f = new FormData();
-        f.set('small', blob, 'small.webp');
+        if (p.needsSmall) f.set('small', await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('encode'))), 'image/webp', 0.85)), 'small.webp');
+        if (p.needsShare) f.set('share', await shareCopy(img), 'share.jpg');
         await api.post(`/admin/puzzles/${p.id}/small`, f);
         done++;
       } catch {
@@ -551,13 +568,13 @@ function phoneCopiesPanel(list: { id: number; title: string; image: string }[]):
       }
     }
     status.textContent = `Done: ${done} made${failed ? `, ${failed} failed (try again)` : ''}.`;
-    toast('Phone copies made', `${done} pictures`, 'good');
+    toast('Copies made', `${done} pictures`, 'good');
   });
   return h(
     'section',
     { class: 'panel' },
-    h('h2', {}, 'Faster pictures on phones'),
-    h('p', { class: 'muted' }, `${list.length} published ${list.length === 1 ? 'puzzle has' : 'puzzles have'} no phone-sized copy yet. Phones load a picture about a quarter of the size when there is one. New puzzles get one when you publish.`),
+    h('h2', {}, 'Phone pictures and link previews'),
+    h('p', { class: 'muted' }, `${list.length} published ${list.length === 1 ? 'puzzle is' : 'puzzles are'} missing a phone-sized copy or a link-preview picture (the picture shown when a puzzle link is shared on Facebook, WhatsApp, iMessage and so on). New puzzles get both when you publish.`),
     h('div', { class: 'row' }, go, status),
   );
 }

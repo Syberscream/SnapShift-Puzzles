@@ -13,6 +13,7 @@ import plus from './routes/plus';
 import challenges from './routes/challenges';
 import events from './routes/events';
 import slider from './routes/slider';
+import seo from './routes/seo';
 import { settleEventPrizes } from './lib/rewards';
 import { runPipeline } from './pipeline/pipeline';
 import { sendStreakReminders } from './lib/reminders';
@@ -35,6 +36,7 @@ app.route('/api/challenges', challenges);
 app.route('/api/events', events);
 app.route('/api/slider', slider);
 app.route('/api', catalog);
+app.route('/', seo);
 app.route('/api', stats);
 
 app.get('/api/health', (c) => c.json({ ok: true }));

@@ -15,6 +15,8 @@ export interface PuzzleRow {
   original_key: string;
   image_key: string | null;
   thumb_key: string | null;
+  /** 1200×630 JPEG for link previews. */
+  share_key?: string | null;
   /** Made for this event (joins it when published). */
   event_id?: string | null;
   /** Phone-sized copy (about 1200px wide). */

@@ -848,14 +848,15 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
 
   // Phone-sized pictures: backfill from the admin, then served to phones.
   const pubNow = await j(admin.request.get(BASE + '/api/admin/puzzles/needs-small'));
-  check('phone copies: made when publishing', pubNow.puzzles.length === 0, `${pubNow.puzzles.length} without`);
-  sql('UPDATE puzzles SET small_key = NULL'); // as for puzzles published before this feature
+  check('phone copies and link previews: made when publishing', pubNow.puzzles.length === 0, `${pubNow.puzzles.length} without`);
+  sql('UPDATE puzzles SET small_key = NULL, share_key = NULL'); // as for puzzles published before these features
   await admin.goto(BASE + '/admin#puzzles');
-  await admin.waitForSelector('text=Faster pictures on phones');
-  await admin.click('text=Make phone copies');
+  await admin.waitForSelector('text=Phone pictures and link previews');
+  await admin.click('text=Make the copies');
   await admin.waitForSelector('text=Done:', { timeout: 60000 });
   const left = await j(admin.request.get(BASE + '/api/admin/puzzles/needs-small'));
   check('phone copies: all published puzzles have one', left.puzzles.length === 0, `${left.puzzles.length} left`);
+  check('link previews: backfill made the 1200×630 copies too', !left.puzzles.some((p) => p.needsShare));
   const pv = (await j(guest.request.get(BASE + `/api/puzzles/${first.slug}`))).puzzle;
   check('phone copies: API gives imageSmall', !!pv.imageSmall && pv.imageSmall !== pv.image);
   const smallRes = await guest.request.get(BASE + pv.imageSmall);
@@ -1103,6 +1104,30 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('event pictures: can’t be played after the event', late.status() === 403 || late.status() === 404, String(late.status()));
   const sl = await guest.request.post(BASE + '/api/slider/start', { data: { slug, size: 3 } });
   check('event pictures: not slidable outside the event', sl.status() === 403);
+}
+
+// ---- search engines and link previews ----
+{
+  const sm = await guest.request.get(BASE + '/sitemap.xml');
+  const xml = await sm.text();
+  const anyPub = pub.puzzles.find((p) => p.categoryId !== 'daily' && p.categoryId !== 'members');
+  check('seo: sitemap lists pages and puzzles', sm.ok() && xml.includes('<urlset') && xml.includes('/daily') && xml.includes(`/play?p=${anyPub.slug}`));
+  check('seo: sitemap skips hidden pictures', !pub.puzzles.filter((p) => p.categoryId === 'daily').some((p) => xml.includes(`?p=${p.slug}<`)));
+  const html = await (await guest.request.get(BASE + `/play?p=${anyPub.slug}`)).text();
+  const title = (html.match(/<title>([^<]*)/) || [])[1] || '';
+  const ogImage = (html.match(/og:image" content="([^"]*)/) || [])[1] || '';
+  check('seo: puzzle page has its own title', title.includes('Free Picture Tile Puzzle'), title);
+  check('seo: link preview uses the puzzle’s 1200×630 picture', /\/media\/share\/.+\.jpg$/.test(ogImage) && html.includes('og:image:width" content="1200"'), ogImage);
+  const imgRes = await guest.request.get(ogImage.replace(/^https?:\/\/[^/]+/, BASE));
+  check('seo: preview picture is a JPEG', imgRes.ok() && (imgRes.headers()['content-type'] || '').includes('image/jpeg'));
+  const dailyHtml = await (await guest.request.get(BASE + '/daily')).text();
+  check('seo: daily page title', /Daily Picture Puzzle for/.test(dailyHtml));
+  const home = await (await guest.request.get(BASE + '/')).text();
+  check('seo: site-wide preview picture and large cards', home.includes('/img/share.jpg') && home.includes('summary_large_image'));
+  const robots = await (await guest.request.get(BASE + '/robots.txt')).text();
+  check('seo: robots.txt keeps admin out', robots.includes('Disallow: /admin') && robots.includes('sitemap.xml'));
+  const adminHtml = await (await guest.request.get(BASE + '/admin')).text();
+  check('seo: admin page is noindex', adminHtml.includes('name="robots" content="noindex"'));
 }
 
 // Static pages render

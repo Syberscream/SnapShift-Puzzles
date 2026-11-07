@@ -141,17 +141,20 @@ app.post('/puzzles/:id/publish', async (c) => {
   const small = form.get('small');
   const smallKey = small instanceof File ? `small/${slug}-${randomId(4)}.webp` : null;
   if (small instanceof File) await c.env.MEDIA.put(smallKey!, await small.arrayBuffer(), { httpMetadata: meta });
+  const share = form.get('share');
+  const shareKey = share instanceof File ? `share/${slug}-${randomId(4)}.jpg` : null;
+  if (share instanceof File) await c.env.MEDIA.put(shareKey!, await share.arrayBuffer(), { httpMetadata: { ...meta, contentType: 'image/jpeg' } });
   const maxSort = await c.env.DB.prepare("SELECT COALESCE(MAX(sort), -1) AS m FROM puzzles WHERE category_id = ? AND status = 'published'")
     .bind(categoryId)
     .first<{ m: number }>();
   const sort = p.status === 'published' && p.category_id === categoryId ? p.sort : (maxSort?.m ?? -1) + 1;
   // Clean up previous web copies if re-publishing.
-  for (const k of [p.image_key, p.thumb_key, p.small_key]) if (k) await c.env.MEDIA.delete(k);
+  for (const k of [p.image_key, p.thumb_key, p.small_key, p.share_key]) if (k) await c.env.MEDIA.delete(k);
   await c.env.DB.prepare(
-    `UPDATE puzzles SET status = 'published', slug = ?, title = ?, description = ?, category_id = ?, image_key = ?, thumb_key = ?, small_key = ?,
+    `UPDATE puzzles SET status = 'published', slug = ?, title = ?, description = ?, category_id = ?, image_key = ?, thumb_key = ?, small_key = ?, share_key = ?,
      width = ?, height = ?, sort = ?, published_at = COALESCE(published_at, ?) WHERE id = ?`,
   )
-    .bind(slug, title, description || p.description, categoryId, imageKey, thumbKey, smallKey, int(form.get('width')) || null, int(form.get('height')) || null, sort, now(), id)
+    .bind(slug, title, description || p.description, categoryId, imageKey, thumbKey, smallKey, shareKey, int(form.get('width')) || null, int(form.get('height')) || null, sort, now(), id)
     .run();
   // Made for an event: it joins that event (at the end) when published.
   if (p.event_id) {
@@ -169,9 +172,11 @@ app.post('/puzzles/:id/publish', async (c) => {
 /** Published puzzles that don't have a phone-sized copy yet. */
 app.get('/puzzles/needs-small', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, title, image_key, original_key FROM puzzles WHERE status = 'published' AND small_key IS NULL ORDER BY id",
-  ).all<{ id: number; title: string; image_key: string | null; original_key: string }>();
-  return c.json({ puzzles: results.map((p) => ({ id: p.id, title: p.title, image: media(p.image_key || p.original_key) })) });
+    "SELECT id, title, image_key, original_key, small_key, share_key FROM puzzles WHERE status = 'published' AND (small_key IS NULL OR share_key IS NULL) ORDER BY id",
+  ).all<{ id: number; title: string; image_key: string | null; original_key: string; small_key: string | null; share_key: string | null }>();
+  return c.json({
+    puzzles: results.map((p) => ({ id: p.id, title: p.title, image: media(p.image_key || p.original_key), needsSmall: !p.small_key, needsShare: !p.share_key })),
+  });
 });
 
 /** Store a phone-sized copy (made in the admin's browser) for a published puzzle. */
@@ -179,12 +184,22 @@ app.post('/puzzles/:id/small', async (c) => {
   const id = int(c.req.param('id'));
   const p = await c.env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(id).first<PuzzleRow>();
   if (!p) fail(404, 'Not found.');
-  const small = (await c.req.formData()).get('small');
-  if (!(small instanceof File) || small.size < 1000) fail(422, 'Image required.');
-  const key = `small/${p.slug}-${randomId(4)}.webp`;
-  await c.env.MEDIA.put(key, await small.arrayBuffer(), { httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' } });
-  if (p.small_key) await c.env.MEDIA.delete(p.small_key);
-  await c.env.DB.prepare('UPDATE puzzles SET small_key = ? WHERE id = ?').bind(key, id).run();
+  const form = await c.req.formData();
+  const small = form.get('small');
+  const share = form.get('share');
+  if (!(small instanceof File && small.size >= 1000) && !(share instanceof File && share.size >= 1000)) fail(422, 'Image required.');
+  if (small instanceof File && small.size >= 1000) {
+    const key = `small/${p.slug}-${randomId(4)}.webp`;
+    await c.env.MEDIA.put(key, await small.arrayBuffer(), { httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' } });
+    if (p.small_key) await c.env.MEDIA.delete(p.small_key);
+    await c.env.DB.prepare('UPDATE puzzles SET small_key = ? WHERE id = ?').bind(key, id).run();
+  }
+  if (share instanceof File && share.size >= 1000) {
+    const key = `share/${p.slug}-${randomId(4)}.jpg`;
+    await c.env.MEDIA.put(key, await share.arrayBuffer(), { httpMetadata: { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000, immutable' } });
+    if (p.share_key) await c.env.MEDIA.delete(p.share_key);
+    await c.env.DB.prepare('UPDATE puzzles SET share_key = ? WHERE id = ?').bind(key, id).run();
+  }
   return c.json({ ok: true });
 });
 
@@ -199,7 +214,7 @@ app.post('/puzzles/:id/reject', async (c) => {
     // Played before: hide it but keep the files so old results still make sense.
     await c.env.DB.prepare("UPDATE puzzles SET status = 'rejected' WHERE id = ?").bind(id).run();
   } else {
-    for (const k of [p.original_key, p.image_key, p.thumb_key, p.small_key]) if (k) await c.env.MEDIA.delete(k);
+    for (const k of [p.original_key, p.image_key, p.thumb_key, p.small_key, p.share_key]) if (k) await c.env.MEDIA.delete(k);
     await c.env.DB.batch([
       c.env.DB.prepare('UPDATE generation_jobs SET puzzle_id = NULL WHERE puzzle_id = ?').bind(id),
       c.env.DB.prepare('DELETE FROM puzzles WHERE id = ?').bind(id),

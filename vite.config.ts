@@ -24,9 +24,31 @@ if(t.backgroundBlur!==undefined)u('--theme-bg-blur',t.backgroundBlur+'px');
 u('--theme-panel-alpha',t.panelOpacity);u('--theme-base',t.baseColor);u('--theme-panel',t.panelColor);
 u('--pill',t.pillColor);u('--button',t.buttonColor);u('--accent',t.accentColor);}catch(e){}})();`;
 
+const SITE_URL = 'https://snapshiftpuzzles.com';
+/** Pages that shouldn't appear in search results. */
+const NOINDEX = ['admin.html', 'account.html', '404.html', 'supporter.html'];
+
 const themeBoot = {
   name: 'snapshift-theme-boot',
-  transformIndexHtml: () => [{ tag: 'script', children: THEME_BOOT, injectTo: 'head-prepend' as const }],
+  transformIndexHtml: {
+    order: 'pre' as const,
+    handler: (html: string, ctx: { filename: string }) => {
+      // Link previews: the 1200×630 site picture by default (pages with their own
+      // puzzle or event get theirs from the Worker), and large cards on X/Twitter.
+      const out = html.replace('<meta property="og:image" content="/img/logo.png" />', `<meta property="og:image" content="${SITE_URL}/img/share.jpg" />`);
+      const file = ctx.filename.split('/').pop() ?? '';
+      const tags = [
+        { tag: 'script', children: THEME_BOOT, injectTo: 'head-prepend' as const },
+        { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' }, injectTo: 'head' as const },
+        { tag: 'meta', attrs: { property: 'og:image:height', content: '630' }, injectTo: 'head' as const },
+        { tag: 'meta', attrs: { property: 'og:type', content: 'website' }, injectTo: 'head' as const },
+        { tag: 'meta', attrs: { property: 'og:site_name', content: 'SnapShift Puzzles' }, injectTo: 'head' as const },
+        { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' }, injectTo: 'head' as const },
+        ...(NOINDEX.includes(file) ? [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex' }, injectTo: 'head' as const }] : []),
+      ];
+      return { html: out, tags };
+    },
+  },
 };
 
 export default defineConfig({

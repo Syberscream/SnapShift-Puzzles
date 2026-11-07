@@ -4,12 +4,13 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
-  // Static site built by Vite into dist/. The Worker only handles /api/* and /media/*.
+  // Static site built by Vite into dist/. The Worker handles /api/* and /media/*, the
+  // sitemap, and fills in titles and link previews for shareable pages.
   "assets": {
     "directory": "dist",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/media/*"]
+    "run_worker_first": ["/api/*", "/media/*", "/sitemap.xml", "/play", "/daily", "/slider", "/event", "/category", "/u"]
   },
   "d1_databases": [
     {

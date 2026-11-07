@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /api/
 
 Sitemap: https://snapshiftpuzzles.com/sitemap.xml
