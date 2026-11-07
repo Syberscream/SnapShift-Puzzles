@@ -481,3 +481,7 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
 .rank-bars .rank-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .range-picker .btn[aria-pressed='true'] { outline: 2px solid var(--accent); }
 .chart-tip[hidden] { display: none; }
+
+/* Numbers in the game bar keep the same width as they change, so the pills don't jiggle. */
+.pill { font-variant-numeric: tabular-nums; }
+.pill.time-pill { min-width: 13.5ch; justify-content: center; }

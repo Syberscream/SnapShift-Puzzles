@@ -151,7 +151,7 @@ let board: Board;
 let image: HTMLImageElement;
 
 // ---------- UI elements ----------
-const timeEl = h('span', { class: 'pill' }, 'Time: 00:00.0');
+const timeEl = h('span', { class: 'pill time-pill' }, 'Time: 00:00.0');
 const modeEl = h('span', { class: 'pill' }, '');
 const scoreEl = h('span', { class: 'pill' }, 'Score: 0');
 const streakEl = h('span', { class: 'pill' }, 'Streak: 0');
