@@ -1,6 +1,6 @@
 import '../styles/site.css';
 import { api, type Me } from './api';
-import { h, hasPaidPlus, toast } from './ui';
+import { h, hasPaidPlus, store, toast } from './ui';
 import { setupInstall } from './install';
 import { applyTheme, cacheTheme, pageKey, type Banner, type Theme } from './theme';
 
@@ -119,7 +119,7 @@ export async function shell(opts: { title?: string; bodyClass?: string } = {}): 
     if (site.announcement) top.append(h('div', { class: 'notice' }, site.announcement));
     for (const [slot, position] of [[top, 'top'], [bottom, 'bottom']] as const) {
       const b = pickBanner(site.banners, position);
-      if (b) slot.append(bannerEl(b));
+      if (b) slot.append(bannerEl(b, position));
     }
   }
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
@@ -163,8 +163,25 @@ function pickBanner(banners: Banner[], position: 'top' | 'bottom'): Banner | nul
   return list.length ? list[Math.floor(Math.random() * list.length)] : null;
 }
 
-function bannerEl(b: Banner): HTMLElement {
-  const img = h('img', { src: b.image, alt: b.alt || 'SnapShift banner', loading: 'lazy' });
+/** Banner picture sizes seen before, so the space is kept while it loads (no layout shift). */
+const bannerSizes = store<Record<string, [number, number]>>('ss_banner_sizes', {});
+
+function bannerEl(b: Banner, position: string): HTMLElement {
+  const known = bannerSizes.get()[b.image];
+  const img = h('img', {
+    src: b.image,
+    alt: b.alt || 'SnapShift banner',
+    loading: position === 'top' ? 'eager' : 'lazy',
+    ...(known ? { width: known[0], height: known[1] } : {}),
+  }) as HTMLImageElement;
+  if (!known) {
+    img.addEventListener('load', () => {
+      const all = bannerSizes.get();
+      all[b.image] = [img.naturalWidth, img.naturalHeight];
+      // Keep the list short.
+      bannerSizes.set(Object.fromEntries(Object.entries(all).slice(-20)));
+    });
+  }
   return b.href
     ? h('a', { class: 'banner', href: b.href, ...(b.href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {}) }, img)
     : h('div', { class: 'banner' }, img);

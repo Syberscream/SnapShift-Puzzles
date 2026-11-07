@@ -453,3 +453,7 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
 .profile-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .profile-recent { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .profile-medals { gap: 4px; margin-top: 4px; font-weight: 700; }
+
+/* Keep the footer below the fold while a page's content loads, so it
+   doesn't jump down when the content arrives (layout shift / CLS). */
+#main { min-height: 100vh; min-height: 100svh; }
