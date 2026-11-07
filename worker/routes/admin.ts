@@ -5,7 +5,7 @@ import { dailyPoolLeft, media, type PuzzleRow } from '../lib/catalog';
 import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
 import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
-import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, takenTitles, type GenerationSettings } from '../pipeline/pipeline';
+import { addPendingPuzzle, GENERATION_DEFAULTS, queueJob, runPipeline, takenTitles, type GenerationSettings, type LastRun } from '../pipeline/pipeline';
 import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX, LOOKS, isLook, lookStyle } from '../pipeline/prompts';
 import { rng, randomSeed } from '../../shared/engine';
 import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
@@ -225,7 +225,16 @@ app.post('/upload', async (c) => {
 app.get('/generation', async (c) => {
   const settings = await getSetting(c.env, 'generation', GENERATION_DEFAULTS);
   const { results } = await c.env.DB.prepare('SELECT * FROM generation_jobs ORDER BY created_at DESC LIMIT 60').all();
-  return c.json({ settings, jobs: results, configured: !!c.env.ELEVENLABS_API_KEY, puzzleSuffix: PUZZLE_SUFFIX, looks: LOOKS });
+  const counts = await c.env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM generation_jobs WHERE created_at > ? AND status != 'failed') AS started24h,
+            (SELECT COUNT(*) FROM puzzles WHERE status = 'pending') AS waiting,
+            (SELECT COUNT(*) FROM generation_jobs WHERE status IN ('queued','submitting','submitted','downloading')) AS inflight,
+            (SELECT COUNT(*) FROM generation_jobs WHERE status = 'failed' AND updated_at > ?) AS failed24h,
+            (SELECT COUNT(*) FROM categories WHERE generate = 1 AND id != 'daily') AS openCategories`,
+  )
+    .bind(now() - 86400_000, now() - 86400_000)
+    .first();
+  return c.json({ settings, jobs: results, status: counts, lastRun: await getSetting<LastRun | null>(c.env, 'pipeline_last', null), configured: !!c.env.ELEVENLABS_API_KEY, puzzleSuffix: PUZZLE_SUFFIX, looks: LOOKS });
 });
 
 app.put('/generation', async (c) => {
@@ -273,17 +282,17 @@ app.post('/generate', async (c) => {
     const taken = await takenTitles(c.env, categoryId);
     for (let i = 0; i < count; i++) ids.push(await queueJob(c.env, settings, { categoryId, ...pickIdea(categoryId, rand, cat.prompt_hint, taken, share, look) }, true));
   }
-  const log = await runPipeline(c.env);
+  const log = await runPipeline(c.env, 'manual');
   return c.json({ jobs: ids, log });
 });
 
-app.post('/generation/run', async (c) => c.json({ log: await runPipeline(c.env) }));
+app.post('/generation/run', async (c) => c.json({ log: await runPipeline(c.env, 'manual') }));
 
 app.post('/generation/jobs/:id/retry', async (c) => {
   await c.env.DB.prepare("UPDATE generation_jobs SET status = 'queued', attempts = 0, error = NULL, updated_at = ? WHERE id = ? AND status = 'failed'")
     .bind(now(), c.req.param('id'))
     .run();
-  return c.json({ log: await runPipeline(c.env) });
+  return c.json({ log: await runPipeline(c.env, 'manual') });
 });
 
 // ---------- categories ----------

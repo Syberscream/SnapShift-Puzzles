@@ -10,7 +10,7 @@
 
 import type { Env } from '../env';
 import { rng, randomSeed } from '../../shared/engine';
-import { dayKey, getSetting, now, randomId, slugify } from '../lib/util';
+import { dayKey, getSetting, now, putSetting, randomId, slugify } from '../lib/util';
 import { DAILY_CATEGORY, dailyPoolLeft } from '../lib/catalog';
 import { createImage, ElevenLabsError, getImage } from './elevenlabs';
 import { pickIdea, uniqueTitle } from './prompts';
@@ -96,15 +96,28 @@ export async function queueJob(
 }
 
 async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<void> {
-  if (!s.enabled) return;
+  if (!s.enabled) {
+    log.push('Automatic generation is off.');
+    return;
+  }
   // perDay is a rolling 24-hour limit.
   const made = await env.DB.prepare('SELECT COUNT(*) AS n FROM generation_jobs WHERE created_at > ? AND status != ?')
     .bind(now() - 86400_000, 'failed')
     .first<{ n: number }>();
   const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM puzzles WHERE status = 'pending'").first<{ n: number }>();
   const inflight = await env.DB.prepare("SELECT COUNT(*) AS n FROM generation_jobs WHERE status IN ('queued','submitting','submitted','downloading')").first<{ n: number }>();
-  let room = Math.min(s.perDay - (made?.n ?? 0), s.maxPending - (pending?.n ?? 0) - (inflight?.n ?? 0));
-  if (room <= 0) return;
+  const byDay = s.perDay - (made?.n ?? 0);
+  const byQueue = s.maxPending - (pending?.n ?? 0) - (inflight?.n ?? 0);
+  let room = Math.min(byDay, byQueue);
+  if (room <= 0) {
+    log.push(
+      byDay <= 0
+        ? `Nothing new to start: ${made?.n ?? 0} images already started in the last 24 hours (limit ${s.perDay}).`
+        : `Paused: ${pending?.n ?? 0} waiting for review + ${inflight?.n ?? 0} still generating reaches the limit of ${s.maxPending}. Review some, or raise “Pause when this many are waiting”.`,
+    );
+    return;
+  }
+  const before = log.length;
 
   // Categories with the fewest pending puzzles go first.
   const { results: cats } = await env.DB.prepare(
@@ -139,6 +152,13 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
     const idea = pickIdea(cat.id, rand, cat.prompt_hint, await takenTitles(env, cat.id), s.photoShare ?? GENERATION_DEFAULTS.photoShare);
     await queueJob(env, s, { categoryId: cat.id, ...idea }, true);
     log.push(`queued ${cat.id}: ${idea.title}`);
+  }
+  if (log.length === before) {
+    log.push(
+      allowed.length === 0
+        ? 'Nothing queued: no categories are open to automatic generation. Turn “Generate” on for some categories, or untick the category filter.'
+        : 'Nothing queued this time.',
+    );
   }
 }
 
@@ -235,6 +255,14 @@ async function poll(env: Env, log: string[]): Promise<void> {
       log.push(`done ${job.id} -> puzzle ${puzzleId}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      if (now() - job.created_at > JOB_TIMEOUT_MS) {
+        // Still failing after the timeout: give up, so it stops holding a place in the queue.
+        await env.DB.prepare("UPDATE generation_jobs SET status = 'failed', error = ?, updated_at = ? WHERE id = ? AND status IN ('submitted','downloading')")
+          .bind(`Gave up: ${msg}`, now(), job.id)
+          .run();
+        log.push(`gave up ${job.id}: ${msg}`);
+        continue;
+      }
       // Put it back so the next run retries the download (the signed URL lasts about an hour).
       await env.DB.prepare("UPDATE generation_jobs SET status = 'submitted', error = ?, updated_at = ? WHERE id = ? AND status IN ('submitted','downloading')")
         .bind(msg, now(), job.id)
@@ -245,7 +273,21 @@ async function poll(env: Env, log: string[]): Promise<void> {
 }
 
 /** One pipeline tick. Returns a log for the admin "Run now" button. */
-export async function runPipeline(env: Env): Promise<string[]> {
+export interface LastRun {
+  at: number;
+  source: 'schedule' | 'manual';
+  log: string[];
+}
+
+export async function runPipeline(env: Env, source: LastRun['source'] = 'schedule'): Promise<string[]> {
+  const log = await tick(env).catch((e) => [`Error: ${e instanceof Error ? e.message : String(e)}`]);
+  // Kept for Admin → Generate, so you can see what the schedule last did
+  // (runs by hand show their log straight away).
+  if (source === 'schedule') await putSetting(env, 'pipeline_last', { at: now(), source, log: log.slice(0, 40) } satisfies LastRun).catch(() => {});
+  return log;
+}
+
+async function tick(env: Env): Promise<string[]> {
   const log: string[] = [];
   const s = await getSetting(env, 'generation', GENERATION_DEFAULTS);
   if (!env.ELEVENLABS_API_KEY) {

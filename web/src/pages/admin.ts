@@ -370,8 +370,38 @@ async function queue() {
   );
 }
 
+/** What automatic generation is doing right now, and what its last run said. */
+function genStatus(
+  st: { started24h: number; waiting: number; inflight: number; failed24h: number; openCategories: number },
+  last: { at: number; source: 'schedule' | 'manual'; log: string[] } | null,
+  s: GenSettings,
+): HTMLElement {
+  const ago = (t: number) => {
+    const m = Math.round((Date.now() - t) / 60000);
+    return m < 1 ? 'just now' : m < 90 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+  };
+  const stale = !last || Date.now() - last.at > 30 * 60000;
+  return h(
+    'div',
+    { class: `notice small${stale && s.enabled ? ' warn' : ''}` },
+    h('div', {}, `Last 24 hours: ${st.started24h} started of ${s.perDay} · ${st.inflight} generating now · ${st.waiting} waiting for review (pauses at ${s.maxPending})${st.failed24h ? ` · ${st.failed24h} failed` : ''}`),
+    last
+      ? h('div', {}, h('b', {}, `Last scheduled run ${ago(last.at)}: `), last.log.length ? last.log.slice(0, 6).join(' · ') : 'nothing to do.')
+      : h('div', {}, h('b', {}, 'No run recorded yet. '), 'The schedule records each run here; if this stays empty after deploying, the 10-minute schedule isn’t running.'),
+    stale && last && s.enabled ? h('div', {}, 'The schedule normally runs every 10 minutes, so it looks like it hasn’t been running.') : null,
+  );
+}
+
 async function generate() {
-  const g = await api.get<{ settings: GenSettings; jobs: Job[]; configured: boolean; puzzleSuffix: string; looks: { id: string; label: string }[] }>('/admin/generation');
+  const g = await api.get<{
+    settings: GenSettings;
+    jobs: Job[];
+    configured: boolean;
+    puzzleSuffix: string;
+    looks: { id: string; label: string }[];
+    status: { started24h: number; waiting: number; inflight: number; failed24h: number; openCategories: number };
+    lastRun: { at: number; source: 'schedule' | 'manual'; log: string[] } | null;
+  }>('/admin/generation');
   const s = g.settings;
   const logBox = h('pre', { hidden: true });
   const showLog = (log: string[]) => {
@@ -384,6 +414,7 @@ async function generate() {
     { class: 'panel' },
     h('h2', {}, 'Automatic generation'),
     h('p', { class: 'muted small' }, 'Every 10 minutes the site tops up the review queue with new images from ElevenLabs, then collects finished ones. Nothing is published until you approve it.'),
+    genStatus(g.status, g.lastRun, s),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', name: 'enabled', checked: s.enabled }), 'Generate automatically'),
     h('div', { class: 'row' },
       h('div', { class: 'field' }, h('label', {}, 'Images per 24 hours'), h('input', { type: 'number', name: 'perDay', min: 0, max: 100, value: s.perDay })),

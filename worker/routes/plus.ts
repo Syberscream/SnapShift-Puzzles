@@ -134,7 +134,7 @@ app.post('/requests', async (c) => {
   const settings = await getSetting(c.env, 'generation', GENERATION_DEFAULTS);
   const jobId = await queueJob(c.env, settings, { categoryId, title: titleFromPrompt(idea), prompt: `${idea}. ${PUZZLE_SUFFIX}` });
   await c.env.DB.prepare('UPDATE puzzle_requests SET job_id = ? WHERE id = ?').bind(jobId, requestId).run();
-  c.executionCtx.waitUntil(runPipeline(c.env).catch((e) => console.error('[pipeline]', e)));
+  c.executionCtx.waitUntil(runPipeline(c.env, 'manual').catch((e) => console.error('[pipeline]', e)));
   return c.json({ ok: true, id: requestId });
 });
 
