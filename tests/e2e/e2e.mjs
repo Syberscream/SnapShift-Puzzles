@@ -1308,7 +1308,6 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await admin.request.put(BASE + '/api/admin/site', { data: { androidFingerprints: '', androidPlayUrl: '' } });
 
   // Portal pack: picture list for the game-portal build.
-  sql('UPDATE puzzles SET published_at = published_at - 3 * 86400000');
   const packRes = await guest.request.get(BASE + '/api/portal/pack?per=2');
   const pack = await packRes.json();
   check('portal: pack open to other sites (CORS)', packRes.headers()['access-control-allow-origin'] === '*');
