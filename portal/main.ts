@@ -517,16 +517,19 @@ try {
 }
 portal.loaded();
 // First visit: straight into today's picture on Easy, with the how-to-play hint.
-// After that, start on the picture list.
+// On CrazyGames and Poki every visit starts in a game (their rules want players
+// in gameplay straight away): today's picture if it's unsolved, else the next
+// unsolved one. Elsewhere, returning players start on the picture list.
 const firstVisit = store<boolean>('ssp_visited', false);
-if (!firstVisit.get() && !new URLSearchParams(location.search).has('menu')) {
-  firstVisit.set(true);
+const onPortal = portal.name !== 'web';
+const nextUnsolved = () => [dailyPick(), ...pack.puzzles].find((x) => !bestMedal(x.slug)) ?? dailyPick();
+if (new URLSearchParams(location.search).has('menu')) menu();
+else if (!firstVisit.get()) {
   prefs.set({ ...prefs.get(), difficulty: 'easy' });
   void play(dailyPick());
-} else {
-  firstVisit.set(true);
-  menu();
-}
+} else if (onPortal) void play(nextUnsolved());
+else menu();
+firstVisit.set(true);
 
 // Automated test hook (?selftest): solve the current board with the engine's own suggestions.
 if (new URLSearchParams(location.search).has('selftest')) {
