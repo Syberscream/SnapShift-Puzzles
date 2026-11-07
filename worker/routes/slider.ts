@@ -26,17 +26,21 @@ interface SliderDaily {
 async function getSliderDaily(env: Env, day: string): Promise<{ d: SliderDaily; p: PuzzleRow } | null> {
   let d = await env.DB.prepare('SELECT day, puzzle_id, seed FROM slider_daily WHERE day = ?').bind(day).first<SliderDaily>();
   if (!d) {
-    const pick = async (recentDays: number) =>
+    // Open to everyone: past members' early access, or the first picture of its category (always free).
+    const pick = async (recentDays: number, openOnly = true) =>
       env.DB.prepare(
         `SELECT p.id FROM puzzles p JOIN categories c ON c.id = p.category_id
-         WHERE p.status = 'published' AND c.id != ? AND c.members_only = 0 AND COALESCE(p.published_at, 0) <= ?
+         WHERE p.status = 'published' AND c.id != ? AND c.members_only = 0
+           AND (? = 0 OR COALESCE(p.published_at, 0) <= ?
+                OR p.id = (SELECT p2.id FROM puzzles p2 WHERE p2.category_id = p.category_id AND p2.status = 'published' ORDER BY p2.sort, p2.id LIMIT 1))
            AND p.id NOT IN (SELECT puzzle_id FROM slider_daily WHERE day >= date(?, ?))
          ORDER BY p.id`,
       )
-        .bind(DAILY_CATEGORY, now() - PLUS.earlyAccessMs, day, `-${recentDays} days`)
+        .bind(DAILY_CATEGORY, openOnly ? 1 : 0, now() - PLUS.earlyAccessMs, day, `-${recentDays} days`)
         .all<{ id: number }>();
     let { results } = await pick(60);
     if (!results.length) results = (await pick(0)).results;
+    if (!results.length) results = (await pick(0, false)).results;
     if (!results.length) return null;
     const seed = seedFromString('slider:' + day);
     const id = results[seed % results.length].id;
