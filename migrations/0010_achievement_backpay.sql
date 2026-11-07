@@ -1,0 +1,12 @@
+-- Pay achievement rewards for achievements earned before rewards existed.
+-- Each one is paid once: anything already in the ledger as an achievement is skipped.
+UPDATE users SET points = points + (
+  SELECT COALESCE(SUM(CASE ua.achievement WHEN 'first-finish' THEN 25 WHEN 'gold-1' THEN 25 WHEN 'gold-10' THEN 100 WHEN 'gold-50' THEN 300 WHEN 'finish-25' THEN 100 WHEN 'finish-100' THEN 300 WHEN 'perfect' THEN 50 WHEN 'speedy' THEN 50 WHEN 'hard-clean' THEN 150 WHEN 'rotation-5' THEN 75 WHEN 'zen-10' THEN 75 WHEN 'daily-10' THEN 150 WHEN 'streak-7' THEN 100 WHEN 'streak-30' THEN 400 WHEN 'timeattack-10' THEN 150 WHEN 'collection' THEN 100 WHEN 'challenge-win' THEN 50 WHEN 'event' THEN 100 WHEN 'slider-1' THEN 25 WHEN 'slider-5x5' THEN 150 ELSE 0 END), 0) FROM user_achievements ua
+  WHERE ua.user_id = users.id AND NOT EXISTS (SELECT 1 FROM points_ledger l WHERE l.user_id = ua.user_id AND l.reason = 'achievement' AND l.ref = ua.achievement)
+)
+WHERE id IN (SELECT ua.user_id FROM user_achievements ua WHERE NOT EXISTS (SELECT 1 FROM points_ledger l WHERE l.user_id = ua.user_id AND l.reason = 'achievement' AND l.ref = ua.achievement));
+
+INSERT INTO points_ledger (user_id, delta, reason, ref, created_at)
+SELECT ua.user_id, CASE ua.achievement WHEN 'first-finish' THEN 25 WHEN 'gold-1' THEN 25 WHEN 'gold-10' THEN 100 WHEN 'gold-50' THEN 300 WHEN 'finish-25' THEN 100 WHEN 'finish-100' THEN 300 WHEN 'perfect' THEN 50 WHEN 'speedy' THEN 50 WHEN 'hard-clean' THEN 150 WHEN 'rotation-5' THEN 75 WHEN 'zen-10' THEN 75 WHEN 'daily-10' THEN 150 WHEN 'streak-7' THEN 100 WHEN 'streak-30' THEN 400 WHEN 'timeattack-10' THEN 150 WHEN 'collection' THEN 100 WHEN 'challenge-win' THEN 50 WHEN 'event' THEN 100 WHEN 'slider-1' THEN 25 WHEN 'slider-5x5' THEN 150 ELSE 0 END, 'achievement', ua.achievement, CAST(strftime('%s', 'now') AS INTEGER) * 1000
+FROM user_achievements ua
+WHERE NOT EXISTS (SELECT 1 FROM points_ledger l WHERE l.user_id = ua.user_id AND l.reason = 'achievement' AND l.ref = ua.achievement) AND (CASE ua.achievement WHEN 'first-finish' THEN 25 WHEN 'gold-1' THEN 25 WHEN 'gold-10' THEN 100 WHEN 'gold-50' THEN 300 WHEN 'finish-25' THEN 100 WHEN 'finish-100' THEN 300 WHEN 'perfect' THEN 50 WHEN 'speedy' THEN 50 WHEN 'hard-clean' THEN 150 WHEN 'rotation-5' THEN 75 WHEN 'zen-10' THEN 75 WHEN 'daily-10' THEN 150 WHEN 'streak-7' THEN 100 WHEN 'streak-30' THEN 400 WHEN 'timeattack-10' THEN 150 WHEN 'collection' THEN 100 WHEN 'challenge-win' THEN 50 WHEN 'event' THEN 100 WHEN 'slider-1' THEN 25 WHEN 'slider-5x5' THEN 150 ELSE 0 END) > 0;
