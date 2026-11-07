@@ -1291,10 +1291,10 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   // Android app: Digital Asset Links from the admin settings; no Plus checkout inside the app.
   check('android: assetlinks empty until set up', JSON.stringify(await j(guest.request.get(BASE + '/.well-known/assetlinks.json'))) === '[]');
   const fp = Array.from({ length: 32 }, (_, i) => (i * 7 + 16).toString(16).toUpperCase().padStart(2, '0').slice(-2)).join(':');
-  const saved = await j(admin.request.put(BASE + '/api/admin/site', { data: { androidPackage: 'com.snapshiftpuzzles.twa', androidFingerprints: `${fp.toLowerCase()}\nnot-a-fingerprint`, androidPlayUrl: 'https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.twa' } }));
+  const saved = await j(admin.request.put(BASE + '/api/admin/site', { data: { androidPackage: 'com.snapshiftpuzzles.app', androidFingerprints: `${fp.toLowerCase()}\nnot-a-fingerprint`, androidPlayUrl: 'https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.app' } }));
   check('android: fingerprints cleaned on save', saved.androidFingerprints === fp, saved.androidFingerprints);
   const al = await j(guest.request.get(BASE + '/.well-known/assetlinks.json'));
-  check('android: assetlinks.json links the app', al[0]?.target?.package_name === 'com.snapshiftpuzzles.twa' && al[0].target.sha256_cert_fingerprints[0] === fp && al[0].relation[0] === 'delegate_permission/common.handle_all_urls');
+  check('android: assetlinks.json links the app', al[0]?.target?.package_name === 'com.snapshiftpuzzles.app' && al[0].target.sha256_cert_fingerprints[0] === fp && al[0].relation[0] === 'delegate_permission/common.handle_all_urls');
   check('android: Play link public for the install offer', (await j(guest.request.get(BASE + '/api/site'))).androidPlayUrl.includes('play.google.com'));
   const appPage = await (await newCtx(true)).newPage();
   await appPage.goto(BASE + '/plus?app=android');

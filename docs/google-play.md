@@ -32,7 +32,7 @@ Everything the app needs on the site side is already done:
 1. Open <https://www.pwabuilder.com>, enter `https://snapshiftpuzzles.com` and press **Start**.
 2. Press **Package for stores**, then **Android → Generate Package**.
 3. Click **Options** (all options) and set:
-   - **Package ID:** `com.snapshiftpuzzles.twa`
+   - **Package ID:** `com.snapshiftpuzzles.app`
    - **App name:** `SnapShift Puzzles`, **Launcher name:** `SnapShift`
    - **App version:** `1.0.0`, **App version code:** `1`
    - **Start URL:** `/?app=android`
@@ -50,7 +50,7 @@ Everything the app needs on the site side is already done:
    `sha256_cert_fingerprints`.
 2. On the site, go to **Admin → Site settings → Android app**. Paste it into
    **SHA-256 signing fingerprints**, check the package name is
-   `com.snapshiftpuzzles.twa` and press **Save**.
+   `com.snapshiftpuzzles.app` and press **Save**.
 3. Open <https://snapshiftpuzzles.com/.well-known/assetlinks.json>: it should show
    your package name and fingerprint.
 
@@ -130,7 +130,7 @@ Everything the app needs on the site side is already done:
 2. **Production → Create new release**, promote the tested release and send it
    for review (usually 1–7 days).
 3. Once it's live, copy the Play Store link
-   (`https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.twa`) into
+   (`https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.app`) into
    **Admin → Site settings → Android app → Play Store link**. Android visitors
    then see "Get it on Google Play" instead of the "Add to home screen" offer.
 
