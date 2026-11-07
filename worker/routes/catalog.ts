@@ -24,7 +24,7 @@ import { dayKey, fail, msUntilNextDay, now, str, body } from '../lib/util';
 import { unlockCost } from '../../shared/rules';
 import { publicSite } from '../lib/site';
 import { isMember } from '../lib/membership';
-import { activeEvents, categoryProgress } from '../lib/rewards';
+import { activeEvents, categoryProgress, eventImage } from '../lib/rewards';
 import { collectionBonus } from '../../shared/achievements';
 
 const app = new Hono<AppEnv>();
@@ -120,7 +120,7 @@ app.get('/home', async (c) => {
       done: progress.get(cat.id)?.done ?? 0,
     })),
     latest: latestViews,
-    events: events.map((e) => ({ id: e.id, title: e.title, description: e.description, image: e.image_url, ends: e.ends, bonus: e.bonus })),
+    events: events.map((e) => ({ id: e.id, title: e.title, description: e.description, image: eventImage(e), ends: e.ends, bonus: e.bonus })),
   });
 });
 

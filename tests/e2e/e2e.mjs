@@ -1043,6 +1043,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   const ev = await j(guest.request.get(BASE + '/api/events/winter-test'));
   check('event pictures: publishing adds them to the event', ev.puzzles.length === 2 && ev.puzzles.every((p) => p.unlocked), JSON.stringify(ev.puzzles.map((p) => p.title)));
   const slug = ev.puzzles[0].slug;
+  check('event pictures: with no picture of its own, the event uses its first puzzle’s', /^\/media\//.test((ev.event || ev).image || ''), (ev.event || ev).image);
   const cats = await j(guest.request.get(BASE + '/api/categories'));
   const home = await j(guest.request.get(BASE + '/api/home'));
   check('event pictures: never in categories or latest', !cats.categories.some((c) => c.id === 'events') && !home.latest.some((p) => p.slug === slug));

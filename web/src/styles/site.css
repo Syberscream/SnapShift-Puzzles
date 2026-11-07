@@ -604,3 +604,7 @@ dialog.modal { max-height: calc(100svh - 16px); overflow-y: auto; overscroll-beh
   .ach-rays { top: -150px; left: 0; margin-left: -130px; width: 300px; height: 300px; }
   .rotate-card { padding: 14px; gap: 6px; }
 }
+.cover-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.cover-opt { width: 84px; aspect-ratio: 16 / 9; border-radius: 8px; border: 2px solid var(--border-soft); background: #111 center / cover no-repeat; cursor: pointer; padding: 0; }
+.cover-opt:hover { border-color: var(--accent); }
+.cover-opt.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }

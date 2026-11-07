@@ -4,7 +4,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { activeEventPuzzleIds, categoryIndexes, media, membersOnlyCategories, toView, userPuzzleState, viewerOf, type PuzzleRow, imageFields } from '../lib/catalog';
-import type { EventRow } from '../lib/rewards';
+import { eventImage, EVENTS_WITH_COVER, type EventRow } from '../lib/rewards';
 import { dayKey, fail, msUntilNextDay, addDays } from '../lib/util';
 import { plusSql } from '../lib/membership';
 
@@ -14,7 +14,7 @@ const view = (e: EventRow, today: string) => ({
   id: e.id,
   title: e.title,
   description: e.description,
-  image: e.image_url,
+  image: eventImage(e),
   starts: e.starts,
   ends: e.ends,
   bonus: e.bonus,
@@ -24,14 +24,14 @@ const view = (e: EventRow, today: string) => ({
 /** Live and upcoming events, plus the last few that ended. */
 app.get('/', async (c) => {
   const today = dayKey(c.env);
-  const { results } = await c.env.DB.prepare('SELECT * FROM events WHERE ends >= ? ORDER BY starts LIMIT 20').bind(addDays(today, -30)).all<EventRow>();
+  const { results } = await c.env.DB.prepare(`${EVENTS_WITH_COVER} WHERE e.ends >= ? ORDER BY e.starts LIMIT 20`).bind(addDays(today, -30)).all<EventRow>();
   return c.json({ today, events: results.map((e) => view(e, today)) });
 });
 
 app.get('/:id', async (c) => {
   const user = c.get('user');
   const today = dayKey(c.env);
-  const e = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first<EventRow>();
+  const e = await c.env.DB.prepare(`${EVENTS_WITH_COVER} WHERE e.id = ?`).bind(c.req.param('id')).first<EventRow>();
   if (!e) fail(404, 'Event not found.');
   const { results: rows } = await c.env.DB.prepare(
     `SELECT p.* FROM event_puzzles ep JOIN puzzles p ON p.id = ep.puzzle_id WHERE ep.event_id = ? AND p.status = 'published' ORDER BY ep.sort, p.id`,

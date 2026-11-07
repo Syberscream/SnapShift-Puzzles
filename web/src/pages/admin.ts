@@ -1168,11 +1168,32 @@ async function events() {
     const chosen = new Set(e?.puzzleIds ?? []);
     const img = h('input', { name: 'image_url', value: e?.image_url ?? '', placeholder: '/media/site/… or https://…' }) as HTMLInputElement;
     const upload = h('input', { type: 'file', accept: 'image/*' }) as HTMLInputElement;
+    // Pick the event's picture from its own puzzles.
+    const cover = h('div', { class: 'cover-pick' });
+    const drawCover = () => {
+      const mine = puzzles.filter((p) => chosen.has(p.id));
+      mount(
+        cover,
+        mine.length
+          ? mine.map((p) => {
+              const url = p.image || p.original;
+              const b = h('button', { type: 'button', class: `cover-opt${img.value === url ? ' on' : ''}`, title: `Use “${p.title}”`, style: bg(p.thumb) });
+              b.addEventListener('click', () => {
+                img.value = img.value === url ? '' : url;
+                drawCover();
+              });
+              return b;
+            })
+          : h('span', { class: 'small muted' }, 'Tick puzzles below to pick one of their pictures.'),
+      );
+    };
+    img.addEventListener('input', drawCover);
     upload.addEventListener('change', async () => {
       const f = upload.files?.[0];
       if (!f) return;
       try {
         img.value = await uploadSiteImage(f);
+        drawCover();
         toast('Image uploaded', '', 'good');
       } catch (x) {
         toast('Upload failed', errorText(x), 'bad');
@@ -1194,6 +1215,7 @@ async function events() {
               if (box.checked) chosen.add(p.id);
               else chosen.delete(p.id);
               count.textContent = `${chosen.size} chosen`;
+              drawCover();
             });
             return h('label', { class: 'pick' }, box, h('span', { class: 'thumb', style: bg(p.thumb) }), h('span', { class: 'small' }, p.title, h('br'), h('span', { class: 'muted' }, p.categoryId === 'events' ? `event picture${p.eventId ? ` · ${p.eventId}` : ''}` : (p.categoryId ?? ''))));
           }),
@@ -1216,7 +1238,15 @@ async function events() {
             h('div', { class: 'field' }, h('label', {}, 'Last day'), h('input', { type: 'date', name: 'ends', value: e?.ends ?? plusDays(6), required: true })),
           ),
           h('div', { class: 'field' }, h('label', {}, 'Bonus for finishing every puzzle (points)'), h('input', { type: 'number', name: 'bonus', min: 0, max: 5000, value: e?.bonus ?? 300 })),
-          h('div', { class: 'field' }, h('label', {}, 'Picture (optional)'), img, upload),
+          h(
+            'div',
+            { class: 'field' },
+            h('label', {}, 'Picture (optional)'),
+            h('span', { class: 'small muted' }, 'Tap one of the event’s puzzles, upload one, or leave it empty to use the first puzzle’s picture.'),
+            cover,
+            img,
+            upload,
+          ),
         ),
       ),
       h('div', { class: 'row', style: 'margin:8px 0' }, h('b', {}, 'Puzzles'), count, search),
@@ -1246,6 +1276,7 @@ async function events() {
     });
     mount(editor, f);
     drawPicker();
+    drawCover();
     f.scrollIntoView({ behavior: 'smooth' });
   };
   mount(

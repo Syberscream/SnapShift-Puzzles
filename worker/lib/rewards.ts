@@ -47,11 +47,20 @@ export interface EventRow {
   starts: string;
   ends: string;
   bonus: number;
+  /** The first puzzle's picture, used when the event has no picture of its own. */
+  cover_key?: string | null;
 }
+
+/** Events with their fallback cover (the first published puzzle's picture). */
+export const EVENTS_WITH_COVER = `SELECT e.*, (SELECT COALESCE(p.small_key, p.image_key, p.original_key) FROM event_puzzles ep JOIN puzzles p ON p.id = ep.puzzle_id
+    WHERE ep.event_id = e.id AND p.status = 'published' ORDER BY ep.sort, ep.puzzle_id LIMIT 1) AS cover_key FROM events e`;
+
+/** The event's picture: its own, or else its first puzzle's. */
+export const eventImage = (e: EventRow) => e.image_url || (e.cover_key ? `/media/${e.cover_key}` : '');
 
 /** Events running today. */
 export async function activeEvents(env: Env, day = dayKey(env)): Promise<EventRow[]> {
-  const { results } = await env.DB.prepare('SELECT * FROM events WHERE starts <= ? AND ends >= ? ORDER BY starts').bind(day, day).all<EventRow>();
+  const { results } = await env.DB.prepare(`${EVENTS_WITH_COVER} WHERE e.starts <= ? AND e.ends >= ? ORDER BY e.starts`).bind(day, day).all<EventRow>();
   return results;
 }
 
