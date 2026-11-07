@@ -30,7 +30,7 @@ async function getSliderDaily(env: Env, day: string): Promise<{ d: SliderDaily; 
     const pick = async (recentDays: number, openOnly = true) =>
       env.DB.prepare(
         `SELECT p.id FROM puzzles p JOIN categories c ON c.id = p.category_id
-         WHERE p.status = 'published' AND c.id != ? AND c.members_only = 0
+         WHERE p.status = 'published' AND c.id != ? AND c.id != 'events' AND c.members_only = 0
            AND (? = 0 OR COALESCE(p.published_at, 0) <= ?
                 OR p.id = (SELECT p2.id FROM puzzles p2 WHERE p2.category_id = p.category_id AND p2.status = 'published' ORDER BY p2.sort, p2.id LIMIT 1))
            AND p.id NOT IN (SELECT puzzle_id FROM slider_daily WHERE day >= date(?, ?))

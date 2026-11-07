@@ -20,6 +20,7 @@ interface AdminPuzzle {
   sort: number;
   createdAt: number;
   request?: { username: string; idea: string } | null;
+  eventId?: string | null;
 }
 interface Cat {
   id: string;
@@ -344,6 +345,7 @@ function reviewCard(p: AdminPuzzle, onDone: () => void) {
       cat,
       h('span', { class: 'muted small' }, `${p.source}${p.model ? ' · ' + p.model : ''} · ${new Date(p.createdAt).toLocaleDateString()}`),
       p.request ? h('div', { class: 'notice small' }, h('b', {}, `Requested by ${p.request.username}: `), p.request.idea) : null,
+      p.eventId && p.status !== 'published' ? h('div', { class: 'notice small' }, '🎉 For the event ', h('b', {}, p.eventId), '. Publishing adds it to the event.') : null,
       p.prompt ? h('details', { class: 'small muted' }, h('summary', {}, 'Prompt'), p.prompt) : null,
       h('div', { class: 'row', style: 'margin-top:6px' }, publish, reject),
     ),
@@ -1093,6 +1095,63 @@ interface AdminEvent {
   puzzleIds: number[];
 }
 
+/** Generate pictures only for one event: one per idea line, from a theme pack or your own. */
+function eventGenerator(e: AdminEvent): HTMLElement {
+  const ideas = h('textarea', { rows: 8, placeholder: 'One picture per line, like:\nSnowy Log Cabin: a log cabin in deep snow at blue hour, warm glowing windows' }) as HTMLTextAreaElement;
+  const theme = h('select', { 'aria-label': 'Theme pack' }, h('option', { value: '' }, 'Fill from a theme pack…')) as HTMLSelectElement;
+  const look = h('select', { 'aria-label': 'Look' }) as HTMLSelectElement;
+  const count = h('span', { class: 'pill dark' }, '0 pictures');
+  const go = h('button', { class: 'btn primary', type: 'button' }, 'Generate pictures');
+  const out = h('pre', { class: 'log', hidden: true });
+  const lines = () => ideas.value.split('\n').map((x) => x.trim()).filter(Boolean);
+  const recount = () => {
+    const n = lines().length;
+    count.textContent = `${n} ${n === 1 ? 'picture' : 'pictures'}`;
+    go.toggleAttribute('disabled', n === 0 || n > 30);
+  };
+  ideas.addEventListener('input', recount);
+  let packs: { id: string; label: string; ideas: string[] }[] = [];
+  void api.get<{ themes: typeof packs; looks: { id: string; label: string }[] }>('/admin/events/themes').then((d) => {
+    packs = d.themes;
+    theme.append(...packs.map((p) => h('option', { value: p.id }, `${p.label} (${p.ideas.length} ideas)`)));
+    look.append(...d.looks.map((l) => h('option', { value: l.id, selected: l.id === 'photo' }, l.id === 'auto' ? 'Automatic (the photo-realistic % mix)' : l.label)));
+  });
+  theme.addEventListener('change', () => {
+    const p = packs.find((x) => x.id === theme.value);
+    if (p) ideas.value = p.ideas.join('\n');
+    recount();
+  });
+  go.addEventListener('click', async () => {
+    const n = lines().length;
+    if (!n || !confirm(`Generate ${n} ${n === 1 ? 'picture' : 'pictures'} for “${e.title}”? This uses ElevenLabs credits.`)) return;
+    go.setAttribute('disabled', '');
+    go.textContent = 'Starting…';
+    try {
+      const r = await api.post<{ jobs: string[]; log: string[] }>(`/admin/events/${encodeURIComponent(e.id)}/generate`, { ideas: lines(), look: look.value });
+      out.hidden = false;
+      out.textContent = r.log.join('\n') || 'Queued.';
+      toast(`${r.jobs.length} pictures generating`, 'They’ll appear in Review in a few minutes. Publishing adds them to this event.', 'good', 8000);
+    } catch (x) {
+      toast('Couldn’t start', errorText(x), 'bad', 6000);
+    } finally {
+      go.textContent = 'Generate pictures';
+      recount();
+    }
+  });
+  recount();
+  return h(
+    'div',
+    { class: 'section-box', style: 'margin-top:14px' },
+    h('h3', {}, 'Generate pictures just for this event'),
+    h('p', { class: 'muted small' }, 'These go to “Event pictures”: never shown in the categories, Time Attack or the slider, and playable only while an event they’re in is on. They wait in Review like any other picture; publishing one adds it to this event.'),
+    h('div', { class: 'row' }, theme, look, count),
+    ideas,
+    h('p', { class: 'muted small' }, 'One picture per line. “Title: what to picture” sets the title; up to 30 at a time.'),
+    h('div', { class: 'row' }, go),
+    out,
+  );
+}
+
 async function events() {
   const [{ events: list }, { puzzles }] = await Promise.all([
     api.get<{ events: AdminEvent[] }>('/admin/events'),
@@ -1136,7 +1195,7 @@ async function events() {
               else chosen.delete(p.id);
               count.textContent = `${chosen.size} chosen`;
             });
-            return h('label', { class: 'pick' }, box, h('span', { class: 'thumb', style: bg(p.thumb) }), h('span', { class: 'small' }, p.title, h('br'), h('span', { class: 'muted' }, p.categoryId ?? '')));
+            return h('label', { class: 'pick' }, box, h('span', { class: 'thumb', style: bg(p.thumb) }), h('span', { class: 'small' }, p.title, h('br'), h('span', { class: 'muted' }, p.categoryId === 'events' ? `event picture${p.eventId ? ` · ${p.eventId}` : ''}` : (p.categoryId ?? ''))));
           }),
       );
     };
@@ -1161,8 +1220,9 @@ async function events() {
         ),
       ),
       h('div', { class: 'row', style: 'margin:8px 0' }, h('b', {}, 'Puzzles'), count, search),
-      h('p', { class: 'muted small' }, 'Pick published puzzles. While the event is on they’re free for everyone. Tip: generate pictures for the theme in Generate (with your own prompt), publish them, then pick them here.'),
+      h('p', { class: 'muted small' }, 'Pick published puzzles. While the event is on they’re free for everyone. Pictures generated for this event (below) join it automatically when you publish them.'),
       grid,
+      e ? eventGenerator(e) : h('p', { class: 'notice small' }, 'Save the event first, then you can generate pictures just for it.'),
       h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn primary', type: 'submit' }, 'Save event'), h('button', { class: 'btn ghost', type: 'button', onclick: () => mount(editor) }, 'Cancel')),
     );
     f.addEventListener('submit', async (ev) => {

@@ -69,7 +69,7 @@ export interface PuzzleView {
   thumb: string;
   unlockCost: number;
   unlocked: boolean;
-  lock: 'points' | 'members' | 'early' | null;
+  lock: 'points' | 'members' | 'early' | 'event' | null;
   publicAt: number | null;
   bestMedal: string | null;
   inProgress: boolean;

@@ -57,6 +57,7 @@ interface JobRow {
   options: string;
   remote_id: string | null;
   attempts: number;
+  event_id: string | null;
   created_at: number;
 }
 
@@ -81,17 +82,17 @@ export async function takenTitles(env: Env, categoryId: string | null): Promise<
 export async function queueJob(
   env: Env,
   settings: GenerationSettings,
-  job: { categoryId: string | null; title: string; prompt: string },
+  job: { categoryId: string | null; title: string; prompt: string; eventId?: string | null },
   reserved = false,
   auto = false,
 ): Promise<string> {
   if (!reserved) job = { ...job, title: uniqueTitle(job.title, await takenTitles(env, job.categoryId)) };
   const id = randomId(10);
   await env.DB.prepare(
-    `INSERT INTO generation_jobs (id, status, category_id, title, prompt, model, options, auto, created_at, updated_at)
-     VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO generation_jobs (id, status, category_id, title, prompt, model, options, auto, event_id, created_at, updated_at)
+     VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, job.categoryId, job.title, job.prompt, settings.model, JSON.stringify(settings.options ?? {}), auto ? 1 : 0, now(), now())
+    .bind(id, job.categoryId, job.title, job.prompt, settings.model, JSON.stringify(settings.options ?? {}), auto ? 1 : 0, job.eventId ?? null, now(), now())
     .run();
   return id;
 }
@@ -147,7 +148,7 @@ async function plan(env: Env, s: GenerationSettings, log: string[]): Promise<voi
     }
   }
 
-  const allowed = cats.filter((c) => c.id !== DAILY_CATEGORY && (s.categories.length === 0 || s.categories.includes(c.id)));
+  const allowed = cats.filter((c) => c.id !== DAILY_CATEGORY && c.id !== 'events' && (s.categories.length === 0 || s.categories.includes(c.id)));
   for (const cat of allowed) {
     if (room-- <= 0) break;
     const idea = pickIdea(cat.id, rand, cat.prompt_hint, await takenTitles(env, cat.id), s.photoShare ?? GENERATION_DEFAULTS.photoShare);
@@ -202,17 +203,17 @@ async function uniqueSlug(env: Env, title: string): Promise<string> {
 /** Store an image as a pending puzzle awaiting review. Shared with manual uploads. */
 export async function addPendingPuzzle(
   env: Env,
-  p: { title: string; categoryId: string | null; bytes: ArrayBuffer; mimeType: string; source: string; prompt?: string; model?: string },
+  p: { title: string; categoryId: string | null; bytes: ArrayBuffer; mimeType: string; source: string; prompt?: string; model?: string; eventId?: string | null },
 ): Promise<number> {
   const ext = p.mimeType.includes('jpeg') ? 'jpg' : p.mimeType.includes('webp') ? 'webp' : 'png';
   const key = `originals/${dayKey(env)}/${randomId(8)}.${ext}`;
   await env.MEDIA.put(key, p.bytes, { httpMetadata: { contentType: p.mimeType, cacheControl: 'public, max-age=31536000, immutable' } });
   const slug = await uniqueSlug(env, p.title);
   const res = await env.DB.prepare(
-    `INSERT INTO puzzles (slug, category_id, title, status, source, original_key, prompt, model, created_at)
-     VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
+    `INSERT INTO puzzles (slug, category_id, title, status, source, original_key, prompt, model, event_id, created_at)
+     VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(slug, p.categoryId, p.title, p.source, key, p.prompt ?? null, p.model ?? null, now())
+    .bind(slug, p.categoryId, p.title, p.source, key, p.prompt ?? null, p.model ?? null, p.eventId ?? null, now())
     .run();
   return Number(res.meta.last_row_id);
 }
@@ -244,6 +245,7 @@ async function poll(env: Env, log: string[]): Promise<void> {
       const puzzleId = await addPendingPuzzle(env, {
         title: job.title,
         categoryId: job.category_id,
+        eventId: job.event_id,
         bytes: await img.arrayBuffer(),
         mimeType: img.headers.get('content-type') || st.mimeType,
         source: 'elevenlabs',

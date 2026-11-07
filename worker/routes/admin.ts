@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireAdmin } from '../lib/auth';
-import { dailyPoolLeft, media, type PuzzleRow } from '../lib/catalog';
+import { dailyPoolLeft, EVENT_CATEGORY, media, type PuzzleRow } from '../lib/catalog';
+import { EVENT_THEMES, splitIdea } from '../pipeline/event-themes';
 import { creditStatements } from '../lib/points';
 import { body, dayKey, fail, getSetting, int, now, putSetting, randomId, slugify, str } from '../lib/util';
 import { cleanBanners, cleanTheme, getSite, SITE_DEFAULTS } from '../lib/site';
@@ -40,6 +41,7 @@ function adminPuzzle(p: PuzzleRow) {
     sort: p.sort,
     createdAt: p.created_at,
     publishedAt: p.published_at,
+    eventId: p.event_id ?? null,
   };
 }
 
@@ -151,6 +153,15 @@ app.post('/puzzles/:id/publish', async (c) => {
   )
     .bind(slug, title, description || p.description, categoryId, imageKey, thumbKey, smallKey, int(form.get('width')) || null, int(form.get('height')) || null, sort, now(), id)
     .run();
+  // Made for an event: it joins that event (at the end) when published.
+  if (p.event_id) {
+    await c.env.DB.prepare(
+      `INSERT OR IGNORE INTO event_puzzles (event_id, puzzle_id, sort)
+       SELECT e.id, ?, (SELECT COALESCE(MAX(sort), -1) + 1 FROM event_puzzles WHERE event_id = e.id) FROM events e WHERE e.id = ?`,
+    )
+      .bind(id, p.event_id)
+      .run();
+  }
   const out = await c.env.DB.prepare('SELECT * FROM puzzles WHERE id = ?').bind(id).first<PuzzleRow>();
   return c.json({ puzzle: adminPuzzle(out!) });
 });
@@ -477,6 +488,37 @@ app.put('/events/:id', async (c) => {
     ...ids.map((pid, i) => c.env.DB.prepare('INSERT OR IGNORE INTO event_puzzles (event_id, puzzle_id, sort) VALUES (?, ?, ?)').bind(id, pid, i)),
   ]);
   return c.json({ ok: true, id });
+});
+
+/** Idea packs for event pictures. */
+app.get('/events/themes', (c) => c.json({ themes: EVENT_THEMES, looks: LOOKS }));
+
+/**
+ * Generate pictures only for this event: one per idea ("Title: what to picture").
+ * They go to the review queue in "Event pictures" and join the event when published.
+ */
+app.post('/events/:id/generate', async (c) => {
+  const ev = await c.env.DB.prepare('SELECT id FROM events WHERE id = ?').bind(c.req.param('id')).first<{ id: string }>();
+  if (!ev) fail(404, 'Save the event first.');
+  const b = await body(c);
+  const ideas = (Array.isArray(b.ideas) ? b.ideas : String(b.ideas ?? '').split('\n'))
+    .map((x) => str(x, 400).trim())
+    .filter(Boolean);
+  if (!ideas.length) fail(422, 'Add at least one idea, one per line.');
+  if (ideas.length > 30) fail(422, 'Up to 30 pictures at a time.');
+  const settings = await getSetting(c.env, 'generation', GENERATION_DEFAULTS);
+  const look = isLook(b.look) ? b.look : 'auto';
+  const rand = rng(randomSeed());
+  const share = settings.photoShare ?? GENERATION_DEFAULTS.photoShare;
+  const ids: string[] = [];
+  for (const line of ideas) {
+    const { title, subject } = splitIdea(line);
+    const style = lookStyle(look, EVENT_CATEGORY, rand, share, false);
+    const prompt = `${subject.replace(/[.\s]+$/, '')}${style ? `, ${style}` : ''}. ${PUZZLE_SUFFIX}`;
+    ids.push(await queueJob(c.env, settings, { categoryId: EVENT_CATEGORY, title, prompt, eventId: ev.id }));
+  }
+  const log = await runPipeline(c.env, 'manual');
+  return c.json({ jobs: ids, log });
 });
 
 app.delete('/events/:id', async (c) => {

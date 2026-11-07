@@ -15,6 +15,8 @@ export interface PuzzleRow {
   original_key: string;
   image_key: string | null;
   thumb_key: string | null;
+  /** Made for this event (joins it when published). */
+  event_id?: string | null;
   /** Phone-sized copy (about 1200px wide). */
   small_key?: string | null;
   width: number | null;
@@ -28,6 +30,10 @@ export interface PuzzleRow {
 
 /** Category whose puzzles are only played as daily challenges. */
 export const DAILY_CATEGORY = 'daily';
+/** Pictures made only for events: hidden from the catalogue, playable while their event is on. */
+export const EVENT_CATEGORY = 'events';
+/** Categories never listed for browsing. */
+export const HIDDEN_CATEGORIES_SQL = `('${DAILY_CATEGORY}', '${EVENT_CATEGORY}')`;
 
 export const media = (key: string | null | undefined) => (key ? `/media/${key}` : '');
 /** The picture to play, plus the phone-sized copy when there is one. */
@@ -49,7 +55,7 @@ export interface PuzzleView {
   unlockCost: number;
   unlocked: boolean;
   /** Why it's locked: earn points, members-only category, or members' early access. */
-  lock: 'points' | 'members' | 'early' | null;
+  lock: 'points' | 'members' | 'early' | 'event' | null;
   /** Early access: when everyone can play it (ms). */
   publicAt: number | null;
   /** Finished at least once (any difficulty or mode). */
@@ -137,6 +143,9 @@ export function access(
   inEvent = false,
 ): { unlocked: boolean; lock: PuzzleView['lock']; publicAt: number | null } {
   // The free first puzzle of a category is never held back.
+  if (p.category_id === EVENT_CATEGORY && !viewer.admin) {
+    return inEvent ? { unlocked: true, lock: null, publicAt: null } : { unlocked: false, lock: 'event', publicAt: null };
+  }
   const early = membersOnly || index === 0 ? null : earlyUntil(p);
   if (viewer.admin || viewer.member) return { unlocked: true, lock: null, publicAt: early };
   if (membersOnly) return { unlocked: false, lock: 'members', publicAt: null };

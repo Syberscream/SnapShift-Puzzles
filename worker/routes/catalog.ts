@@ -4,6 +4,8 @@ import { requireUser } from '../lib/auth';
 import {
   canPlay,
   DAILY_CATEGORY,
+  EVENT_CATEGORY,
+  HIDDEN_CATEGORIES_SQL,
   categoryIndexes,
   access,
   activeEventPuzzleIds,
@@ -43,12 +45,12 @@ app.get('/home', async (c) => {
   const user = c.get('user');
   const today = dayKey(c.env);
   const [cats, counts, latest, daily] = await Promise.all([
-    c.env.DB.prepare('SELECT * FROM categories WHERE id != ? ORDER BY sort, name').bind(DAILY_CATEGORY).all<CategoryRow>(),
+    c.env.DB.prepare(`SELECT * FROM categories WHERE id NOT IN ${HIDDEN_CATEGORIES_SQL} ORDER BY sort, name`).all<CategoryRow>(),
     c.env.DB.prepare("SELECT category_id, COUNT(*) AS n FROM puzzles WHERE status = 'published' GROUP BY category_id").all<{
       category_id: string;
       n: number;
     }>(),
-    c.env.DB.prepare("SELECT * FROM puzzles WHERE status = 'published' AND category_id != ? ORDER BY published_at DESC LIMIT 8").bind(DAILY_CATEGORY).all<PuzzleRow>(),
+    c.env.DB.prepare(`SELECT * FROM puzzles WHERE status = 'published' AND category_id NOT IN ${HIDDEN_CATEGORIES_SQL} ORDER BY published_at DESC LIMIT 8`).all<PuzzleRow>(),
     getDaily(c.env, today),
   ]);
   const countMap = new Map(counts.results.map((r) => [r.category_id, r.n]));
@@ -126,7 +128,7 @@ app.get('/home', async (c) => {
 app.get('/tutorial', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT p.* FROM puzzles p JOIN categories c ON c.id = p.category_id
-     WHERE p.status = 'published' AND c.id != ? AND c.members_only = 0
+     WHERE p.status = 'published' AND c.id != ? AND c.id != 'events' AND c.members_only = 0
        AND p.id = (SELECT p2.id FROM puzzles p2 WHERE p2.category_id = p.category_id AND p2.status = 'published' ORDER BY p2.sort, p2.id LIMIT 1)`,
   )
     .bind(DAILY_CATEGORY)
@@ -141,7 +143,7 @@ app.get('/categories', async (c) => {
   const progress = user ? await categoryProgress(c.env, user.id) : new Map<string, { done: number; total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT c.*, (SELECT COUNT(*) FROM puzzles p WHERE p.category_id = c.id AND p.status = 'published') AS count
-     FROM categories c WHERE c.id != ? ORDER BY c.sort, c.name`,
+     FROM categories c WHERE c.id != ? AND c.id != 'events' ORDER BY c.sort, c.name`,
   )
     .bind(DAILY_CATEGORY)
     .all<CategoryRow & { count: number }>();
@@ -151,7 +153,7 @@ app.get('/categories', async (c) => {
 app.get('/categories/:id', async (c) => {
   const user = c.get('user');
   const cat = await c.env.DB.prepare('SELECT * FROM categories WHERE id = ?').bind(c.req.param('id')).first<CategoryRow>();
-  if (!cat || (cat.id === DAILY_CATEGORY && user?.role !== 'admin')) fail(404, 'Category not found.');
+  if (!cat || ((cat.id === DAILY_CATEGORY || cat.id === EVENT_CATEGORY) && user?.role !== 'admin')) fail(404, 'Category not found.');
   const { results } = await c.env.DB.prepare(
     "SELECT * FROM puzzles WHERE category_id = ? AND status = 'published' ORDER BY sort, id",
   )
@@ -178,6 +180,9 @@ app.get('/puzzles/:slug', async (c) => {
   const p = await c.env.DB.prepare('SELECT * FROM puzzles WHERE slug = ?').bind(c.req.param('slug')).first<PuzzleRow>();
   if (!p || (p.status !== 'published' && user?.role !== 'admin')) fail(404, 'Puzzle not found.');
   if (p.category_id === DAILY_CATEGORY && user?.role !== 'admin') fail(404, 'This picture is a daily puzzle. Find it in the Daily archive.');
+  if (p.category_id === EVENT_CATEGORY && user?.role !== 'admin' && !(await activeEventPuzzleIds(c.env)).has(p.id)) {
+    fail(404, 'This picture is part of an event that isn’t on right now.');
+  }
   const indexes = p.category_id ? await categoryIndexes(c.env, p.category_id) : new Map<number, number>();
   const idx = indexes.get(p.id) ?? 0;
   const state = await userPuzzleState(c.env, user, [p.id]);

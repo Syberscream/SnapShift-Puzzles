@@ -1007,6 +1007,56 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await rCtx.close();
 }
 
+// ---- pictures made only for events ----
+{
+  const j = async (r) => (await r).json();
+  const today = (await j(guest.request.get(BASE + '/api/daily/today'))).day;
+  const themes = await j(admin.request.get(BASE + '/api/admin/events/themes'));
+  const winter = themes.themes.find((t) => t.id === 'winter');
+  check('event pictures: winter idea pack', winter && winter.ideas.length >= 20);
+  const early = await admin.request.post(BASE + '/api/admin/events/not-saved/generate', { data: { ideas: ['x'] } });
+  check('event pictures: the event must be saved first', early.status() === 404);
+  await admin.request.put(BASE + '/api/admin/events/winter-test', { data: { title: 'Winter Wonderland', description: 'Snowy pictures', starts: today, ends: today, bonus: 100, puzzleIds: [] } });
+  // Through the admin page: pick the pack, keep two ideas, generate.
+  await admin.goto(BASE + '/admin#events');
+  await admin.waitForSelector('text=Winter Wonderland');
+  await admin.locator('tr', { hasText: 'Winter Wonderland' }).locator('button', { hasText: 'Edit' }).click();
+  await admin.waitForSelector('text=Generate pictures just for this event');
+  await admin.waitForFunction(() => document.querySelectorAll('.section-box select option').length > 3);
+  await admin.selectOption('.section-box select >> nth=0', 'winter');
+  check('event pictures: pack fills the ideas', (await admin.inputValue('.section-box textarea')).split('\n').length === winter.ideas.length);
+  await admin.fill('.section-box textarea', winter.ideas.slice(0, 2).join('\n'));
+  admin.once('dialog', (d) => d.accept());
+  await admin.click('.section-box button:has-text("Generate pictures")');
+  await admin.waitForSelector('text=pictures generating', { timeout: 15000 });
+  for (let i = 0; i < 4; i++) await admin.request.post(BASE + '/api/admin/generation/run');
+  const pending = (await j(admin.request.get(BASE + '/api/admin/puzzles?status=pending'))).puzzles.filter((p) => p.eventId === 'winter-test');
+  check('event pictures: generated into the review queue for the event', pending.length === 2 && pending.every((p) => p.categoryId === 'events') && pending.some((p) => p.title === 'Snowy Log Cabin'), JSON.stringify(pending.map((p) => [p.title, p.categoryId])));
+  check('event pictures: the winter prompt is used', /log cabin in deep fresh snow/.test(pending.find((p) => p.title === 'Snowy Log Cabin')?.prompt || ''));
+  await admin.goto(BASE + '/admin#queue');
+  await admin.waitForSelector('.queue-card');
+  for (let i = 0; i < 2; i++) {
+    const n = await admin.locator('.queue-card').count();
+    await admin.locator('.queue-card', { hasText: 'For the event' }).first().locator('button', { hasText: 'Publish' }).click();
+    await admin.waitForFunction((k) => document.querySelectorAll('.queue-card').length === k, n - 1, { timeout: 20000 });
+  }
+  const ev = await j(guest.request.get(BASE + '/api/events/winter-test'));
+  check('event pictures: publishing adds them to the event', ev.puzzles.length === 2 && ev.puzzles.every((p) => p.unlocked), JSON.stringify(ev.puzzles.map((p) => p.title)));
+  const slug = ev.puzzles[0].slug;
+  const cats = await j(guest.request.get(BASE + '/api/categories'));
+  const home = await j(guest.request.get(BASE + '/api/home'));
+  check('event pictures: never in categories or latest', !cats.categories.some((c) => c.id === 'events') && !home.latest.some((p) => p.slug === slug));
+  check('event pictures: category page hidden', (await guest.request.get(BASE + '/api/categories/events')).status() === 404);
+  check('event pictures: playable while the event is on', (await guest.request.get(BASE + `/api/puzzles/${slug}`)).ok());
+  // Event over: no longer playable, even for members.
+  await admin.request.put(BASE + '/api/admin/events/winter-test', { data: { title: 'Winter Wonderland', starts: '2020-01-01', ends: '2020-01-07', bonus: 100, puzzleIds: ev.puzzles.map((p) => p.id) } });
+  check('event pictures: hidden once the event is over', (await guest.request.get(BASE + `/api/puzzles/${slug}`)).status() === 404);
+  const late = await player.request.post(BASE + '/api/plays', { data: { puzzle: slug, difficulty: 'easy', mode: 'classic', fresh: true } });
+  check('event pictures: can’t be played after the event', late.status() === 403 || late.status() === 404, String(late.status()));
+  const sl = await guest.request.post(BASE + '/api/slider/start', { data: { slug, size: 3 } });
+  check('event pictures: not slidable outside the event', sl.status() === 403);
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

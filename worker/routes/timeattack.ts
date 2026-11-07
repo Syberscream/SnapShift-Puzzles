@@ -45,7 +45,7 @@ app.post('/start', async (c) => {
   }
   // Members' pictures (members-only categories and early access) stay out of free players' runs.
   const { results: pool } = await c.env.DB.prepare(
-    `SELECT * FROM puzzles WHERE status = 'published' AND category_id IS NOT NULL AND category_id != ?
+    `SELECT * FROM puzzles WHERE status = 'published' AND category_id IS NOT NULL AND category_id != ? AND category_id != 'events'
      ${member ? '' : 'AND category_id NOT IN (SELECT id FROM categories WHERE members_only = 1) AND COALESCE(published_at, 0) <= ?'}
      ORDER BY id`,
   )

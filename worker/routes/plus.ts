@@ -104,7 +104,7 @@ app.get('/requests', async (c) => {
     )
       .bind(user.id)
       .all<RequestRow & { month: string }>(),
-    c.env.DB.prepare("SELECT id, name FROM categories WHERE id != 'daily' ORDER BY sort, name").all<{ id: string; name: string }>(),
+    c.env.DB.prepare("SELECT id, name FROM categories WHERE id NOT IN ('daily', 'events') ORDER BY sort, name").all<{ id: string; name: string }>(),
   ]);
   const used = mine.results.filter((r) => r.month === month).length;
   return c.json({
@@ -122,7 +122,7 @@ app.post('/requests', async (c) => {
   const idea = str(b.idea, 300);
   if (idea.length < 8) fail(422, 'Describe the picture in a few words (at least 8 characters).');
   const categoryId = str(b.categoryId, 40) || 'members';
-  const cat = await c.env.DB.prepare("SELECT id FROM categories WHERE id = ? AND id != 'daily'").bind(categoryId).first();
+  const cat = await c.env.DB.prepare("SELECT id FROM categories WHERE id = ? AND id NOT IN ('daily', 'events')").bind(categoryId).first();
   if (!cat) fail(422, 'Pick a category.');
   const month = monthOf(dayKey(c.env));
   const used = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM puzzle_requests WHERE user_id = ? AND month = ?').bind(user.id, month).first<{ n: number }>();

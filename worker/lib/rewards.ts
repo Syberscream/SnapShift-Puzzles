@@ -11,7 +11,7 @@ export async function categoryProgress(env: Env, userId: number): Promise<Map<st
   const { results } = await env.DB.prepare(
     `SELECT p.category_id AS id, COUNT(*) AS total,
        SUM(CASE WHEN EXISTS (SELECT 1 FROM plays pl WHERE pl.user_id = ? AND pl.puzzle_id = p.id AND pl.completed_at IS NOT NULL) THEN 1 ELSE 0 END) AS done
-     FROM puzzles p WHERE p.status = 'published' AND p.category_id IS NOT NULL AND p.category_id != ? GROUP BY p.category_id`,
+     FROM puzzles p WHERE p.status = 'published' AND p.category_id IS NOT NULL AND p.category_id != ? AND p.category_id != 'events' GROUP BY p.category_id`,
   )
     .bind(userId, DAILY_CATEGORY)
     .all<{ id: string; total: number; done: number }>();
@@ -26,7 +26,7 @@ export interface CollectionReward {
 
 /** Pay the one-time bonus if this finish completed the puzzle's whole category. */
 export async function checkCollection(env: Env, userId: number, categoryId: string | null): Promise<CollectionReward | null> {
-  if (!categoryId || categoryId === DAILY_CATEGORY) return null;
+  if (!categoryId || categoryId === DAILY_CATEGORY || categoryId === 'events') return null;
   const p = (await categoryProgress(env, userId)).get(categoryId);
   if (!p || p.total < COLLECTION_MIN || p.done < p.total) return null;
   const points = collectionBonus(p.total);

@@ -31,7 +31,7 @@ app.post('/', async (c) => {
   if (play.daily_day) fail(422, 'Daily puzzles can’t be challenges; everyone already plays the same board.');
   if (play.mode === 'zen') fail(422, 'Zen games have no clock, so they can’t be challenges.');
   const p = await c.env.DB.prepare('SELECT category_id FROM puzzles WHERE id = ?').bind(play.puzzle_id).first<{ category_id: string }>();
-  if (p?.category_id === DAILY_CATEGORY) fail(422, 'This puzzle can’t be a challenge.');
+  if (p?.category_id === DAILY_CATEGORY || p?.category_id === 'events') fail(422, 'This puzzle can’t be a challenge.');
   const existing = await c.env.DB.prepare('SELECT id FROM challenges WHERE play_id = ?').bind(play.id).first<{ id: string }>();
   if (existing) return c.json({ id: existing.id });
   const id = randomId(8);

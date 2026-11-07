@@ -574,3 +574,6 @@ dialog.ach-modal { overflow: hidden; max-width: min(420px, calc(100vw - 32px)); 
 .rotate-phone i { position: absolute; left: 50%; bottom: 4px; width: 10px; height: 3px; margin-left: -5px; border-radius: 2px; background: #fff; }
 @keyframes rotate-phone { 0%, 20% { transform: rotate(0deg); } 50%, 80% { transform: rotate(-90deg); border-color: #ff8a1f; } 100% { transform: rotate(0deg); } }
 @media (prefers-reduced-motion: reduce) { .rotate-phone { animation: none; transform: rotate(-90deg); } }
+.section-box { border: 1px solid var(--border-soft); border-radius: 14px; padding: 12px 14px; background: var(--section); display: grid; gap: 8px; }
+.section-box h3 { margin: 0; }
+.section-box textarea { width: 100%; font: 13px/1.45 var(--font); }
