@@ -44,6 +44,10 @@ export interface PuzzleView {
   lock: 'points' | 'members' | 'early' | null;
   /** Early access: when everyone can play it (ms). */
   publicAt: number | null;
+  /** Finished at least once (any difficulty or mode). */
+  finished: boolean;
+  /** In an event that's on today. */
+  inEvent: boolean;
   bestMedal: string | null;
   inProgress: boolean;
 }
@@ -62,7 +66,8 @@ export async function userPuzzleState(env: Env, user: User | null, puzzleIds: nu
   const unlocked = new Set<number>();
   const best = new Map<number, string>();
   const inProgress = new Set<number>();
-  if (!user || puzzleIds.length === 0) return { unlocked, best, inProgress };
+  const finished = new Set<number>();
+  if (!user || puzzleIds.length === 0) return { unlocked, best, inProgress, finished };
   const ids = puzzleIds.join(',');
   const [u, b, p] = await env.DB.batch([
     env.DB.prepare(`SELECT puzzle_id FROM unlocks WHERE user_id = ? AND puzzle_id IN (${ids})`).bind(user.id),
@@ -76,10 +81,12 @@ export async function userPuzzleState(env: Env, user: User | null, puzzleIds: nu
     ).bind(user.id),
   ]);
   for (const r of u.results as { puzzle_id: number }[]) unlocked.add(r.puzzle_id);
-  for (const r of b.results as { puzzle_id: number; m: number }[])
+  for (const r of b.results as { puzzle_id: number; m: number }[]) {
+    finished.add(r.puzzle_id);
     if (r.m) best.set(r.puzzle_id, ['', 'bronze', 'silver', 'gold'][r.m]);
+  }
   for (const r of p.results as { puzzle_id: number }[]) inProgress.add(r.puzzle_id);
-  return { unlocked, best, inProgress };
+  return { unlocked, best, inProgress, finished };
 }
 
 /** What the viewer is: drives which puzzles are open to them. */
@@ -102,6 +109,16 @@ export function earlyUntil(p: Pick<PuzzleRow, 'published_at'>, t = now()): numbe
   return open > t ? open : null;
 }
 
+/** Puzzles in an event that's on today: open to everyone while it runs. */
+export async function activeEventPuzzleIds(env: Env, day = dayKey(env)): Promise<Set<number>> {
+  const { results } = await env.DB.prepare(
+    'SELECT ep.puzzle_id AS id FROM event_puzzles ep JOIN events e ON e.id = ep.event_id WHERE e.starts <= ? AND e.ends >= ?',
+  )
+    .bind(day, day)
+    .all<{ id: number }>();
+  return new Set(results.map((r) => r.id));
+}
+
 /** Is this (non-daily) puzzle open to the viewer, and if not, why? */
 export function access(
   p: PuzzleRow,
@@ -109,11 +126,13 @@ export function access(
   viewer: Viewer,
   membersOnly: boolean,
   unlockedByPoints: boolean,
+  inEvent = false,
 ): { unlocked: boolean; lock: PuzzleView['lock']; publicAt: number | null } {
   // The free first puzzle of a category is never held back.
   const early = membersOnly || index === 0 ? null : earlyUntil(p);
   if (viewer.admin || viewer.member) return { unlocked: true, lock: null, publicAt: early };
   if (membersOnly) return { unlocked: false, lock: 'members', publicAt: null };
+  if (inEvent) return { unlocked: true, lock: null, publicAt: null };
   if (early) return { unlocked: false, lock: 'early', publicAt: early };
   if (unlockCost(index) === 0 || unlockedByPoints) return { unlocked: true, lock: null, publicAt: null };
   return { unlocked: false, lock: 'points', publicAt: null };
@@ -125,9 +144,10 @@ export function toView(
   state: Awaited<ReturnType<typeof userPuzzleState>>,
   viewer: Viewer,
   membersOnly = false,
+  eventIds: Set<number> = new Set(),
 ): PuzzleView {
   const cost = unlockCost(index);
-  const a = access(p, index, viewer, membersOnly, state.unlocked.has(p.id));
+  const a = access(p, index, viewer, membersOnly, state.unlocked.has(p.id), eventIds.has(p.id));
   return {
     id: p.id,
     slug: p.slug,
@@ -141,6 +161,8 @@ export function toView(
     unlocked: a.unlocked,
     lock: a.lock,
     publicAt: a.publicAt,
+    finished: state.finished.has(p.id),
+    inEvent: eventIds.has(p.id),
     bestMedal: state.best.get(p.id) ?? null,
     inProgress: state.inProgress.has(p.id),
   };
@@ -154,7 +176,7 @@ export async function canPlay(env: Env, user: User | null, p: PuzzleRow): Promis
   const idx = (await categoryIndexes(env, p.category_id)).get(p.id) ?? 0;
   const membersOnly = (await membersOnlyCategories(env)).has(p.category_id);
   const paid = user ? !!(await env.DB.prepare('SELECT 1 FROM unlocks WHERE user_id = ? AND puzzle_id = ?').bind(user.id, p.id).first()) : false;
-  return access(p, idx, viewerOf(user), membersOnly, paid).unlocked;
+  return access(p, idx, viewerOf(user), membersOnly, paid, (await activeEventPuzzleIds(env)).has(p.id)).unlocked;
 }
 
 export interface DailyRow {

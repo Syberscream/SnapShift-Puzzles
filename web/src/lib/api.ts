@@ -36,6 +36,7 @@ export const api = {
   post: <T>(p: string, d?: unknown) => request<T>('POST', p, d ?? {}),
   put: <T>(p: string, d?: unknown) => request<T>('PUT', p, d ?? {}),
   patch: <T>(p: string, d?: unknown) => request<T>('PATCH', p, d ?? {}),
+  del: <T>(p: string) => request<T>('DELETE', p),
 };
 
 export interface Me {
@@ -53,6 +54,7 @@ export interface Me {
   /** Has a Stripe billing account (can open the billing portal). */
   billing: boolean;
   frame: string;
+  remindStreak: boolean;
 }
 
 export interface PuzzleView {
@@ -70,6 +72,8 @@ export interface PuzzleView {
   publicAt: number | null;
   bestMedal: string | null;
   inProgress: boolean;
+  finished?: boolean;
+  inEvent?: boolean;
 }
 
 export interface Category {
@@ -79,4 +83,6 @@ export interface Category {
   tile: string;
   count: number;
   membersOnly?: boolean;
+  /** Puzzles you've finished in it. */
+  done?: number;
 }

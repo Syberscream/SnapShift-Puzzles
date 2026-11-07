@@ -168,3 +168,49 @@ export async function medalsPanel(): Promise<HTMLElement> {
       : h('p', { class: 'muted' }, 'Finish puzzles to fill your collection.'),
   );
 }
+
+/** Streak reminder email on/off. */
+export function remindersPanel(user: Me): HTMLElement {
+  const box = h('input', { type: 'checkbox', checked: user.remindStreak, disabled: !user.emailVerified }) as HTMLInputElement;
+  box.addEventListener('change', async () => {
+    try {
+      await api.put('/auth/preferences', { remindStreak: box.checked });
+      toast(box.checked ? 'Reminders on' : 'Reminders off', box.checked ? 'You’ll get an email in the evening if your streak is about to end.' : '', 'good');
+    } catch (e) {
+      box.checked = !box.checked;
+      toast('Couldn’t save', errorText(e), 'bad');
+    }
+  });
+  return h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, 'Email'),
+    h('label', { class: 'check' }, box, 'Remind me in the evening if I haven’t played the daily and my streak is about to end'),
+    !user.emailVerified ? h('p', { class: 'small muted' }, 'Verify your email address first (see the notice at the top).') : null,
+    new URLSearchParams(location.search).has('unsubscribed') ? h('p', { class: 'small' }, 'You’ve been unsubscribed from reminder emails.') : null,
+  );
+}
+
+/** Every achievement, earned ones first. */
+export async function achievementsPanel(): Promise<HTMLElement> {
+  const d = await api.get<{ achievements: { id: string; title: string; description: string; icon: string; earnedAt: number | null }[] }>('/me/achievements');
+  const got = d.achievements.filter((a) => a.earnedAt).length;
+  const list = [...d.achievements].sort((a, b) => (b.earnedAt ? 1 : 0) - (a.earnedAt ? 1 : 0));
+  return h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, `Achievements (${got} of ${d.achievements.length})`),
+    h(
+      'div',
+      { class: 'achievements' },
+      list.map((a) =>
+        h(
+          'div',
+          { class: `achievement${a.earnedAt ? ' earned' : ''}`, title: a.earnedAt ? `Earned ${new Date(a.earnedAt).toLocaleDateString()}` : 'Not earned yet' },
+          h('span', { class: 'icon', 'aria-hidden': 'true' }, a.icon),
+          h('span', {}, h('b', {}, a.title), h('span', { class: 'small muted' }, a.description)),
+        ),
+      ),
+    ),
+  );
+}

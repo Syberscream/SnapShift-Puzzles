@@ -90,6 +90,25 @@ interface CompleteResult {
   rank: number | null;
   balance: number;
   frozen?: string[];
+  challenge?: { by: string; theirElapsedMs: number; theirMoves: number; theirMedal: string | null; beat: boolean; recorded: boolean } | null;
+  collection?: { categoryId: string; name: string; points: number } | null;
+  events?: { id: string; title: string; done: number; total: number; bonus: number | null }[];
+  achievements?: { id: string; title: string; description: string; icon: string }[];
+}
+
+interface ChallengeInfo {
+  id: string;
+  by: string;
+  mine: boolean;
+  seed: number;
+  difficulty: Difficulty;
+  mode: Mode;
+  engine: EngineVersion;
+  elapsedMs: number;
+  moves: number;
+  medal: string | null;
+  puzzle: { slug: string; title: string; image: string; thumb: string; categoryId: string | null; categoryName: string };
+  results: { username: string; elapsedMs: number; moves: number; medal: string | null; isMe: boolean }[];
 }
 
 interface GuestSave {
@@ -103,7 +122,9 @@ interface GuestSave {
 const main = await shell({ bodyClass: 'game-page' });
 const user = me();
 const dailyDay = qs('daily');
-const slug = qs('p');
+const challengeId = qs('challenge');
+let challenge: ChallengeInfo | null = null;
+let slug = qs('p');
 const prefs = store('ss_play_prefs', { difficulty: 'easy' as Difficulty, mode: 'classic' as Mode });
 const guestSaves = store<Record<string, GuestSave>>('ss_guest_games', {});
 
@@ -153,9 +174,59 @@ const pauseBtn = h('button', { class: 'btn', onclick: () => togglePause() }, 'Pa
 const muteBtn = h('button', { class: 'btn', 'aria-pressed': String(isMuted()) }, isMuted() ? 'Sound off' : 'Sound on');
 const preview = h('div', { class: 'preview', title: 'The finished picture' });
 const doneBar = h('div', { class: 'notice done-bar', hidden: true });
+const challengeBar = h('div', { class: 'notice challenge-bar', hidden: true });
+
+/** Same rule as the server: faster wins; within half a second, fewer moves wins. */
+const beats = (a: { elapsedMs: number; moves: number }, b: { elapsedMs: number; moves: number }) =>
+  Math.abs(a.elapsedMs - b.elapsedMs) <= 500 ? a.moves < b.moves : a.elapsedMs < b.elapsedMs;
+
+function showChallengeBar() {
+  if (!challenge) return;
+  challengeBar.hidden = false;
+  mount(
+    challengeBar,
+    h('b', {}, challenge.mine ? 'Your challenge' : `⚔ ${challenge.by} challenges you`),
+    ` · beat ${formatTime(challenge.elapsedMs)} in ${challenge.moves} moves (${RULES[challenge.difficulty].label}, ${MODE_LABELS[challenge.mode]}). Same board, same start.`,
+    challenge.results.length ? h('span', { class: 'muted small' }, ` ${challenge.results.length} ${challenge.results.length === 1 ? 'player has' : 'players have'} tried it.`) : null,
+  );
+}
+
+const MEDAL_EMOJI: Record<string, string> = { gold: '🥇', silver: '🥈', bronze: '🥉' };
+
+/** Wordle-style result text: medal, stats and a 10-square score bar. */
+function shareText(r: { rating: Rating | null; elapsedMs: number; moves: number }, link: string): string {
+  const what = dailyDay
+    ? `SnapShift Daily · ${dailyDay}`
+    : `SnapShift · ${puzzle.title} (${RULES[difficulty].label}${mode === 'classic' ? '' : `, ${MODE_LABELS[mode]}`})`;
+  if (!r.rating) return `${what} 🧘\n✅ Solved in ${r.moves} moves\n${link}`;
+  const filled = Math.round(r.rating.scorePct / 10);
+  const square = r.rating.medal === 'gold' ? '🟨' : r.rating.medal === 'silver' ? '⬜' : '🟧';
+  const bar = square.repeat(filled) + '⬛'.repeat(10 - filled);
+  return `${what} ${MEDAL_EMOJI[r.rating.medal] ?? ''}\n⏱ ${formatTime(r.elapsedMs)} · 🔀 ${r.moves} moves · ${r.rating.scorePct}%\n${bar}\n${link}`;
+}
+
+async function shareOrCopy(text: string, done = 'Copied to the clipboard.') {
+  try {
+    if (navigator.share) await navigator.share({ text });
+    else {
+      await navigator.clipboard.writeText(text);
+      toast('Copied', done, 'good');
+    }
+  } catch {
+    /* cancelled */
+  }
+}
 const helpText = h('p', { class: 'small muted', style: 'margin-top:8px' });
 
 async function loadPuzzle(): Promise<void> {
+  if (challengeId) {
+    challenge = await api.get<ChallengeInfo>(`/challenges/${encodeURIComponent(challengeId)}`);
+    slug = challenge.puzzle.slug;
+    difficulty = challenge.difficulty;
+    mode = challenge.mode;
+    puzzle = { ...challenge.puzzle, unlocked: true, next: null };
+    return;
+  }
   if (dailyDay) {
     const d = await api.get<{ seed: number; puzzle: { slug: string; title: string; image: string; thumb: string }; category: { id: string; name: string } | null }>(
       `/daily/day/${encodeURIComponent(dailyDay)}`,
@@ -182,7 +253,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-const guestBase = () => (dailyDay ? 'daily:' + dailyDay : slug);
+const guestBase = () => (challengeId ? 'challenge:' + challengeId : dailyDay ? 'daily:' + dailyDay : slug);
 const guestKey = () => `${guestBase()}:${difficulty}:${mode}:v2`;
 
 /** Guest save for the current difficulty/mode, including games saved before modes existed. */
@@ -201,13 +272,10 @@ async function startGame(fresh = false): Promise<void> {
   stopMemorize();
   let done: Done | null = null;
   if (user) {
-    const r = await api.post<{ play: ServerPlay; resumed: boolean }>('/plays', {
-      puzzle: puzzle.slug,
-      difficulty,
-      mode,
-      daily: dailyDay || undefined,
-      fresh,
-    });
+    const r = await api.post<{ play: ServerPlay; resumed: boolean }>(
+      '/plays',
+      challenge ? { challenge: challenge.id, fresh } : { puzzle: puzzle.slug, difficulty, mode, daily: dailyDay || undefined, fresh },
+    );
     play = r.play;
     seed = play.seed;
     difficulty = play.difficulty;
@@ -224,8 +292,8 @@ async function startGame(fresh = false): Promise<void> {
       delete saves[guestKey()];
       guestSaves.set(saves);
     }
-    seed = dailyDay ? seedFromString('daily:' + dailyDay) : (saved?.seed ?? randomSeed());
-    setup = { version: saved?.version ?? ENGINE_VERSION, difficulty, mode, daily: !!dailyDay, hardMode: false };
+    seed = challenge ? challenge.seed : dailyDay ? seedFromString('daily:' + dailyDay) : (saved?.seed ?? randomSeed());
+    setup = { version: challenge ? challenge.engine : (saved?.version ?? ENGINE_VERSION), difficulty, mode, daily: !!dailyDay, hardMode: false };
     actions = saved?.actions ?? [];
     elapsedBase = saved?.elapsedMs ?? 0;
     done = saved?.completed ?? null;
@@ -326,9 +394,10 @@ function syncControls() {
     diffSel,
     DIFFICULTIES.map((d) => h('option', { value: d, selected: d === difficulty }, `${RULES[d].label} (${r(d).rows}×${r(d).cols})`)),
   );
-  diffSel.disabled = !!dailyDay;
+  diffSel.disabled = !!dailyDay || !!challenge;
   modeSel.value = mode;
   modeSel.hidden = !!dailyDay || setup.version === 1;
+  modeSel.disabled = !!challenge;
   placeBtn.hidden = !rules.placeAllowed;
   peekBtn.hidden = rules.preview !== 'peek';
   pauseBtn.hidden = !rules.timed;
@@ -535,6 +604,17 @@ async function finish() {
         streak: null,
         rank: null,
         balance: 0,
+        challenge:
+          challenge && !challenge.mine
+            ? {
+                by: challenge.by,
+                theirElapsedMs: challenge.elapsedMs,
+                theirMoves: challenge.moves,
+                theirMedal: challenge.medal,
+                beat: beats({ elapsedMs: elapsedBase, moves: state.moves }, challenge),
+                recorded: false,
+              }
+            : null,
       },
       true,
     );
@@ -559,21 +639,29 @@ function showResult(r: CompleteResult, guest: boolean) {
   if (!guest) countUp(pointsEl, r.points + r.dailyBonus, (n) => `+${n.toLocaleString()} points`);
   const label = rating ? rating.medal[0].toUpperCase() + rating.medal.slice(1) : '';
   const subtitle = `${puzzle.title} · ${RULES[difficulty].label} · ${MODE_LABELS[mode]}`;
-  const share = async () => {
-    const what = dailyDay ? `the SnapShift daily (${dailyDay})` : `“${puzzle.title}” on SnapShift (${RULES[difficulty].label}, ${MODE_LABELS[mode]})`;
-    const text = rating
-      ? `I solved ${what} in ${formatTime(r.elapsedMs)}: ${label} medal, ${rating.scorePct}%. ${location.origin}${dailyDay ? '/daily' : ''}`
-      : `I solved ${what}. ${location.origin}`;
+  const link = dailyDay ? `${location.origin}/daily` : challenge ? `${location.origin}/play?challenge=${challenge.id}` : `${location.origin}/play?p=${encodeURIComponent(puzzle.slug)}`;
+  const share = () => shareOrCopy(shareText({ rating, elapsedMs: r.elapsedMs, moves: r.moves }, link), 'Result copied. Paste it anywhere!');
+  // Challenge a friend: your exact board, by link.
+  const challengeBtn =
+    user && play && !dailyDay && rating && !r.zen
+      ? (h('button', { class: 'btn' }, '⚔ Challenge a friend') as HTMLButtonElement)
+      : null;
+  challengeBtn?.addEventListener('click', async () => {
+    challengeBtn.disabled = true;
     try {
-      if (navigator.share) await navigator.share({ text });
-      else {
-        await navigator.clipboard.writeText(text);
-        toast('Copied', 'Result copied to the clipboard.');
-      }
-    } catch {
-      /* cancelled */
+      const { id } = await api.post<{ id: string }>('/challenges', { playId: play!.id });
+      const url = `${location.origin}/play?challenge=${id}`;
+      await shareOrCopy(
+        `I solved “${puzzle.title}” on SnapShift in ${formatTime(r.elapsedMs)} (${r.moves} moves). Same board for you: can you beat me? ⚔\n${url}`,
+        'Challenge link copied. Send it to a friend!',
+      );
+    } catch (e) {
+      toast('Couldn’t make a challenge', errorText(e), 'bad');
+    } finally {
+      challengeBtn.disabled = false;
     }
-  };
+  });
+  for (const a of r.achievements ?? []) toast(`${a.icon} ${a.title}`, a.description, 'good', 6000);
   const d = modal(
     rating ? h('div', { class: `result-medal ${rating.medal} celebrate` }, medalBadge(rating.medal), h('span', { class: 'medal-name' }, `${rating.medal} medal`)) : h('div', { class: 'result-medal celebrate', style: 'font-size:48px' }, '✓'),
     h('h2', { style: 'text-align:center' }, rating ? `${label} medal!` : 'Puzzle complete'),
@@ -602,12 +690,39 @@ function showResult(r: CompleteResult, guest: boolean) {
     r.frozen?.length
       ? h('div', { class: 'notice' }, plusTag('STREAK FREEZE'), ` Saved your streak for ${r.frozen.length === 1 ? 'the day' : `the ${r.frozen.length} days`} you missed.`)
       : null,
+    r.challenge
+      ? h(
+          'div',
+          { class: `notice challenge-result ${r.challenge.beat ? 'won' : 'lost'}` },
+          h('b', {}, r.challenge.beat ? `🎉 You beat ${r.challenge.by}!` : `${r.challenge.by} wins this one.`),
+          ` You: ${formatTime(r.elapsedMs)} · ${r.moves} moves. ${r.challenge.by}: ${formatTime(r.challenge.theirElapsedMs)} · ${r.challenge.theirMoves} moves.`,
+          !r.challenge.recorded && !guest ? h('span', { class: 'muted small' }, ' (Your first try is the one that counts.)') : null,
+          guest ? h('span', { class: 'muted small' }, ' Sign in to put your time on the challenge board.') : null,
+        )
+      : null,
+    r.collection ? h('div', { class: 'notice' }, h('b', {}, `📚 ${r.collection.name} collection complete! `), `+${r.collection.points} bonus points.`) : null,
+    ...(r.events ?? []).map((e) =>
+      h(
+        'div',
+        { class: 'notice' },
+        h('b', {}, `🎉 ${e.title}: `),
+        `${e.done} of ${e.total} puzzles done.`,
+        e.bonus ? ` Event complete: +${e.bonus} bonus points!` : e.done >= e.total ? ' Event complete!' : '',
+        ' ',
+        h('a', { href: `/event?e=${encodeURIComponent(e.id)}` }, 'Event page'),
+      ),
+    ),
+    r.achievements?.length
+      ? h('div', { class: 'notice achievements-new' }, h('b', {}, 'New achievement' + (r.achievements.length > 1 ? 's' : '') + ': '), r.achievements.map((a) => `${a.icon} ${a.title}`).join(' · '))
+      : null,
+    !guest && dailyDay && r.streak && r.streak.current >= 2 && user && !user.remindStreak && user.emailVerified ? reminderOffer() : null,
     r.milestone ? h('div', { class: 'notice warn' }, h('b', {}, `${r.milestone.title}! `), `${r.milestone.days}-day streak: +${r.milestone.points} bonus points.`) : null,
     h(
       'div',
       { class: 'row end' },
       h('a', { class: 'btn', href: '/' }, 'Home'),
       h('button', { class: 'btn', onclick: share }, 'Share'),
+      challengeBtn,
       dailyDay ? h('a', { class: 'btn', href: `/leaderboard?day=${dailyDay}` }, 'Leaderboard') : null,
       h('button', { class: 'btn', onclick: () => { d.close(); void restart(true); } }, 'Play again'),
       puzzle.next
@@ -615,6 +730,23 @@ function showResult(r: CompleteResult, guest: boolean) {
         : h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'More puzzles'),
     ),
   );
+}
+
+/** After a daily: offer an evening email if the streak is about to lapse. */
+function reminderOffer(): HTMLElement {
+  const btn = h('button', { class: 'btn' }, 'Remind me') as HTMLButtonElement;
+  const box = h('div', { class: 'notice' }, '🔔 Want an email in the evening if you haven’t played the daily yet, so your streak never ends by accident? ', btn);
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      await api.put('/auth/preferences', { remindStreak: true });
+      mount(box, '🔔 Done. You’ll get a reminder when your streak is at risk. Turn it off any time on your account page.');
+    } catch (e) {
+      toast('Couldn’t turn on reminders', errorText(e), 'bad');
+      btn.disabled = false;
+    }
+  });
+  return box;
 }
 
 async function restart(fresh: boolean) {
@@ -655,7 +787,7 @@ async function switchTo(next: { difficulty?: Difficulty; mode?: Mode }) {
 
 // ---------- page ----------
 try {
-  if (!dailyDay && !slug) throw new Error('No puzzle chosen.');
+  if (!dailyDay && !slug && !challengeId) throw new Error('No puzzle chosen.');
   await loadPuzzle();
   document.title = `${dailyDay ? `Daily ${dailyDay}` : puzzle.title} | SnapShift Puzzles`;
   if (!puzzle.unlocked) {
@@ -684,6 +816,7 @@ try {
     );
   } else {
     image = await loadImage(puzzle.image);
+    showChallengeBar();
     preview.setAttribute('style', bg(puzzle.thumb || puzzle.image));
     mount(
       main,
@@ -711,6 +844,7 @@ try {
           'section',
           { class: 'panel' },
           h('div', { class: 'hud' }, h('div', { class: 'row' }, timeEl, modeEl, scoreEl, streakEl, movesEl), h('div', { class: 'row' }, saveEl)),
+          challengeBar,
           doneBar,
           wrap,
           h('div', { class: 'progress-bar', role: 'progressbar', 'aria-label': 'Tiles in place' }, progressFill),

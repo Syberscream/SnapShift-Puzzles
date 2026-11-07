@@ -3,6 +3,7 @@ import type { AppEnv, User } from '../env';
 import { requireUser } from '../lib/auth';
 import { archiveOpen, canPlay, dailyStreak, getDaily, media, useStreakFreezes, type PuzzleRow } from '../lib/catalog';
 import { isMember } from '../lib/membership';
+import { checkAchievements, checkCollection, recordEventFinish } from '../lib/rewards';
 import { balance, creditStatements, spend } from '../lib/points';
 import { body, dayKey, fail, int, now, randomId } from '../lib/util';
 import {
@@ -57,6 +58,29 @@ interface PlayRow {
   score_pct: number | null;
   medal: string | null;
   points: number | null;
+  challenge_id: string | null;
+}
+
+export interface ChallengeRow {
+  id: string;
+  puzzle_id: number;
+  user_id: number;
+  play_id: string;
+  seed: number;
+  difficulty: Difficulty;
+  mode: Mode;
+  engine: EngineVersion;
+  elapsed_ms: number;
+  moves: number;
+  medal: string | null;
+  score_pct: number | null;
+  created_at: number;
+}
+
+/** A challenger wins on time; within half a second, fewer moves wins. */
+export function beats(a: { elapsed_ms: number; moves: number }, b: { elapsed_ms: number; moves: number }): boolean {
+  if (Math.abs(a.elapsed_ms - b.elapsed_ms) <= 500) return a.moves < b.moves;
+  return a.elapsed_ms < b.elapsed_ms;
 }
 
 const MAX_ACTIONS = 5000;
@@ -70,6 +94,7 @@ function playView(p: PlayRow) {
     engine: p.engine,
     hardMode: !!p.hard_mode,
     daily: p.daily_day,
+    challenge: p.challenge_id,
     actions: JSON.parse(p.actions) as Action[],
     elapsedMs: p.elapsed_ms,
     completed: !!p.completed_at,
@@ -121,7 +146,17 @@ app.post('/', async (c) => {
 
   let puzzle: PuzzleRow | null;
   let seed: number;
-  if (dailyDay) {
+  let challenge: ChallengeRow | null = null;
+  if (typeof b.challenge === 'string' && b.challenge) {
+    // A friend's challenge: their exact board, even if the puzzle is locked for you.
+    challenge = await c.env.DB.prepare('SELECT * FROM challenges WHERE id = ?').bind(b.challenge).first<ChallengeRow>();
+    if (!challenge) fail(404, 'Challenge not found.');
+    puzzle = await c.env.DB.prepare("SELECT * FROM puzzles WHERE id = ? AND status = 'published'").bind(challenge.puzzle_id).first<PuzzleRow>();
+    if (!puzzle) fail(404, 'That puzzle is no longer available.');
+    seed = challenge.seed;
+    difficulty = challenge.difficulty;
+    mode = challenge.mode;
+  } else if (dailyDay) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dailyDay)) fail(422, 'Bad day.');
     if (!archiveOpen(dailyDay, dayKey(c.env), isMember(user))) fail(403, 'Older dailies are part of SnapShift Plus.');
     const d = await getDaily(c.env, dailyDay);
@@ -141,14 +176,21 @@ app.post('/', async (c) => {
   // an unfinished one is resumed, a finished one is shown finished.
   // "fresh" (Play again / Shuffle) starts a new game instead.
   const latest = async (completed: boolean) =>
-    c.env.DB.prepare(
-      `SELECT * FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ? AND mode = ?
-       AND completed_at IS ${completed ? 'NOT NULL' : 'NULL'}
-       AND ${dailyDay ? 'daily_day = ?' : 'daily_day IS NULL AND ? IS NULL'}
-       ORDER BY ${completed ? 'completed_at' : 'updated_at'} DESC LIMIT 1`,
-    )
-      .bind(user.id, puzzle.id, difficulty, mode, dailyDay)
-      .first<PlayRow>();
+    challenge
+      ? c.env.DB.prepare(
+          `SELECT * FROM plays WHERE user_id = ? AND challenge_id = ? AND completed_at IS ${completed ? 'NOT NULL' : 'NULL'}
+           ORDER BY ${completed ? 'completed_at' : 'updated_at'} DESC LIMIT 1`,
+        )
+          .bind(user.id, challenge.id)
+          .first<PlayRow>()
+      : c.env.DB.prepare(
+          `SELECT * FROM plays WHERE user_id = ? AND puzzle_id = ? AND difficulty = ? AND mode = ? AND challenge_id IS NULL
+           AND completed_at IS ${completed ? 'NOT NULL' : 'NULL'}
+           AND ${dailyDay ? 'daily_day = ?' : 'daily_day IS NULL AND ? IS NULL'}
+           ORDER BY ${completed ? 'completed_at' : 'updated_at'} DESC LIMIT 1`,
+        )
+          .bind(user.id, puzzle.id, difficulty, mode, dailyDay)
+          .first<PlayRow>();
   const existing = await latest(false);
   const done = await latest(true);
   if (!fresh) {
@@ -167,10 +209,10 @@ app.post('/', async (c) => {
   const id = randomId(12);
   const t = now();
   await c.env.DB.prepare(
-    `INSERT INTO plays (id, user_id, puzzle_id, difficulty, mode, engine, hard_mode, daily_day, seed, started_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+    `INSERT INTO plays (id, user_id, puzzle_id, difficulty, mode, engine, hard_mode, daily_day, seed, started_at, updated_at, challenge_id)
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, user.id, puzzle.id, difficulty, mode, ENGINE_VERSION, dailyDay, seed, t, t)
+    .bind(id, user.id, puzzle.id, difficulty, mode, challenge ? challenge.engine : ENGINE_VERSION, challenge ? null : dailyDay, seed, t, t, challenge?.id ?? null)
     .run();
   const play = await c.env.DB.prepare('SELECT * FROM plays WHERE id = ?').bind(id).first<PlayRow>();
   return c.json({ play: playView(play!), resumed: false });
@@ -311,6 +353,34 @@ app.post('/:id/complete', async (c) => {
     }
   }
 
+  // Friend's challenge: the first finish counts.
+  let challengeResult = null;
+  const extra: string[] = [];
+  if (play.challenge_id) {
+    const ch = await c.env.DB.prepare('SELECT c.*, u.username FROM challenges c JOIN users u ON u.id = c.user_id WHERE c.id = ?')
+      .bind(play.challenge_id)
+      .first<ChallengeRow & { username: string }>();
+    if (ch && ch.user_id !== user.id) {
+      const mine = { elapsed_ms: elapsed, moves: state.moves };
+      const ins = await c.env.DB.prepare(
+        `INSERT OR IGNORE INTO challenge_results (challenge_id, user_id, play_id, elapsed_ms, moves, medal, score_pct, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+        .bind(ch.id, user.id, play.id, elapsed, state.moves, zen ? null : rating.medal, zen ? null : rating.scorePct, t)
+        .run();
+      const win = beats(mine, ch);
+      if (win) extra.push('challenge-win');
+      challengeResult = { by: ch.username, theirElapsedMs: ch.elapsed_ms, theirMoves: ch.moves, theirMedal: ch.medal, beat: win, recorded: !!ins.meta.changes };
+    }
+  }
+  const puzzleRow = await c.env.DB.prepare('SELECT category_id FROM puzzles WHERE id = ?').bind(play.puzzle_id).first<{ category_id: string | null }>();
+  const collection = play.daily_day ? null : await checkCollection(c.env, user.id, puzzleRow?.category_id ?? null);
+  const events = zen || play.daily_day ? [] : await recordEventFinish(c.env, user.id, play.puzzle_id, { scorePct: rating.scorePct, elapsedMs: elapsed, medal: rating.medal });
+  if (!zen && rating.moveEffPct >= 100) extra.push('perfect');
+  if (streak && streak.current >= 7) extra.push('streak-7');
+  if (streak && streak.current >= 30) extra.push('streak-30');
+  const achievements = await checkAchievements(c.env, user.id, extra);
+
   let rank = null;
   if (countsForDaily) {
     const r = await c.env.DB.prepare(
@@ -335,6 +405,10 @@ app.post('/:id/complete', async (c) => {
     streak,
     frozen,
     rank,
+    challenge: challengeResult,
+    collection,
+    events,
+    achievements,
     balance: await balance(c.env, user.id),
   });
 });

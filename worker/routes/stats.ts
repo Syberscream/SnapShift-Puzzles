@@ -5,6 +5,7 @@ import { archiveOpen, dailyStreak, freezesLeft, getDaily, media } from '../lib/c
 import { isMember, plusSql } from '../lib/membership';
 import { addDays, dayKey, fail, int, msUntilNextDay } from '../lib/util';
 import { PLUS } from '../../shared/rules';
+import { ACHIEVEMENTS } from '../../shared/achievements';
 
 const app = new Hono<AppEnv>();
 
@@ -172,6 +173,14 @@ app.get('/me/ledger', async (c) => {
     .all();
   if (!results) fail(500, 'Could not load history.');
   return c.json({ rows: results });
+});
+
+/** All achievements, with when you earned each one. */
+app.get('/me/achievements', async (c) => {
+  const user = requireUser(c);
+  const { results } = await c.env.DB.prepare('SELECT achievement, earned_at FROM user_achievements WHERE user_id = ?').bind(user.id).all<{ achievement: string; earned_at: number }>();
+  const got = new Map(results.map((r) => [r.achievement, r.earned_at]));
+  return c.json({ achievements: ACHIEVEMENTS.map((a) => ({ ...a, earnedAt: got.get(a.id) ?? null })) });
 });
 
 export default app;

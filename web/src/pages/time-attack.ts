@@ -4,7 +4,7 @@
 
 import { api } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
-import { errorText, h, modal, mount, plural, plusTag, store } from '../lib/ui';
+import { errorText, h, modal, mount, plural, plusTag, store, toast } from '../lib/ui';
 import { ApiError } from '../lib/api';
 import { Board } from '../game/board';
 import { isMuted, setMuted, sfx } from '../game/sound';
@@ -42,6 +42,7 @@ interface Finish {
   newBest: boolean;
   rank: number | null;
   balance: number;
+  achievements?: { title: string; description: string; icon: string }[];
 }
 
 const main = await shell({ title: 'Time Attack' });
@@ -249,6 +250,7 @@ async function endRun() {
 }
 
 function showResult(r: Finish, guest: boolean) {
+  for (const a of r.achievements ?? []) toast(`${a.icon} ${a.title}`, a.description, 'good', 6000);
   const d = modal(
     h('h2', {}, r.newBest ? 'New best!' : 'Time!'),
     h(

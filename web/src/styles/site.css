@@ -367,3 +367,31 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
   border: 1px solid var(--border-soft); background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer;
 }
 .modal-close:hover, .modal-close:focus-visible { color: var(--text); background: var(--section); }
+
+/* Collections, events, challenges, achievements */
+.category-card { position: relative; }
+.progress-ring { display: inline-flex; flex: none; align-items: center; gap: 4px; padding: 2px 8px 2px 2px; border-radius: 999px; background: rgba(5, 10, 20, 0.5); font-size: 12px; font-weight: 800; }
+.progress-ring svg { width: 26px; height: 26px; }
+.ring-bg { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-width: 5; }
+.ring-fg { fill: none; stroke: #3ddc84; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+.collected-tag { flex: none; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; color: #1b1300; background: linear-gradient(135deg, #ffe58a, #f5c542 55%, #d99a00); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45); }
+.category-card.collected { border-color: var(--gold); }
+.collection-note.done { border-color: var(--gold); }
+.corner.left { left: 10px; right: auto; }
+.event-tag { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 900; background: #7a2cff; color: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45); }
+.event-panel { display: grid; grid-template-columns: minmax(0, 260px) 1fr; gap: 18px; align-items: center; border-color: rgba(160, 110, 255, 0.6); }
+.event-panel:not(:has(.event-art)) { grid-template-columns: 1fr; }
+.event-art { aspect-ratio: 16 / 10; border-radius: 14px; background-size: cover; background-position: center; }
+.pill.event-pill { background: #5b1fd1; border-color: #a77bff; }
+@media (max-width: 700px) { .event-panel { grid-template-columns: 1fr; } }
+.event-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 420px; overflow: auto; padding: 4px; }
+.event-picker .pick { display: grid; grid-template-columns: auto 56px 1fr; gap: 8px; align-items: center; padding: 6px; border-radius: 10px; background: var(--section); border: 1px solid var(--border-soft); cursor: pointer; }
+.event-picker .thumb { width: 56px; height: 36px; border-radius: 6px; background-size: cover; background-position: center; }
+.challenge-bar { margin-bottom: 10px; border-color: rgba(245, 197, 66, 0.6); }
+.challenge-result.won { border-color: #3ddc84; }
+.challenge-result.lost { border-color: rgba(255, 255, 255, 0.25); }
+.achievements { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.achievement { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--section); border: 1px solid var(--border-soft); opacity: 0.45; filter: grayscale(1); }
+.achievement.earned { opacity: 1; filter: none; border-color: rgba(245, 197, 66, 0.55); }
+.achievement .icon { font-size: 26px; }
+.achievement b, .achievement .small { display: block; }

@@ -69,6 +69,7 @@ function footer(): HTMLElement {
       h('a', { href: '/about' }, 'About'),
       h('a', { href: '/how-to-play' }, 'How to play'),
       h('a', { href: '/faq' }, 'FAQ'),
+      h('a', { href: '/event' }, 'Events'),
       h('a', { href: '/plus' }, 'SnapShift Plus'),
       h('a', { href: '/contact' }, 'Contact'),
       h('a', { href: '/privacy' }, 'Privacy'),

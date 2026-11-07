@@ -10,7 +10,7 @@ import {
   verifyPassword,
 } from '../lib/auth';
 import { sendEmail } from '../lib/email';
-import { body, fail, now, randomId, sha256, str } from '../lib/util';
+import { body, fail, int, now, randomId, sha256, str } from '../lib/util';
 
 const app = new Hono<AppEnv>();
 
@@ -166,6 +166,34 @@ app.post('/reset', async (c) => {
     c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(row.user_id),
   ]);
   await startSession(c, row.user_id);
+  return c.json({ ok: true });
+});
+
+/** Email preferences: {remindStreak}. */
+app.put('/preferences', async (c) => {
+  const user = requireUser(c);
+  const b = await body(c);
+  if (typeof b.remindStreak === 'boolean') {
+    if (b.remindStreak && !user.email_verified) fail(422, 'Verify your email address first, then turn reminders on.');
+    await c.env.DB.prepare('UPDATE users SET remind_streak = ?, unsub_token = COALESCE(unsub_token, ?) WHERE id = ?')
+      .bind(b.remindStreak ? 1 : 0, randomId(16), user.id)
+      .run();
+  }
+  return c.json({ ok: true });
+});
+
+/** One-click unsubscribe from reminder emails (link in every reminder). */
+app.get('/unsubscribe', async (c) => {
+  const u = int(c.req.query('u'));
+  const t = c.req.query('t') || '';
+  if (u && t) await c.env.DB.prepare('UPDATE users SET remind_streak = 0 WHERE id = ? AND unsub_token = ?').bind(u, t).run();
+  return c.redirect('/account?unsubscribed=1');
+});
+app.post('/unsubscribe', async (c) => {
+  // RFC 8058 one-click (List-Unsubscribe-Post).
+  const u = int(c.req.query('u'));
+  const t = c.req.query('t') || '';
+  if (u && t) await c.env.DB.prepare('UPDATE users SET remind_streak = 0 WHERE id = ? AND unsub_token = ?').bind(u, t).run();
   return c.json({ ok: true });
 });
 

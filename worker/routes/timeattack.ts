@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { requireUser } from '../lib/auth';
 import { isMember, plusSql } from '../lib/membership';
+import { checkAchievements } from '../lib/rewards';
 import { DAILY_CATEGORY, media, type PuzzleRow } from '../lib/catalog';
 import { balance, creditStatements } from '../lib/points';
 import { addDays, body, dayKey, fail, now, randomId, weekOf } from '../lib/util';
@@ -157,6 +158,7 @@ app.post('/:id/finish', async (c) => {
     bestThisWeek: best?.s ?? score,
     newBest: score >= (best?.s ?? 0) && score > 0,
     rank: rank?.r ?? null,
+    achievements: await checkAchievements(c.env, user.id),
     balance: await balance(c.env, user.id),
   });
 });

@@ -10,7 +10,10 @@ import admin from './routes/admin';
 import timeAttack from './routes/timeattack';
 import billing from './routes/billing';
 import plus from './routes/plus';
+import challenges from './routes/challenges';
+import events from './routes/events';
 import { runPipeline } from './pipeline/pipeline';
+import { sendStreakReminders } from './lib/reminders';
 
 const app = new Hono<AppEnv>();
 
@@ -26,6 +29,8 @@ app.route('/api/admin', admin);
 app.route('/api/time-attack', timeAttack);
 app.route('/api/billing', billing);
 app.route('/api/plus', plus);
+app.route('/api/challenges', challenges);
+app.route('/api/events', events);
 app.route('/api', catalog);
 app.route('/api', stats);
 
@@ -59,6 +64,12 @@ export default {
       runPipeline(env).then(
         (log) => log.length && console.log('[pipeline]', log.join('\n')),
         (e) => console.error('[pipeline] error', e),
+      ),
+    );
+    ctx.waitUntil(
+      sendStreakReminders(env).then(
+        (log) => log.length && console.log('[reminders]', log.join('\n')),
+        (e) => console.error('[reminders] error', e),
       ),
     );
   },

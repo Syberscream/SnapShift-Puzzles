@@ -10,6 +10,7 @@ import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX, LOOKS, isLook, lookStyle } fr
 import { rng, randomSeed } from '../../shared/engine';
 import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
 import { setLifetime } from '../lib/membership';
+import { sendStreakReminders } from '../lib/reminders';
 
 const app = new Hono<AppEnv>();
 app.use('*', async (c, next) => {
@@ -396,6 +397,53 @@ app.post('/users/:id/supporter', async (c) => {
   const until = days > 0 ? now() + days * 86400_000 : null;
   await c.env.DB.prepare('UPDATE users SET supporter_until = ? WHERE id = ?').bind(until, id).run();
   return c.json({ ok: true, supporterUntil: until });
+});
+
+/** Send any streak reminders that are due now, ignoring the evening start time. */
+app.post('/reminders/run', async (c) => c.json({ log: await sendStreakReminders(c.env, Date.now(), true) }));
+
+// ---------- events ----------
+
+app.get('/events', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT e.*, (SELECT COUNT(*) FROM event_puzzles ep WHERE ep.event_id = e.id) AS puzzles,
+       (SELECT COUNT(DISTINCT user_id) FROM event_results r WHERE r.event_id = e.id) AS players
+     FROM events e ORDER BY e.starts DESC LIMIT 50`,
+  ).all();
+  const { results: links } = await c.env.DB.prepare('SELECT event_id, puzzle_id FROM event_puzzles ORDER BY sort').all<{ event_id: string; puzzle_id: number }>();
+  return c.json({
+    events: results.map((e) => ({ ...e, puzzleIds: links.filter((l) => l.event_id === (e as { id: string }).id).map((l) => l.puzzle_id) })),
+  });
+});
+
+/** Create or update an event: {title, description, image_url, starts, ends, bonus, puzzleIds}. */
+app.put('/events/:id', async (c) => {
+  const id = slugify(c.req.param('id'));
+  if (!id) fail(422, 'Give the event a short id, like ocean-week.');
+  const b = await body(c);
+  const title = str(b.title, 80);
+  if (!title) fail(422, 'Give the event a title.');
+  const day = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+  const starts = day(b.starts);
+  const ends = day(b.ends);
+  if (!starts || !ends || ends < starts) fail(422, 'Pick a start and end date (the end on or after the start).');
+  const ids = Array.isArray(b.puzzleIds) ? [...new Set(b.puzzleIds.map((x) => int(x)).filter((x) => x > 0))].slice(0, 50) : [];
+  const t = now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO events (id, title, description, image_url, starts, ends, bonus, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description, image_url = excluded.image_url,
+         starts = excluded.starts, ends = excluded.ends, bonus = excluded.bonus`,
+    ).bind(id, title, str(b.description, 400), str(b.image_url, 300), starts, ends, Math.max(0, Math.min(5000, int(b.bonus))), t),
+    c.env.DB.prepare('DELETE FROM event_puzzles WHERE event_id = ?').bind(id),
+    ...ids.map((pid, i) => c.env.DB.prepare('INSERT OR IGNORE INTO event_puzzles (event_id, puzzle_id, sort) VALUES (?, ?, ?)').bind(id, pid, i)),
+  ]);
+  return c.json({ ok: true, id });
+});
+
+app.delete('/events/:id', async (c) => {
+  await c.env.DB.prepare('DELETE FROM events WHERE id = ?').bind(c.req.param('id')).run();
+  return c.json({ ok: true });
 });
 
 // ---------- membership / billing ----------

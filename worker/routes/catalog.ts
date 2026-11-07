@@ -6,6 +6,7 @@ import {
   DAILY_CATEGORY,
   categoryIndexes,
   access,
+  activeEventPuzzleIds,
   membersOnlyCategories,
   viewerOf,
   dailyStreak,
@@ -20,6 +21,8 @@ import { dayKey, fail, msUntilNextDay, now, str, body } from '../lib/util';
 import { unlockCost } from '../../shared/rules';
 import { publicSite } from '../lib/site';
 import { isMember } from '../lib/membership';
+import { activeEvents, categoryProgress } from '../lib/rewards';
+import { collectionBonus } from '../../shared/achievements';
 
 const app = new Hono<AppEnv>();
 
@@ -49,12 +52,15 @@ app.get('/home', async (c) => {
   ]);
   const countMap = new Map(counts.results.map((r) => [r.category_id, r.n]));
   const viewer = viewerOf(user);
+  const eventIds = await activeEventPuzzleIds(c.env, today);
+  const progress = user ? await categoryProgress(c.env, user.id) : new Map<string, { done: number; total: number }>();
+  const events = await activeEvents(c.env, today);
   const membersCats = new Set(cats.results.filter((x) => x.members_only).map((x) => x.id));
   const latestState = await userPuzzleState(c.env, user, latest.results.map((p) => p.id));
   const latestViews = await Promise.all(
     latest.results.map(async (p) => {
       const idx = (await categoryIndexes(c.env, p.category_id!)).get(p.id) ?? 0;
-      return toView(p, idx, latestState, viewer, membersCats.has(p.category_id!));
+      return toView(p, idx, latestState, viewer, membersCats.has(p.category_id!), eventIds);
     }),
   );
 
@@ -67,7 +73,7 @@ app.get('/home', async (c) => {
       .bind(today, user.id)
       .first();
     const { results } = await c.env.DB.prepare(
-      `SELECT pl.id, pl.difficulty, pl.mode, pl.daily_day, pl.updated_at, p.slug, p.title, p.thumb_key, p.image_key, p.original_key
+      `SELECT pl.id, pl.difficulty, pl.mode, pl.daily_day, pl.challenge_id, pl.updated_at, p.slug, p.title, p.thumb_key, p.image_key, p.original_key
        FROM plays pl JOIN puzzles p ON p.id = pl.puzzle_id
        WHERE pl.user_id = ? AND pl.completed_at IS NULL AND pl.actions != '[]'
        ORDER BY pl.updated_at DESC LIMIT 3`,
@@ -81,6 +87,7 @@ app.get('/home', async (c) => {
       difficulty: r.difficulty,
       mode: r.mode,
       daily: r.daily_day,
+      challenge: r.challenge_id,
       thumb: media(r.thumb_key || r.image_key || r.original_key),
     }));
   }
@@ -107,19 +114,23 @@ app.get('/home', async (c) => {
       tile: cat.tile_url,
       count: countMap.get(cat.id) ?? 0,
       membersOnly: !!cat.members_only,
+      done: progress.get(cat.id)?.done ?? 0,
     })),
     latest: latestViews,
+    events: events.map((e) => ({ id: e.id, title: e.title, description: e.description, image: e.image_url, ends: e.ends, bonus: e.bonus })),
   });
 });
 
 app.get('/categories', async (c) => {
+  const user = c.get('user');
+  const progress = user ? await categoryProgress(c.env, user.id) : new Map<string, { done: number; total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT c.*, (SELECT COUNT(*) FROM puzzles p WHERE p.category_id = c.id AND p.status = 'published') AS count
      FROM categories c WHERE c.id != ? ORDER BY c.sort, c.name`,
   )
     .bind(DAILY_CATEGORY)
     .all<CategoryRow & { count: number }>();
-  return c.json({ categories: results.map((r) => ({ id: r.id, name: r.name, description: r.description, tile: r.tile_url, count: r.count, membersOnly: !!r.members_only })) });
+  return c.json({ categories: results.map((r) => ({ id: r.id, name: r.name, description: r.description, tile: r.tile_url, count: r.count, membersOnly: !!r.members_only, done: progress.get(r.id)?.done ?? 0 })) });
 });
 
 app.get('/categories/:id', async (c) => {
@@ -132,11 +143,17 @@ app.get('/categories/:id', async (c) => {
     .bind(cat.id)
     .all<PuzzleRow>();
   const state = await userPuzzleState(c.env, user, results.map((p) => p.id));
-  const puzzles = results.map((p, i) => toView(p, i, state, viewerOf(user), !!cat.members_only));
+  const eventIds = await activeEventPuzzleIds(c.env);
+  const puzzles = results.map((p, i) => toView(p, i, state, viewerOf(user), !!cat.members_only, eventIds));
   return c.json({
     category: { id: cat.id, name: cat.name, description: cat.description, tile: cat.tile_url, membersOnly: !!cat.members_only },
     puzzles,
     unlockedCount: puzzles.filter((p) => p.unlocked).length,
+    finishedCount: puzzles.filter((p) => p.finished).length,
+    collection: user
+      ? await c.env.DB.prepare('SELECT points, created_at FROM collection_rewards WHERE user_id = ? AND category_id = ?').bind(user.id, cat.id).first()
+      : null,
+    collectionBonus: collectionBonus(puzzles.length),
     nextDailyInMs: msUntilNextDay(c.env),
   });
 });
@@ -150,7 +167,7 @@ app.get('/puzzles/:slug', async (c) => {
   const idx = indexes.get(p.id) ?? 0;
   const state = await userPuzzleState(c.env, user, [p.id]);
   const membersOnly = p.category_id ? (await membersOnlyCategories(c.env)).has(p.category_id) : false;
-  const view = toView(p, idx, state, viewerOf(user), membersOnly);
+  const view = toView(p, idx, state, viewerOf(user), membersOnly, await activeEventPuzzleIds(c.env));
   const cat = p.category_id
     ? await c.env.DB.prepare('SELECT id, name FROM categories WHERE id = ?').bind(p.category_id).first<{ id: string; name: string }>()
     : null;

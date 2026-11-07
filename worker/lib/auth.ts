@@ -41,7 +41,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return diff === 0;
 }
 
-const USER_COLS = 'u.id, u.email, u.username, u.role, u.email_verified, u.points, u.supporter_until, u.lifetime, u.frame, u.stripe_customer_id, u.stripe_subscription_id, u.created_at';
+const USER_COLS = 'u.id, u.email, u.username, u.role, u.email_verified, u.points, u.supporter_until, u.lifetime, u.frame, u.remind_streak, u.stripe_customer_id, u.stripe_subscription_id, u.created_at';
 
 export async function startSession(c: Context<AppEnv>, userId: number): Promise<void> {
   const token = randomId(32);
@@ -113,5 +113,6 @@ export function publicUser(u: User) {
     lifetime: !!u.lifetime,
     billing: !!u.stripe_customer_id,
     frame: isMember(u) ? u.frame : '',
+    remindStreak: !!u.remind_streak,
   };
 }

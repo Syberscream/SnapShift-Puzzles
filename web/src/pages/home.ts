@@ -1,7 +1,7 @@
 import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag } from '../lib/ui';
-import { puzzleCard } from './shared';
+import { categoryCard, puzzleCard } from './shared';
 import { plusSection } from '../lib/plus-promo';
 
 interface Home {
@@ -10,7 +10,8 @@ interface Home {
   daily: { day: string; slug: string; title: string; thumb: string; categoryId: string } | null;
   dailyResult: { score_pct: number; elapsed_ms: number; moves: number; medal: string } | null;
   streak: { current: number; best: number; doneToday: boolean } | null;
-  continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; thumb: string }[];
+  continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; challenge: string | null; thumb: string }[];
+  events: { id: string; title: string; description: string; image: string; ends: string; bonus: number }[];
   categories: Category[];
   latest: PuzzleView[];
 }
@@ -88,9 +89,9 @@ async function render(d: Home) {
           d.continue.map((c) =>
             h(
               'a',
-              { class: 'card', href: c.daily ? `/play?daily=${c.daily}` : `/play?p=${c.slug}&d=${c.difficulty}&m=${c.mode}` },
+              { class: 'card', href: c.challenge ? `/play?challenge=${c.challenge}` : c.daily ? `/play?daily=${c.daily}` : `/play?p=${c.slug}&d=${c.difficulty}&m=${c.mode}` },
               h('div', { class: 'thumb wide', style: bg(c.thumb) }),
-              h('div', { class: 'meta' }, h('b', {}, c.title), h('span', { class: 'muted small' }, c.daily ? `Daily ${c.daily}` : `${c.difficulty} · ${c.mode}`)),
+              h('div', { class: 'meta' }, h('b', {}, c.title), h('span', { class: 'muted small' }, c.challenge ? '⚔ Challenge' : c.daily ? `Daily ${c.daily}` : `${c.difficulty} · ${c.mode}`)),
             ),
           ),
         ),
@@ -107,14 +108,7 @@ async function render(d: Home) {
       d.categories
         .filter((c) => c.count > 0 || user?.role === 'admin')
         .map((c) =>
-          h(
-            'a',
-            { class: 'card category-card', href: `/category?c=${c.id}` },
-            h('div', { class: 'thumb', style: bg(c.tile) }),
-            h('span', { class: 'pill count' }, plural(c.count, 'puzzle')),
-            c.membersOnly ? h('span', { class: 'corner' }, plusTag('MEMBERS')) : null,
-            h('div', { class: 'meta' }, h('b', {}, c.name), h('span', { class: 'muted small' }, c.description)),
-          ),
+          categoryCard(c, !!me()),
         ),
     ),
   );
@@ -134,5 +128,22 @@ async function render(d: Home) {
     ),
   );
 
-  mount(main, hero, cont, ta, cats, latest, await plusSection());
+  const events = d.events.map((e) =>
+    h(
+      'section',
+      { class: 'panel event-panel' },
+      e.image ? h('div', { class: 'event-art', style: bg(e.image) }) : null,
+      h(
+        'div',
+        { class: 'stack' },
+        h('div', { class: 'row' }, h('span', { class: 'pill event-pill' }, '🎉 Event'), h('span', { class: 'muted small' }, `Until ${new Date(e.ends + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`)),
+        h('h2', {}, e.title),
+        e.description ? h('p', { class: 'muted' }, e.description) : null,
+        h('p', { class: 'small' }, `Every event puzzle is free to play while it runs.${e.bonus ? ` Finish them all for +${e.bonus} bonus points.` : ''}`),
+        h('div', { class: 'row' }, h('a', { class: 'btn primary', href: `/event?e=${encodeURIComponent(e.id)}` }, 'Play the event')),
+      ),
+    ),
+  );
+
+  mount(main, hero, ...events, cont, ta, cats, latest, await plusSection());
 }

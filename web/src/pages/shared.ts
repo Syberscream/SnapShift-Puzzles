@@ -1,6 +1,39 @@
-import { api, type PuzzleView } from '../lib/api';
+import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, setPoints } from '../lib/shell';
 import { bg, errorText, h, medalBadge, modal, plusTag, timeUntil, toast } from '../lib/ui';
+
+/** A small ring showing how much of a category you've finished. */
+function progressRing(done: number, total: number): HTMLElement {
+  const r = 15;
+  const len = 2 * Math.PI * r;
+  const k = total ? Math.min(1, done / total) : 0;
+  const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  ring.setAttribute('viewBox', '0 0 40 40');
+  ring.setAttribute('class', 'ring');
+  ring.innerHTML =
+    `<circle cx="20" cy="20" r="${r}" class="ring-bg"/>` +
+    `<circle cx="20" cy="20" r="${r}" class="ring-fg" stroke-dasharray="${len}" stroke-dashoffset="${len * (1 - k)}" transform="rotate(-90 20 20)"/>`;
+  return h('span', { class: 'progress-ring', title: `${done} of ${total} finished`, 'aria-label': `${done} of ${total} finished` }, ring, h('span', {}, `${done}/${total}`));
+}
+
+/** Category card used on the home and categories pages. */
+export function categoryCard(c: Category, showProgress: boolean): HTMLElement {
+  const done = c.done ?? 0;
+  const collected = c.count >= 3 && done >= c.count;
+  return h(
+    'a',
+    { class: `card category-card${collected ? ' collected' : ''}`, href: `/category?c=${c.id}` },
+    h('div', { class: 'thumb', style: bg(c.tile) }),
+    h('span', { class: 'pill count' }, `${c.count} puzzle${c.count === 1 ? '' : 's'}`),
+    c.membersOnly ? h('span', { class: 'corner' }, plusTag('MEMBERS')) : null,
+    h(
+      'div',
+      { class: 'meta' },
+      h('div', { class: 'spread' }, h('b', {}, c.name), collected ? h('span', { class: 'collected-tag' }, '📚 Collected') : showProgress && c.count ? progressRing(done, c.count) : null),
+      h('span', { class: 'muted small' }, c.description),
+    ),
+  );
+}
 
 /** Puzzle card used on the home and category pages. */
 export function puzzleCard(p: PuzzleView, onChange?: () => void): HTMLElement {
@@ -11,11 +44,12 @@ export function puzzleCard(p: PuzzleView, onChange?: () => void): HTMLElement {
       { class: 'card', href },
       h('div', { class: 'thumb', style: bg(p.thumb) }),
       p.bestMedal ? h('span', { class: 'corner' }, medalBadge(p.bestMedal, true)) : null,
+      p.inEvent ? h('span', { class: 'corner left event-tag' }, '🎉 EVENT') : null,
       h(
         'div',
         { class: 'meta' },
         h('b', {}, p.title),
-        h('div', { class: 'spread' }, h('span', {}, `#${p.index + 1}`), h('span', {}, p.inProgress ? 'Continue →' : 'Play →')),
+        h('div', { class: 'spread' }, h('span', {}, `#${p.index + 1}`), h('span', {}, p.inProgress ? 'Continue →' : p.finished ? '✓ Done' : 'Play →')),
       ),
     );
   }

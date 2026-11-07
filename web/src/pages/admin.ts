@@ -69,6 +69,7 @@ const TABS: [string, string, () => Promise<void>][] = [
   ['messages', 'Messages', messages],
   ['site', 'Site settings', site],
   ['membership', 'Membership', membership],
+  ['events', 'Events', events],
 ];
 
 async function show(key: string, fn: () => Promise<void>) {
@@ -823,6 +824,153 @@ async function membership() {
     ),
     f,
     promo,
+  );
+}
+
+interface AdminEvent {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  starts: string;
+  ends: string;
+  bonus: number;
+  puzzles: number;
+  players: number;
+  puzzleIds: number[];
+}
+
+async function events() {
+  const [{ events: list }, { puzzles }] = await Promise.all([
+    api.get<{ events: AdminEvent[] }>('/admin/events'),
+    api.get<{ puzzles: AdminPuzzle[] }>('/admin/puzzles?status=published'),
+  ]);
+  const today = new Date().toLocaleDateString('en-CA');
+  const plusDays = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toLocaleDateString('en-CA');
+  };
+  const editor = h('div');
+  const edit = (e: AdminEvent | null) => {
+    const chosen = new Set(e?.puzzleIds ?? []);
+    const img = h('input', { name: 'image_url', value: e?.image_url ?? '', placeholder: '/media/site/… or https://…' }) as HTMLInputElement;
+    const upload = h('input', { type: 'file', accept: 'image/*' }) as HTMLInputElement;
+    upload.addEventListener('change', async () => {
+      const f = upload.files?.[0];
+      if (!f) return;
+      try {
+        img.value = await uploadSiteImage(f);
+        toast('Image uploaded', '', 'good');
+      } catch (x) {
+        toast('Upload failed', errorText(x), 'bad');
+      }
+    });
+    const search = h('input', { placeholder: 'Filter puzzles', style: 'max-width:260px' }) as HTMLInputElement;
+    const count = h('span', { class: 'pill dark' }, '');
+    const grid = h('div', { class: 'event-picker' });
+    const drawPicker = () => {
+      const q = search.value.trim().toLowerCase();
+      count.textContent = `${chosen.size} chosen`;
+      mount(
+        grid,
+        puzzles
+          .filter((p) => !q || p.title.toLowerCase().includes(q) || (p.categoryId ?? '').includes(q) || chosen.has(p.id))
+          .map((p) => {
+            const box = h('input', { type: 'checkbox', checked: chosen.has(p.id) }) as HTMLInputElement;
+            box.addEventListener('change', () => {
+              if (box.checked) chosen.add(p.id);
+              else chosen.delete(p.id);
+              count.textContent = `${chosen.size} chosen`;
+            });
+            return h('label', { class: 'pick' }, box, h('span', { class: 'thumb', style: bg(p.thumb) }), h('span', { class: 'small' }, p.title, h('br'), h('span', { class: 'muted' }, p.categoryId ?? '')));
+          }),
+      );
+    };
+    search.addEventListener('input', drawPicker);
+    const f = h(
+      'form',
+      { class: 'panel' },
+      h('h2', {}, e ? `Edit “${e.title}”` : 'New event'),
+      h('div', { class: 'two-col' },
+        h('div', {},
+          h('div', { class: 'field' }, h('label', {}, 'Short id (used in the link)'), h('input', { name: 'id', value: e?.id ?? '', placeholder: 'ocean-week', required: true, readOnly: !!e })),
+          h('div', { class: 'field' }, h('label', {}, 'Title'), h('input', { name: 'title', value: e?.title ?? '', placeholder: 'Ocean Week', required: true })),
+          h('div', { class: 'field' }, h('label', {}, 'Description'), h('textarea', { name: 'description', rows: 2 }, e?.description ?? '')),
+        ),
+        h('div', {},
+          h('div', { class: 'row' },
+            h('div', { class: 'field' }, h('label', {}, 'First day'), h('input', { type: 'date', name: 'starts', value: e?.starts ?? today, required: true })),
+            h('div', { class: 'field' }, h('label', {}, 'Last day'), h('input', { type: 'date', name: 'ends', value: e?.ends ?? plusDays(6), required: true })),
+          ),
+          h('div', { class: 'field' }, h('label', {}, 'Bonus for finishing every puzzle (points)'), h('input', { type: 'number', name: 'bonus', min: 0, max: 5000, value: e?.bonus ?? 300 })),
+          h('div', { class: 'field' }, h('label', {}, 'Picture (optional)'), img, upload),
+        ),
+      ),
+      h('div', { class: 'row', style: 'margin:8px 0' }, h('b', {}, 'Puzzles'), count, search),
+      h('p', { class: 'muted small' }, 'Pick published puzzles. While the event is on they’re free for everyone. Tip: generate pictures for the theme in Generate (with your own prompt), publish them, then pick them here.'),
+      grid,
+      h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn primary', type: 'submit' }, 'Save event'), h('button', { class: 'btn ghost', type: 'button', onclick: () => mount(editor) }, 'Cancel')),
+    );
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const d = new FormData(f);
+      try {
+        await api.put(`/admin/events/${encodeURIComponent(String(d.get('id')))}`, {
+          title: d.get('title'),
+          description: d.get('description'),
+          image_url: img.value,
+          starts: d.get('starts'),
+          ends: d.get('ends'),
+          bonus: Number(d.get('bonus')),
+          puzzleIds: [...chosen],
+        });
+        toast('Event saved', '', 'good');
+        await events();
+      } catch (x) {
+        toast('Could not save', errorText(x), 'bad', 6000);
+      }
+    });
+    mount(editor, f);
+    drawPicker();
+    f.scrollIntoView({ behavior: 'smooth' });
+  };
+  mount(
+    body,
+    h(
+      'section',
+      { class: 'panel' },
+      h('div', { class: 'spread' }, h('h2', {}, 'Events'), h('button', { class: 'btn primary', onclick: () => edit(null) }, '+ New event')),
+      h('p', { class: 'muted small' }, 'A themed set of puzzles with dates, a leaderboard and an optional bonus. While it runs it shows on the home page and its puzzles are free for everyone.'),
+      list.length
+        ? h(
+            'table',
+            {},
+            h('thead', {}, h('tr', {}, h('th', {}, 'Event'), h('th', {}, 'Dates'), h('th', { class: 'num' }, 'Puzzles'), h('th', { class: 'num' }, 'Players'), h('th', {}, ''))),
+            h(
+              'tbody',
+              {},
+              list.map((e) =>
+                h(
+                  'tr',
+                  {},
+                  h('td', {}, h('a', { href: `/event?e=${encodeURIComponent(e.id)}`, target: '_blank' }, e.title)),
+                  h('td', { class: 'small' }, `${e.starts} → ${e.ends}`, e.starts <= today && e.ends >= today ? h('span', { class: 'tag done', style: 'margin-left:6px' }, 'live') : null),
+                  h('td', { class: 'num' }, e.puzzles),
+                  h('td', { class: 'num' }, e.players),
+                  h(
+                    'td',
+                    { class: 'row end' },
+                    h('button', { class: 'btn', onclick: () => edit(e) }, 'Edit'),
+                    h('button', { class: 'btn danger', onclick: async () => { if (confirm(`Delete “${e.title}” and its leaderboard?`)) { await api.del(`/admin/events/${e.id}`); await events(); } } }, 'Delete'),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h('p', { class: 'muted' }, 'No events yet.'),
+    ),
+    editor,
   );
 }
 

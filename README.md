@@ -68,6 +68,15 @@ Guests can play the daily and the free puzzle in each category; their games are 
 
 All of these numbers live in `shared/rules.ts`.
 
+## Engagement features
+
+- **Streak reminders** – opt-in on the account page (verified email needed). The cron sends one email from 6 PM site time to players who played yesterday, haven't today and have a streak of 2+; every email has a one-click unsubscribe. Admins can trigger due reminders with `POST /api/admin/reminders/run`.
+- **Share** – the result dialog shares a Wordle-style text: medal, time, moves, score and a 10-square bar.
+- **Challenge a Friend** – `POST /api/challenges {playId}` turns a finished game into a link (`/play?challenge=ID`) with the same seed; friends' first finishes go on that challenge's board. Faster wins; within 0.5 s fewer moves wins.
+- **Collections** – finishing every published puzzle in a category (3+) pays `min(1000, 100 + 20 × puzzles)` once.
+- **Events** – Admin → Events: dates, puzzles, optional bonus. Live events show on the home page, their puzzles are open to everyone, and `/event?e=id` has a leaderboard (most finished, then total best score).
+- **Achievements** – defined in `shared/achievements.ts`, awarded in `worker/lib/rewards.ts`.
+
 ## SnapShift Plus (membership)
 
 Free players get the daily, streaks, leaderboards, every difficulty and mode, the first puzzle in each category

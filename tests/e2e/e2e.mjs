@@ -593,6 +593,111 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await admin.request.put(BASE + '/api/admin/billing', { data: { promoEnabled: '1', promoTitle: 'Get more out of SnapShift' } });
 }
 
+// ---------- Collections, challenges, events, achievements, reminders ----------
+{
+  const j = async (r) => (await r).json();
+  const setupOf = (p) => ({ version: p.engine, difficulty: p.difficulty, mode: p.mode, daily: !!p.daily, hardMode: false });
+  /** Start (or resume) a game through the API and solve it with the engine. */
+  async function apiSolve(ctx, startBody) {
+    const { play } = await j(ctx.request.post(BASE + '/api/plays', { data: startBody }));
+    const g = E.replay(play.seed, setupOf(play), play.actions).state;
+    const actions = [...play.actions];
+    for (let m = E.suggest(g); m && !E.isSolved(g); m = E.suggest(g)) {
+      actions.push(m.kind === 'swap' ? [m.a, m.b] : ['r', m.p]);
+      E.applySuggestion(g, m);
+    }
+    return j(ctx.request.post(BASE + `/api/plays/${play.id}/complete`, { data: { actions, elapsedMs: actions.length * 300 } }));
+  }
+
+  // Achievements already earned by playing.
+  const ach = await j(player.request.get(BASE + '/api/me/achievements'));
+  const got = new Set(ach.achievements.filter((a) => a.earnedAt).map((a) => a.id));
+  check('achievements: earned while playing', got.has('first-finish') && got.has('gold-1'), [...got].join(','));
+
+  // Collections: a 3-puzzle category, finished by the player.
+  await admin.request.put(BASE + '/api/admin/categories/tiny', { data: { name: 'Tiny', description: 'Three puzzles', tile_url: '/img/categories/art.png', sort: 50, generate: false } });
+  const three = pub.puzzles.filter((p) => p.categoryId !== 'daily' && p.categoryId !== 'members').slice(0, 3);
+  for (const p of three) await admin.request.patch(BASE + `/api/admin/puzzles/${p.id}`, { data: { categoryId: 'tiny' } });
+  const cats = await j(player.request.get(BASE + '/api/categories'));
+  check('collections: progress on category cards', cats.categories.find((c) => c.id === 'tiny')?.count === 3);
+  const solves = [];
+  for (const p of three) solves.push(await apiSolve(player, { puzzle: p.slug, difficulty: 'easy', mode: 'zen', fresh: true }));
+  const paid = solves.filter((r) => r.collection);
+  check('collections: finishing a whole category pays the bonus once', paid.length === 1 && paid[0].collection.points === 160 && paid[0].achievements.some((a) => a.id === 'collection'), JSON.stringify(solves.map((r) => r.collection)));
+  const tiny = await j(player.request.get(BASE + '/api/categories/tiny'));
+  check('collections: category shows it collected', tiny.finishedCount === 3 && tiny.collection?.points === 160);
+  const again = await apiSolve(player, { puzzle: three[0].slug, difficulty: 'easy', mode: 'zen', fresh: true });
+  check('collections: bonus only once', again.collection === null);
+
+  // Challenges: the player challenges; the admin plays the same board.
+  const done = await apiSolve(player, { puzzle: three[1].slug, difficulty: 'easy', mode: 'classic', fresh: true });
+  const playId = (await j(player.request.post(BASE + '/api/plays', { data: { puzzle: three[1].slug, difficulty: 'easy', mode: 'classic' } }))).play.id;
+  const ch = await j(player.request.post(BASE + '/api/challenges', { data: { playId } }));
+  check('challenge: link made', !!ch.id && done.rating);
+  const same = await j(player.request.post(BASE + '/api/challenges', { data: { playId } }));
+  check('challenge: same game gives the same link', same.id === ch.id);
+  const info = await j(gCtx.request.get(BASE + `/api/challenges/${ch.id}`));
+  check('challenge: public details', info.by === 'PuzzleFan' && info.puzzle.slug === three[1].slug && info.seed > 0);
+  const adminStart = await j(admin.request.post(BASE + '/api/plays', { data: { challenge: ch.id } }));
+  check('challenge: same board for the friend', adminStart.play.seed === info.seed && adminStart.play.challenge === ch.id);
+  const res = await apiSolve(admin, { challenge: ch.id });
+  check('challenge: result compared and recorded', res.challenge && res.challenge.by === 'PuzzleFan' && res.challenge.recorded === true, JSON.stringify(res.challenge));
+  const info2 = await j(gCtx.request.get(BASE + `/api/challenges/${ch.id}`));
+  check('challenge: board lists the friend', info2.results.some((r) => r.username === 'Syber'));
+  const dailyPlay = (await j(player.request.get(BASE + '/api/me/summary')));
+  void dailyPlay;
+  // Guest plays the challenge in the browser.
+  const gp = await gCtx.newPage();
+  await gp.goto(BASE + `/play?challenge=${ch.id}`);
+  await gp.waitForSelector('.challenge-bar:not([hidden])');
+  check('challenge: banner for the guest', /PuzzleFan challenges you/.test(await gp.locator('.challenge-bar').innerText()));
+  await gp.waitForTimeout(3000); // memorize
+  await solveByClicking(gp, info.seed, 'easy');
+  await gp.waitForSelector('dialog.modal .challenge-result', { timeout: 15000 });
+  check('challenge: guest sees who won', /PuzzleFan/.test(await gp.locator('.challenge-result').innerText()));
+  await gp.screenshot({ path: `${OUT}/20-challenge-result.png` });
+  await gp.close();
+
+  // Events.
+  const today = (await j(player.request.get(BASE + '/api/daily/today'))).day;
+  const evPuzzles = pub.puzzles.filter((p) => p.categoryId !== 'daily' && p.categoryId !== 'members' && !three.some((t) => t.id === p.id)).slice(0, 2);
+  const bad = await admin.request.put(BASE + '/api/admin/events/x', { data: { title: 'Bad', starts: today, ends: '2000-01-01' } });
+  check('events: end must be after start', bad.status() === 422);
+  await admin.request.put(BASE + '/api/admin/events/test-week', { data: { title: 'Test Week', description: 'Two puzzles', starts: today, ends: today, bonus: 300, puzzleIds: evPuzzles.map((p) => p.id) } });
+  const home = await j(gCtx.request.get(BASE + '/api/home'));
+  check('events: shown on the home page', home.events.some((e) => e.id === 'test-week'));
+  const gev = await j(gCtx.request.get(BASE + '/api/events/test-week'));
+  check('events: puzzles open to everyone while live', gev.puzzles.length === 2 && gev.puzzles.every((p) => p.unlocked && p.inEvent));
+  let evRes = null;
+  for (const p of evPuzzles) evRes = await apiSolve(admin, { puzzle: p.slug, difficulty: 'easy', mode: 'classic', fresh: true });
+  check('events: finishing all pays the bonus', evRes.events?.[0]?.done === 2 && evRes.events[0].bonus === 300, JSON.stringify(evRes.events));
+  const ev = await j(admin.request.get(BASE + '/api/events/test-week'));
+  check('events: leaderboard', ev.leaderboard[0]?.username === 'Syber' && ev.leaderboard[0].done === 2);
+  await player.goto(BASE + '/event?e=test-week');
+  await player.waitForSelector('text=Leaderboard');
+  await player.screenshot({ path: `${OUT}/21-event.png`, fullPage: true });
+  await admin.goto(BASE + '/admin#events');
+  await admin.waitForSelector('text=Test Week');
+  check('events: admin list', true);
+
+  // Streak reminders.
+  const yesterday = new Date(Date.parse(today + 'T12:00:00Z') - 86400000).toISOString().slice(0, 10);
+  const before = new Date(Date.parse(today + 'T12:00:00Z') - 2 * 86400000).toISOString().slice(0, 10);
+  const pf = (await j(admin.request.get(BASE + '/api/admin/users?q=Syber'))).users.find((u) => u.username === 'Syber');
+  sql(`UPDATE users SET email_verified = 1 WHERE id = ${pf.id}`);
+  sql(`DELETE FROM daily_results WHERE user_id = ${pf.id}`);
+  sql(`INSERT INTO daily_results (day, user_id, play_id, score_pct, elapsed_ms, moves, medal, created_at) VALUES ('${yesterday}', ${pf.id}, 'x1', 80, 1000, 10, 'gold', 1), ('${before}', ${pf.id}, 'x2', 80, 1000, 10, 'gold', 1)`);
+  await admin.request.put(BASE + '/api/auth/preferences', { data: { remindStreak: true } });
+  const run1 = await j(admin.request.post(BASE + '/api/admin/reminders/run'));
+  check('reminders: sent to a player with a streak at risk', run1.log.some((l) => l.includes(`user ${pf.id}`) && l.includes('2 days')), run1.log.join(' | '));
+  const run2 = await j(admin.request.post(BASE + '/api/admin/reminders/run'));
+  check('reminders: only once a day', !run2.log.some((l) => l.includes(`user ${pf.id}`)));
+  const me1 = (await j(admin.request.get(BASE + '/api/auth/me'))).user;
+  check('reminders: preference saved', me1.remindStreak === true);
+  const tok = (await j(admin.request.get(BASE + '/api/admin/users?q=Syber'))).users;
+  void tok;
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

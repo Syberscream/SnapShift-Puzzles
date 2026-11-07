@@ -1,7 +1,7 @@
 import { api, type Category, type PuzzleView } from '../lib/api';
-import { shell, showError } from '../lib/shell';
+import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, mount, plural, plusTag, qs } from '../lib/ui';
-import { puzzleCard } from './shared';
+import { categoryCard, puzzleCard } from './shared';
 import { plusStrip } from '../lib/plus-promo';
 
 const main = await shell({ title: 'Puzzles' });
@@ -17,14 +17,7 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
         'div',
         { class: 'grid' },
         categories.map((c) =>
-          h(
-            'a',
-            { class: 'card category-card', href: `/category?c=${c.id}` },
-            h('div', { class: 'thumb', style: bg(c.tile) }),
-            h('span', { class: 'pill count' }, plural(c.count, 'puzzle')),
-            c.membersOnly ? h('span', { class: 'corner' }, plusTag('MEMBERS')) : null,
-            h('div', { class: 'meta' }, h('b', {}, c.name), h('span', { class: 'muted small' }, c.description)),
-          ),
+          categoryCard(c, !!me()),
         ),
       ),
     );
@@ -35,7 +28,15 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
   let filter: 'all' | 'unlocked' | 'locked' = 'all';
   const load = async () => {
     try {
-      const d = await api.get<{ category: Category; puzzles: PuzzleView[]; unlockedCount: number; nextDailyInMs: number }>(
+      const d = await api.get<{
+        category: Category;
+        puzzles: PuzzleView[];
+        unlockedCount: number;
+        finishedCount: number;
+        collection: { points: number } | null;
+        collectionBonus: number;
+        nextDailyInMs: number;
+      }>(
         `/categories/${encodeURIComponent(id)}`,
       );
       document.title = `${d.category.name} puzzles | SnapShift Puzzles`;
@@ -73,10 +74,20 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
               'div',
               { class: 'row' },
               h('span', { class: 'pill' }, `Unlocked: ${d.unlockedCount} / ${d.puzzles.length}`),
+              me() ? h('span', { class: 'pill dark' }, `Finished: ${d.finishedCount} / ${d.puzzles.length}`) : null,
               h('a', { class: 'pill', href: '/daily', style: 'text-decoration:none' }, h('span', { class: 'label' }, 'Next daily'), cd),
             ),
           ),
         ),
+        me() && d.puzzles.length >= 3
+          ? h(
+              'div',
+              { class: `notice collection-note${d.collection ? ' done' : ''}` },
+              d.collection
+                ? [h('b', {}, '📚 Collection complete! '), `You finished every puzzle in ${d.category.name} and earned ${d.collection.points} bonus points.`]
+                : [h('b', {}, '📚 Collection: '), `finish all ${d.puzzles.length} puzzles here (any difficulty) for a one-time ${d.collectionBonus}-point bonus and the Collector achievement.`],
+            )
+          : null,
         h('div', { class: 'row', style: 'margin-bottom:12px' }, h('span', { class: 'muted small' }, 'Show'), filterBtn('all', 'All'), filterBtn('unlocked', 'Unlocked'), filterBtn('locked', 'Locked')),
         grid,
         d.unlockedCount < d.puzzles.length ? await plusStrip('Plus members can play every puzzle here right away, no points needed.') : null,
