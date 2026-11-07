@@ -28,7 +28,20 @@ console.log(`Building the game with Vite…`);
 execSync('npx vite build --config vite.portal.config.ts', { cwd: root, stdio: 'inherit' });
 
 console.log(`Fetching the picture pack from ${SITE} (${PER} per category)…`);
-const pack = await (await fetch(`${SITE}/api/portal/pack?per=${PER}`)).json();
+// Right after a deploy the site can answer with a page instead of the pack for a
+// few seconds, so try a few times before giving up.
+let pack = null;
+for (let attempt = 1; attempt <= 4 && !pack; attempt++) {
+  const res = await fetch(`${SITE}/api/portal/pack?per=${PER}`, { headers: { accept: 'application/json' } });
+  const text = await res.text();
+  try {
+    pack = JSON.parse(text);
+  } catch {
+    console.warn(`The site answered with ${res.status} ${res.headers.get('content-type') || ''} instead of the picture pack (try ${attempt} of 4).`);
+    if (attempt < 4) await new Promise((r) => setTimeout(r, 5000));
+  }
+}
+if (!pack) throw new Error(`Couldn't get the picture pack from ${SITE}/api/portal/pack. Is the latest version deployed? Open that address in a browser to check.`);
 if (!pack.puzzles?.length) throw new Error('The site returned no pictures.');
 
 const app = join(out, 'app');
