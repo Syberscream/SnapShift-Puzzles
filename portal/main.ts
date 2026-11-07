@@ -124,7 +124,7 @@ function menu() {
       const ms = (['classic', 'rotation'] as PMode[]).map((m) => all[key(slug, d, m)]).filter(Boolean) as Medal[];
       if (!ms.length) return [];
       const best = ms.sort((a, b) => MEDAL_RANK[b] - MEDAL_RANK[a])[0];
-      return [medalIcon(best, 34, `${RULES[d].label}: ${best} medal`)];
+      return [medalIcon(best, 26, `${RULES[d].label}: ${best} medal`)];
     });
     return got.length ? h('span', { class: 'medals' }, got) : null;
   };
@@ -164,7 +164,7 @@ function menu() {
         h(
           'span',
           { class: 'tally' },
-          (['gold', 'silver', 'bronze'] as Medal[]).map((m) => h('span', { class: 'tally-item' }, medalIcon(m, 26), h('b', {}, tally[m]))),
+          (['gold', 'silver', 'bronze'] as Medal[]).map((m) => h('span', { class: 'tally-item' }, medalIcon(m, 24), h('b', {}, tally[m]))),
           h('span', { class: 'muted small' }, `${done} of ${pack.puzzles.length} pictures`),
         ),
       ),
@@ -375,7 +375,7 @@ async function win(p: PackPuzzle, img: HTMLImageElement, setup: GameSetup) {
     h(
       'div',
       { class: 'dialog', role: 'dialog', 'aria-label': 'Puzzle solved' },
-      h('div', { class: `big-medal ${rating.medal}` }, medalIcon(rating.medal, 112), h('i', { class: 'shine' })),
+      h('div', { class: `big-medal ${rating.medal}` }, medalIcon(rating.medal, 96)),
       h('h1', {}, `${rating.medal[0].toUpperCase() + rating.medal.slice(1)} medal!`),
       h('div', { class: 'muted' }, `${p.title} · ${RULES[setup.difficulty].label}${setup.mode === 'rotation' ? ' · Rotation' : ''}`),
       h(
