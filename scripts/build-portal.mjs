@@ -120,4 +120,4 @@ for (const [name, link] of [['snapshift-crazygames-poki', false], ['snapshift-we
   const mb = (statSync(join(out, `${name}.zip`)).size / 1048576).toFixed(1);
   console.log(`dist-portal/${name}.zip (${mb} MB)`);
 }
-console.log('Done. Try it locally: npx vite preview --config vite.portal.config.ts --outDir dist-portal/snapshift-web');
+console.log('Done. Try it locally: npm run preview:portal');

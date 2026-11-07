@@ -11,7 +11,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply snapshift --remote",
     "start": "wrangler dev",
     "deploy": "vite build && wrangler d1 migrations apply snapshift --remote && wrangler deploy",
-    "build:portal": "node scripts/build-portal.mjs"
+    "build:portal": "node scripts/build-portal.mjs",
+    "preview:portal": "vite preview --config vite.portal.config.ts --outDir ../dist-portal/snapshift-web --open"
   },
   "dependencies": {
     "hono": "^4.13.16"

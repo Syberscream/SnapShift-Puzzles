@@ -33,7 +33,7 @@ pack instead of 4. Keep the ZIP under about 20 MB so it loads fast.
 Try it locally first:
 
 ```
-npx vite preview --config vite.portal.config.ts --outDir dist-portal/snapshift-web
+npm run preview:portal
 ```
 
 ## Where to submit
