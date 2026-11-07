@@ -23,6 +23,19 @@ const errorsFor = (page, bucket) => {
 
 async function newCtx(mobile = false) {
   const ctx = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: 1366, height: 900 } });
+  // "Achievement unlocked!" popups would sit on top of the screens under test: note
+  // each one in localStorage.__ach (so tests can check them) and close it straight away.
+  await ctx.addInitScript(() => {
+    new MutationObserver(() => {
+      for (const d of document.querySelectorAll('dialog.ach-modal[open]:not([data-seen])')) {
+        d.setAttribute('data-seen', '1');
+        const seen = JSON.parse(localStorage.getItem('__ach') || '[]');
+        seen.push({ title: d.querySelector('h2')?.textContent, reward: d.querySelector('.ach-reward')?.textContent || '' });
+        localStorage.setItem('__ach', JSON.stringify(seen));
+        setTimeout(() => d.close(), 30);
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
   return ctx;
 }
 
@@ -179,9 +192,9 @@ const slug = new URL(player.url()).searchParams.get('p');
 const started = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: slug, difficulty: 'easy' } })).json();
 check('reopening resumes the same game', started.resumed === true);
 const swaps = await solveByClicking(player, started.play.seed, 'easy', started.play.actions);
-await player.waitForSelector('dialog.modal', { timeout: 10000 });
+await player.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
 await player.waitForTimeout(1200); // points count up
-const resultText = await player.locator('dialog.modal').innerText();
+const resultText = await player.locator('dialog.modal:not(.ach-modal)').innerText();
 check('completion dialog shows medal and points', /medal/i.test(resultText) && /\+\d+ points/.test(resultText), resultText.replace(/\s+/g, ' ').slice(0, 160));
 await player.screenshot({ path: `${OUT}/07-play-complete.png` });
 // Reopening a finished puzzle shows it finished, not a new board.
@@ -211,7 +224,7 @@ const users = (await (await admin.request.get(BASE + '/api/admin/users?q=PuzzleF
 await admin.request.post(BASE + `/api/admin/users/${users[0].id}/points`, { data: { delta: 1000, note: 'test' } });
 await player.goto(BASE + '/category?c=animals');
 await player.locator('.grid button.card').last().click();
-await player.locator('dialog.modal button', { hasText: 'Unlock for' }).click();
+await player.locator('dialog.modal:not(.ach-modal) button', { hasText: 'Unlock for' }).click();
 await player.waitForFunction(() => document.querySelectorAll('.grid .lock-badge').length === 1, null, { timeout: 10000 });
 check('unlock via UI', true);
 
@@ -273,10 +286,10 @@ check('daily is hard with the shared seed', daily.play.difficulty === 'hard' && 
   const box = await player.locator('#board').boundingBox();
   check('rotation board is square-tiled (7:4)', Math.abs(box.width / box.height - 7 / 4) < 0.03, `${box.width}x${box.height}`);
   await solveByClicking(player, rot.play.seed, 'easy', rot.play.actions, 'rotation');
-  await player.waitForSelector('dialog.modal', { timeout: 10000 });
-  check('rotation puzzle completes with a medal', /medal/i.test(await player.locator('dialog.modal').innerText()));
+  await player.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
+  check('rotation puzzle completes with a medal', /medal/i.test(await player.locator('dialog.modal:not(.ach-modal)').innerText()));
   await player.screenshot({ path: `${OUT}/09b-rotation-done.png` });
-  await player.locator('dialog.modal button', { hasText: 'Play again' }).click();
+  await player.locator('dialog.modal:not(.ach-modal) button', { hasText: 'Play again' }).click();
   await ready(player);
   await player.screenshot({ path: `${OUT}/09c-rotation-start.png` });
 
@@ -288,8 +301,8 @@ check('daily is hard with the shared seed', daily.play.difficulty === 'hard' && 
   check('zen hides the timer', !(await player.locator('.pill', { hasText: 'Time:' }).isVisible()));
   const zen = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'easy', mode: 'zen' } })).json();
   await solveByClicking(player, zen.play.seed, 'easy', zen.play.actions, 'zen');
-  await player.waitForSelector('dialog.modal', { timeout: 10000 });
-  const zt = await player.locator('dialog.modal').innerText();
+  await player.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
+  const zt = await player.locator('dialog.modal:not(.ach-modal)').innerText();
   const after = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
   check('zen finish: no medal, +10 points', /Puzzle complete/.test(zt) && after - before === 10, `${after - before} pts`);
 
@@ -348,7 +361,7 @@ check('guest game restored after reload', /Moves: 1/.test(await guest.locator('.
   // Finish the guest game, reload, and it should stay finished.
   const save = await guest.evaluate(() => Object.values(JSON.parse(localStorage.getItem('ss_guest_games')))[0]);
   await solveByClicking(guest, save.seed, 'easy', save.actions);
-  await guest.waitForSelector('dialog.modal', { timeout: 10000 });
+  await guest.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
   await guest.reload();
   await guest.waitForSelector('.done-bar:not([hidden])', { timeout: 10000 });
   check('guest finished puzzle stays completed', /Completed/.test(await guest.locator('.done-bar').innerText()));
@@ -418,8 +431,8 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('time attack: clock counting down', /^2:[0-5]\d$/.test(clock1), clock1);
   await gp.screenshot({ path: `${OUT}/13-time-attack.png` });
   await gp.click('text=Finish now');
-  await gp.waitForSelector('dialog.modal');
-  const res = await gp.locator('dialog.modal').innerText();
+  await gp.waitForSelector('dialog.modal:not(.ach-modal)');
+  const res = await gp.locator('dialog.modal:not(.ach-modal)').innerText();
   check('time attack: guest result', /Solved\s*1/.test(res) && /150/.test(res) && /Create a free account/.test(res), res.replace(/\s+/g, ' '));
   check('no JS errors (time attack)', gErr.length === 0, gErr.join(' | '));
   await gp.close();
@@ -614,6 +627,10 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   const ach = await j(player.request.get(BASE + '/api/me/achievements'));
   const got = new Set(ach.achievements.filter((a) => a.earnedAt).map((a) => a.id));
   check('achievements: earned while playing', got.has('first-finish') && got.has('gold-1'), [...got].join(','));
+  const popped = await player.evaluate(() => JSON.parse(localStorage.getItem('__ach') || '[]'));
+  check('achievements: “Achievement unlocked!” popup shown', popped.length > 0 && popped.every((a) => a.title && /^\+\d+ points$/.test(a.reward)), JSON.stringify(popped));
+  const ledger = await j(player.request.get(BASE + '/api/me/ledger'));
+  check('achievements: reward points paid once each', ledger.rows.filter((r) => r.reason === 'achievement' && r.ref === 'first-finish').length === 1);
 
   // Collections: a 3-puzzle category, finished by the player.
   await admin.request.put(BASE + '/api/admin/categories/tiny', { data: { name: 'Tiny', description: 'Three puzzles', tile_url: '/img/categories/art.png', sort: 50, generate: false } });
@@ -654,7 +671,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('challenge: banner for the guest', /PuzzleFan challenges you/.test(await gp.locator('.challenge-bar').innerText()));
   await gp.waitForTimeout(3000); // memorize
   await solveByClicking(gp, info.seed, 'easy');
-  await gp.waitForSelector('dialog.modal .challenge-result', { timeout: 15000 });
+  await gp.waitForSelector('dialog.modal:not(.ach-modal) .challenge-result', { timeout: 15000 });
   check('challenge: guest sees who won', /PuzzleFan/.test(await gp.locator('.challenge-result').innerText()));
   await gp.screenshot({ path: `${OUT}/20-challenge-result.png` });
   await gp.close();
@@ -917,7 +934,8 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   const fd = await j(player.request.post(BASE + `/api/slider/${gd.gameId}/finish`, { data: { actions: md } }));
   check('slider: today’s slider pays the bonus', fd.firstDaily === true && fd.points === 35 && fd.daily?.rank === 1, JSON.stringify(fd).slice(0, 200));
   const bal1 = (await j(player.request.get(BASE + '/api/auth/me'))).user.points;
-  check('slider: points reach the balance', bal1 - bal0 === 40, `${bal0} -> ${bal1}`);
+  const achPts = [...(f3.achievements || []), ...(fd.achievements || [])].reduce((n, a) => n + (a.reward || 0), 0);
+  check('slider: points reach the balance (solves + achievement rewards)', bal1 - bal0 === 40 + achPts, `${bal0} -> ${bal1}, achievements ${achPts}`);
   const lb = await j(guest.request.get(BASE + '/api/slider/leaderboard'));
   check('slider: leaderboard shows the player', lb.rows.length === 1 && lb.rows[0].moves === md.length);
   // Too fast is refused.
@@ -945,8 +963,8 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
     await sp.mouse.click(box.x + ((pos % 3) + 0.5) * (box.width / 3), box.y + (Math.floor(pos / 3) + 0.5) * (box.height / 3));
     await sp.waitForTimeout(40);
   }
-  await sp.waitForSelector('dialog.modal', { timeout: 8000 });
-  const txt = await sp.locator('dialog.modal').innerText();
+  await sp.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 8000 });
+  const txt = await sp.locator('dialog.modal:not(.ach-modal)').innerText();
   check('slider page: solving by tapping shows the result', /Solved!|New best!/.test(txt) && /medal/i.test(txt), txt.slice(0, 120));
   await sp.screenshot({ path: `${OUT}/slider-done.png` });
   check('slider page: phone controls in the bottom bar', await sp.locator('.game .side > .key', { hasText: 'Peek' }).isVisible());

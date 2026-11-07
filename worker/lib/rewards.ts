@@ -170,6 +170,14 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
   const fresh = [...earned].filter((id) => !owned.has(id) && ACHIEVEMENT_BY_ID.has(id));
   if (!fresh.length) return [];
   const t = now();
-  await env.DB.batch(fresh.map((id) => env.DB.prepare('INSERT OR IGNORE INTO user_achievements (user_id, achievement, earned_at) VALUES (?, ?, ?)').bind(userId, id, t)));
-  return fresh.map((id) => ACHIEVEMENT_BY_ID.get(id)!);
+  // Each one is paid once: the reward only goes out if this request inserted the row.
+  const got: Achievement[] = [];
+  for (const id of fresh) {
+    const a = ACHIEVEMENT_BY_ID.get(id)!;
+    const ins = await env.DB.prepare('INSERT OR IGNORE INTO user_achievements (user_id, achievement, earned_at) VALUES (?, ?, ?)').bind(userId, id, t).run();
+    if (!ins.meta.changes) continue;
+    if (a.reward) await env.DB.batch(creditStatements(env, userId, a.reward, 'achievement', id));
+    got.push(a);
+  }
+  return got;
 }

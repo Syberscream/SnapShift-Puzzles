@@ -102,7 +102,7 @@ async function profileView(user: Me) {
     freezesLeft: number | null;
     ledger: { delta: number; reason: string; ref: string | null; created_at: number }[];
   }>('/me/summary');
-  const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', timeattack: 'Time Attack', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment' };
+  const reasons: Record<string, string> = { win: 'Puzzle finished', daily: 'Daily bonus', streak: 'Streak reward', timeattack: 'Time Attack', slider: 'Slider Puzzle', achievement: 'Achievement', unlock: 'Unlocked a puzzle', hint: 'Swap hint', place: 'Placed a tile', admin: 'Adjustment' };
   const pw = form(
     'Change password',
     [field('Current password', 'current', 'password', { autocomplete: 'current-password' }), field('New password', 'next', 'password', { autocomplete: 'new-password', minlength: '8' })],
@@ -185,6 +185,8 @@ async function profileView(user: Me) {
     main.append(await requestsPanel());
     main.append(await medalsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
   }
+  // Links like /account#achievements: the panels load late, so scroll once they're in.
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start' });
 }
 
 const verify = qs('verify');

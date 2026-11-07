@@ -1,3 +1,4 @@
+import { celebrateAchievements } from '../lib/achievement-popup';
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
 import { bg, errorText, h, medalBadge, modal, mount, plusTag, qs, store, timeUntil, toast, pickImage } from '../lib/ui';
@@ -666,7 +667,7 @@ function showResult(r: CompleteResult, guest: boolean) {
       challengeBtn.disabled = false;
     }
   });
-  for (const a of r.achievements ?? []) toast(`${a.icon} ${a.title}`, a.description, 'good', 6000);
+  celebrateAchievements(r.achievements);
   const d = modal(
     rating ? h('div', { class: `result-medal ${rating.medal} celebrate` }, medalBadge(rating.medal), h('span', { class: 'medal-name' }, `${rating.medal} medal`)) : h('div', { class: 'result-medal celebrate', style: 'font-size:48px' }, '✓'),
     h('h2', { style: 'text-align:center' }, rating ? `${label} medal!` : 'Puzzle complete'),

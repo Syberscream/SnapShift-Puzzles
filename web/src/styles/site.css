@@ -514,3 +514,24 @@ td .plus-tag { margin-left: 6px; padding: 1px 7px; font-size: 10px; vertical-ali
   linear-gradient(180deg, transparent calc(25% - 1px), rgba(0,0,0,.6) calc(25% - 1px), rgba(0,0,0,.6) calc(25% + 1px), transparent calc(25% + 1px), transparent calc(50% - 1px), rgba(0,0,0,.6) calc(50% - 1px), rgba(0,0,0,.6) calc(50% + 1px), transparent calc(50% + 1px), transparent calc(75% - 1px), rgba(0,0,0,.6) calc(75% - 1px), rgba(0,0,0,.6) calc(75% + 1px), transparent calc(75% + 1px)); }
 .slider-hero-art::before { content: ''; position: absolute; right: 0; bottom: 0; width: 25%; height: 25%; background: #050913; z-index: 1; }
 @media (max-width: 700px) { .slider-hero { grid-template-columns: 1fr; } }
+
+/* Achievement unlocked popup */
+dialog.ach-modal { overflow: hidden; max-width: min(420px, calc(100vw - 32px)); }
+.ach-pop { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 8px 4px 2px; }
+.ach-pop h2 { margin: 4px 0 0; font-size: 26px; }
+.ach-pop p { margin: 0; }
+.ach-rays { position: absolute; top: -120px; left: 50%; width: 420px; height: 420px; margin-left: -210px; z-index: 0; pointer-events: none; opacity: 0.55;
+  background: repeating-conic-gradient(from 0deg, rgba(245, 197, 66, 0.28) 0deg 10deg, transparent 10deg 24deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, #000 30%, transparent 62%); mask-image: radial-gradient(circle, #000 0, #000 30%, transparent 62%);
+  animation: ach-spin 14s linear infinite; }
+.ach-pop > :not(.ach-rays) { position: relative; z-index: 1; }
+.ach-badge { width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; font-size: 58px; margin-top: 6px;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #f5c542 45%, #b8860b 100%); box-shadow: 0 0 0 5px rgba(255, 241, 176, 0.35), 0 10px 40px rgba(245, 197, 66, 0.55);
+  animation: ach-pop-in 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.ach-kicker { margin-top: 10px; font-weight: 900; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold, #f5c542); }
+.ach-reward { margin-top: 8px; padding: 8px 18px; border-radius: 999px; font-weight: 900; font-size: 20px; color: #1a1200; background: linear-gradient(90deg, #ffe58a, #f5c542); box-shadow: 0 6px 20px rgba(245, 197, 66, 0.35); animation: ach-pop-in 0.5s 0.25s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.ach-actions { margin-top: 14px; justify-content: center; }
+.achievement .ach-pts { margin-left: auto; font-weight: 800; font-size: 13px; color: var(--gold, #f5c542); white-space: nowrap; }
+@keyframes ach-spin { to { transform: rotate(360deg); } }
+@keyframes ach-pop-in { from { transform: scale(0.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ach-rays, .ach-badge, .ach-reward { animation: none; } }

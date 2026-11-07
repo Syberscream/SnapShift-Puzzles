@@ -193,13 +193,14 @@ export function remindersPanel(user: Me): HTMLElement {
 
 /** Every achievement, earned ones first. */
 export async function achievementsPanel(): Promise<HTMLElement> {
-  const d = await api.get<{ achievements: { id: string; title: string; description: string; icon: string; earnedAt: number | null }[] }>('/me/achievements');
+  const d = await api.get<{ achievements: { id: string; title: string; description: string; icon: string; reward: number; earnedAt: number | null }[] }>('/me/achievements');
   const got = d.achievements.filter((a) => a.earnedAt).length;
   const list = [...d.achievements].sort((a, b) => (b.earnedAt ? 1 : 0) - (a.earnedAt ? 1 : 0));
   return h(
     'section',
-    { class: 'panel' },
+    { class: 'panel', id: 'achievements' },
     h('h2', {}, `Achievements (${got} of ${d.achievements.length})`),
+    h('p', { class: 'small muted' }, 'Each achievement pays its points once, the moment you earn it.'),
     h(
       'div',
       { class: 'achievements' },
@@ -209,6 +210,7 @@ export async function achievementsPanel(): Promise<HTMLElement> {
           { class: `achievement${a.earnedAt ? ' earned' : ''}`, title: a.earnedAt ? `Earned ${new Date(a.earnedAt).toLocaleDateString()}` : 'Not earned yet' },
           h('span', { class: 'icon', 'aria-hidden': 'true' }, a.icon),
           h('span', {}, h('b', {}, a.title), h('span', { class: 'small muted' }, a.description)),
+          a.reward ? h('span', { class: 'ach-pts' }, `+${a.reward}`) : null,
         ),
       ),
     ),

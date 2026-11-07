@@ -2,6 +2,7 @@
 // The server hands out the puzzles and shuffles; at the end it replays every
 // move list before it counts anything.
 
+import { celebrateAchievements } from '../lib/achievement-popup';
 import { api } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
 import { errorText, h, modal, mount, plural, plusTag, store, toast, userLink, pickImage } from '../lib/ui';
@@ -251,7 +252,7 @@ async function endRun() {
 }
 
 function showResult(r: Finish, guest: boolean) {
-  for (const a of r.achievements ?? []) toast(`${a.icon} ${a.title}`, a.description, 'good', 6000);
+  celebrateAchievements(r.achievements);
   const d = modal(
     h('h2', {}, r.newBest ? 'New best!' : 'Time!'),
     h(

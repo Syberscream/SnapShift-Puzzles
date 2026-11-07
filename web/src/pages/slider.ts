@@ -2,6 +2,7 @@
 // row or column) to slide tiles into it. Today's shared 4×4 slider has a
 // leaderboard; any picture you can play can be slid at 3×3, 4×4 or 5×5 (Plus).
 
+import { celebrateAchievements } from '../lib/achievement-popup';
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
 import { countdown, errorText, h, medalBadge, modal, mount, pickImage, plusTag, qs, store, toast, userLink, bg } from '../lib/ui';
@@ -285,7 +286,7 @@ async function play(opts: { daily?: Daily; slug?: string; size?: SliderSize }) {
   }
 
   function result(r: Finish | null, medal: string, localMs: number) {
-    for (const a of r?.achievements ?? []) toast(`${a.icon} ${a.title}`, a.description, 'good', 6000);
+    celebrateAchievements(r?.achievements);
     const ms = r?.elapsedMs ?? localMs;
     let best = r?.best.elapsedMs ?? ms;
     if (!r) {
