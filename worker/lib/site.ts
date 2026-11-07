@@ -73,7 +73,7 @@ export const SITE_DEFAULTS: SiteSettings = {
   supporterYearlyUrl: '',
   contactEmail: 'contact@snapshiftpuzzles.com',
   analyticsToken: '',
-  androidPackage: 'com.snapshiftpuzzles.app',
+  androidPackage: 'com.snapshiftpuzzles.twa',
   androidFingerprints: '',
   androidPlayUrl: '',
   theme: THEME_DEFAULTS,

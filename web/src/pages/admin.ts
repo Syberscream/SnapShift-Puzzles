@@ -875,7 +875,7 @@ async function site() {
       'div',
       { class: 'field' },
       h('label', {}, 'Play Store link (once the app is live)'),
-      h('input', { name: 'androidPlayUrl', value: s.androidPlayUrl, placeholder: 'https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.app' }),
+      h('input', { name: 'androidPlayUrl', value: s.androidPlayUrl, placeholder: 'https://play.google.com/store/apps/details?id=com.snapshiftpuzzles.twa' }),
       h('span', { class: 'small muted' }, 'When set, Android visitors see a “Get it on Google Play” option instead of “Install”.'),
     ),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
