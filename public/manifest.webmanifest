@@ -23,17 +23,19 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/app-192-v2.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/app-512-v2.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/icons/icon-maskable-512.png",
+      "src": "/icons/app-maskable-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -68,7 +70,7 @@
       "url": "/daily",
       "icons": [
         {
-          "src": "/icons/icon-192.png",
+          "src": "/icons/app-192-v2.png",
           "sizes": "192x192"
         }
       ]
@@ -78,7 +80,7 @@
       "url": "/time-attack",
       "icons": [
         {
-          "src": "/icons/icon-192.png",
+          "src": "/icons/app-192-v2.png",
           "sizes": "192x192"
         }
       ]
@@ -88,7 +90,7 @@
       "url": "/slider?daily=1",
       "icons": [
         {
-          "src": "/icons/icon-192.png",
+          "src": "/icons/app-192-v2.png",
           "sizes": "192x192"
         }
       ]
