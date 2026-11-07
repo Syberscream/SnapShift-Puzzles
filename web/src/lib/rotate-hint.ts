@@ -3,6 +3,7 @@
 // the phone is turned; "Keep playing upright" or "Don't ask again" close it.
 
 import { h, store } from './ui';
+import { enterFullscreen } from './fullscreen';
 
 const never = store<boolean>('ss_rotate_never', false);
 const portraitPhone = () =>
@@ -35,12 +36,8 @@ export function suggestLandscape(): void {
             {
               class: 'btn primary big',
               onclick: async () => {
-                try {
-                  await document.documentElement.requestFullscreen();
-                  await (screen.orientation as ScreenOrientation & { lock(o: string): Promise<void> }).lock('landscape');
-                } catch {
-                  /* not allowed here: the player can turn the phone themselves */
-                }
+                // Full screen on the board itself, so the game's "Full screen" button shows "Exit full screen".
+                await enterFullscreen(document.querySelector('.board-wrap') ?? document.documentElement);
                 close();
               },
             },
