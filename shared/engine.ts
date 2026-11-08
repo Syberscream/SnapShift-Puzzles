@@ -158,7 +158,11 @@ export function minSwaps(tiles: number[]): number {
 const turnsToUpright = (r: number) => (4 - (r % 4)) % 4;
 
 export function newGame(seed: number, setup: GameSetup): GameState {
-  const rules = gameRules(setup);
+  return newGameWithRules(seed, gameRules(setup), setup.version);
+}
+
+/** A new board from explicit rules (custom grid sizes, e.g. the portal edition's levels). */
+export function newGameWithRules(seed: number, rules: GameRules, version: EngineVersion = 2): GameState {
   const { rows, cols } = rules;
   const tiles = rules.scramble === 'random' ? deal(seed, rows, cols) : dealShaped(seed, rows, cols, rules.scramble);
   const n = tiles.length;
@@ -182,7 +186,7 @@ export function newGame(seed: number, setup: GameSetup): GameState {
     places: 0,
   };
   // v1 scored efficiency against one move per tile; v2 uses the real minimum.
-  s.par = setup.version === 1 ? n : minSwaps(tiles) + rot.reduce((t, r) => t + turnsToUpright(r), 0);
+  s.par = version === 1 ? n : minSwaps(tiles) + rot.reduce((t, r) => t + turnsToUpright(r), 0);
   return s;
 }
 

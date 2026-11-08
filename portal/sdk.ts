@@ -6,7 +6,15 @@ type Fn = () => void;
 
 interface CrazySDK {
   init(): Promise<void>;
-  game: { loadingStart(): void; loadingStop(): void; gameplayStart(): void; gameplayStop(): void; happytime(): void };
+  game: {
+    loadingStart(): void;
+    loadingStop(): void;
+    gameplayStart(): void;
+    gameplayStop(): void;
+    happytime(): void;
+    settings?: { muteAudio?: boolean };
+    addSettingsChangeListener?(cb: (s: { muteAudio?: boolean }) => void): void;
+  };
   ad: { requestAd(kind: 'midgame' | 'rewarded', cb: { adStarted?: Fn; adFinished?: Fn; adError?: (e: unknown) => void }): void };
 }
 interface PokiSDK {
@@ -72,6 +80,13 @@ export const portal = {
     } catch {
       crazy = poki = null; // an ad blocker can stop the SDK; the game still works
     }
+  },
+
+  /** The portal's own "mute audio" setting (CrazyGames), now and when it changes. */
+  onMute(cb: (muted: boolean) => void): void {
+    if (!crazy) return;
+    cb(!!crazy.game.settings?.muteAudio);
+    crazy.game.addSettingsChangeListener?.((st) => cb(!!st.muteAudio));
   },
 
   loaded(): void {

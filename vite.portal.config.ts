@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 export default defineConfig({
   root: resolve(import.meta.dirname, 'portal'),
   base: './',
-  publicDir: false,
+  publicDir: resolve(import.meta.dirname, 'portal/public'),
   resolve: { alias: { '@shared': resolve(import.meta.dirname, 'shared'), '@web': resolve(import.meta.dirname, 'web/src') } },
   build: {
     outDir: resolve(import.meta.dirname, 'dist-portal/app'),

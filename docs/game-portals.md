@@ -4,13 +4,19 @@ Game portals have millions of players looking for quick browser games, and they
 host the game themselves. The **portal edition** is a stand-alone version of
 SnapShift made for them:
 
-- One screen that fits any game frame, desktop or phone.
-- No sign-in, no points, no Plus, no ads of our own (portals forbid them).
-- A bundled pack of pictures, so it runs entirely from the portal's servers.
-- Easy, Medium and Hard; Classic and Rotation; hints, peek and a puzzle of the day.
-- Medals are kept on the player's device.
+- A real casual-game structure: title screen, a map of picture **worlds** (one per
+  category), levels that unlock one by one and get gradually bigger, **Twist** levels
+  where tiles must also be turned upright, 3 stars per level for using few moves, and
+  a **Daily puzzle** with a streak.
+- Bright, playful look (Fredoka font, chunky buttons), sparkle bursts and combo words
+  ("Great!", "Awesome!"), confetti, a first-game "how to play" animation.
+- Background music (two ElevenLabs tracks in `portal/public/music/`) and sound effects,
+  each switchable in Settings.
+- Fits any game frame, desktop or phone. No sign-in, no ads of our own; progress is
+  kept on the player's device.
 - CrazyGames and Poki SDK hooks built in (loading, gameplay start/stop, ads between
-  puzzles, "happy time" on a win). These only switch on when the game runs on their sites.
+  levels, "happy time" on a win, the portal's mute setting). These only switch on when
+  the game runs on their sites.
 
 ## Build it
 
@@ -27,14 +33,14 @@ You get two ZIP files in `dist-portal/`:
 | `snapshift-crazygames-poki.zip` | CrazyGames and Poki: no links to other sites (their rules) |
 | `snapshift-web.zip` | itch.io, Newgrounds, Armor Games, your own pages: adds a small "more at snapshiftpuzzles.com" link |
 
-Both show a **"Play the full game, free"** banner above the pictures and on the
-win screen. In the web build it links to the website. CrazyGames and Poki don't
+Both show a **"Play the full game, free"** banner at the bottom of the map and on
+the win screen. In the web build it links to the website. CrazyGames and Poki don't
 allow links out of their sites, so their build has no banner by default;
 `npm run build:portal -- --portal-banner` adds a plain-text version (no link) if
 the portal agrees to it.
 
-Want more pictures? `npm run build:portal -- --per 6` puts 6 per category in the
-pack instead of 4. Keep the ZIP under about 20 MB so it loads fast.
+Want more levels? `npm run build:portal -- --per 8` puts 8 pictures per world in
+the pack instead of 6. Keep the ZIP under about 25 MB so it loads fast.
 
 Try it locally first:
 

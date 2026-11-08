@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261106.1",
+    "@fontsource/fredoka": "^5.3.0",
     "typescript": "^5.9.3",
     "vite": "^8.3.6",
     "vitest": "^5.1.0",
