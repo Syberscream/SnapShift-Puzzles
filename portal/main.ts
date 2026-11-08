@@ -3,9 +3,7 @@
 // one, three stars per level, a puzzle of the day, music and effects. Uses the
 // same puzzle engine and board as the website; progress stays on the device.
 
-import '@fontsource/fredoka/500.css';
-import '@fontsource/fredoka/600.css';
-import '@fontsource/fredoka/700.css';
+import '@fontsource-variable/plus-jakarta-sans';
 import './style.css';
 import { Board } from '@web/game/board';
 import { correctCount, isCorrect, isSolved, newGameWithRules, randomSeed, rotate, seedFromString, suggest, swap, type GameState } from '@shared/engine';
@@ -52,30 +50,30 @@ interface Progress {
   seenWorlds: number;
 }
 
-const WORLD_COLORS = ['#ff8a3d', '#3db7ff', '#7c5cff', '#2fcf7a', '#ff5c8a', '#ffb627', '#21c7b8', '#ff6b4a', '#5b8cff', '#c36bff', '#4fbf3a', '#ff7eb6'];
+const WORLD_COLORS = ['#a78bfa', '#38bdf8', '#f472b6', '#34d399', '#fbbf24', '#818cf8', '#2dd4bf', '#fb923c', '#60a5fa', '#e879f9', '#a3e635', '#fb7185'];
 
 /** Board size, twist and shuffle style for the n-th level (gets harder slowly). */
 function levelShape(i: number): Pick<Level, 'rows' | 'cols' | 'rotation' | 'scramble'> {
+  // Starts as a real puzzle (12 tiles, fully mixed) and grows steadily.
   const sizes: [number, number, number][] = [
     // [until level, rows, cols]
-    [1, 2, 3],
-    [2, 3, 3],
-    [5, 3, 4],
-    [9, 3, 5],
-    [14, 4, 5],
-    [20, 4, 6],
-    [27, 5, 6],
-    [35, 5, 7],
-    [42, 5, 8],
-    [9999, 6, 8],
+    [1, 3, 4],
+    [3, 4, 4],
+    [6, 4, 5],
+    [10, 4, 6],
+    [16, 5, 6],
+    [24, 5, 7],
+    [34, 6, 7],
+    [46, 6, 8],
+    [9999, 7, 9],
   ];
   const [, rows, cols] = sizes.find(([until]) => i < until)!;
-  const rotation = i >= 11 && i % 6 === 5;
+  const rotation = i >= 5 && i % 6 === 5;
   return {
-    rows: rotation ? Math.max(2, rows - 1) : rows,
+    rows: rotation ? Math.max(3, rows - 1) : rows,
     cols: rotation ? Math.max(3, cols - 1) : cols,
     rotation,
-    scramble: i < 9 ? 'pairs' : i < 27 ? 'mixed' : 'long',
+    scramble: i < 8 ? 'mixed' : 'long',
   };
 }
 
@@ -227,12 +225,21 @@ function modal(content: HTMLElement, onClose?: () => void, cls = '') {
   const back = h('div', { class: `modal-back ${cls}` });
   const box = h('div', { class: 'modal', role: 'dialog' }, content);
   back.append(box);
+  let closed = false;
+  // close(): a button in the box handles what happens next. Tapping the backdrop
+  // dismisses the box and runs onClose. Either only ever runs once.
   const close = () => {
+    if (closed) return;
+    closed = true;
     back.classList.add('out');
     setTimeout(() => back.remove(), 200);
-    onClose?.();
   };
-  if (onClose) back.addEventListener('click', (e) => e.target === back && close());
+  if (onClose)
+    back.addEventListener('click', (e) => {
+      if (e.target !== back || closed) return;
+      close();
+      onClose();
+    });
   document.body.append(back);
   return { close, box };
 }
@@ -281,7 +288,7 @@ function title() {
       'div',
       { class: 'title-center' },
       h('img', { class: 'logo bob', src: './logo.png', alt: 'SnapShift Puzzles' }),
-      h('p', { class: 'tagline' }, 'Swap the tiles. Rebuild the picture!'),
+      h('p', { class: 'tagline' }, 'Swap the tiles. Rebuild the picture.'),
       btn([svg(ICON.play), total ? 'Continue' : 'Play'], () => (unlockAudio(), map()), 'green huge pulse'),
       h(
         'div',
@@ -445,7 +452,7 @@ function play(l: Level) {
 
 function daily() {
   const p = pack.puzzles[seedFromString('daily:' + today()) % pack.puzzles.length];
-  return startGame({ daily: true, puzzle: p, shape: { rows: 4, cols: 6, rotation: false, scramble: 'mixed' }, label: 'Daily puzzle', color: '#ff8a3d' });
+  return startGame({ daily: true, puzzle: p, shape: { rows: 5, cols: 7, rotation: false, scramble: 'long' }, label: 'Daily puzzle', color: '#fbbf24' });
 }
 
 async function startGame(spec: PlaySpec) {
@@ -543,7 +550,7 @@ async function startGame(spec: PlaySpec) {
     const r = canvas.getBoundingClientRect();
     return { x: r.left + ((p % state.cols) + 0.5) * (r.width / state.cols), y: r.top + (Math.floor(p / state.cols) + 0.5) * (r.height / state.rows) };
   };
-  const PRAISE = ['', '', 'Nice!', 'Great!', 'Super!', 'Awesome!', 'Amazing!', 'Incredible!'];
+  const PRAISE = ['', '', 'Nice', 'Great', 'Superb', 'Brilliant', 'On fire', 'Unstoppable'];
   const after = (placed: number[]) => {
     if (placed.length) {
       combo++;

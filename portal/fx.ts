@@ -16,7 +16,7 @@ interface P {
   vr: number;
 }
 
-const COLORS = ['#ffd23f', '#ff6b9a', '#4dd4ff', '#7cf068', '#ff9f1c', '#b388ff', '#ffffff'];
+const COLORS = ['#a78bfa', '#f472b6', '#38bdf8', '#fbbf24', '#34d399', '#ffffff'];
 let canvas: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
 let parts: P[] = [];
@@ -142,9 +142,11 @@ export function floatText(text: string, x: number, y: number, cls = '') {
   const el = document.createElement('div');
   el.className = `float-text ${cls}`;
   el.textContent = text;
-  el.style.left = `${x}px`;
   el.style.top = `${y}px`;
   document.body.append(el);
+  // Keep the word on screen near the edges (it is centred on x).
+  const half = el.offsetWidth / 2 + 8;
+  el.style.left = `${Math.max(half, Math.min(window.innerWidth - half, x))}px`;
   setTimeout(() => el.remove(), 1300);
 }
 

@@ -8,8 +8,10 @@ SnapShift made for them:
   category), levels that unlock one by one and get gradually bigger, **Twist** levels
   where tiles must also be turned upright, 3 stars per level for using few moves, and
   a **Daily puzzle** with a streak.
-- Bright, playful look (Fredoka font, chunky buttons), sparkle bursts and combo words
-  ("Great!", "Awesome!"), confetti, a first-game "how to play" animation.
+- A dark, modern look (navy, frosted glass, violet-to-pink accent, Plus Jakarta Sans),
+  levels shown as photo cards, combo words ("Great", "Brilliant"), confetti and a
+  first-game "how to play" animation.
+- Puzzles start at 12 tiles, fully mixed, and grow to 63 tiles.
 - Background music (two ElevenLabs tracks in `portal/public/music/`) and sound effects,
   each switchable in Settings.
 - Fits any game frame, desktop or phone. No sign-in, no ads of our own; progress is
