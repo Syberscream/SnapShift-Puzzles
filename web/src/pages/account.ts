@@ -193,6 +193,9 @@ async function profileView(user: Me) {
     main.append(await requestsPanel());
     main.append(await medalsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
   }
+  main.append(
+    h('section', { class: 'panel danger-zone' }, h('h2', {}, 'Delete my account'), h('p', { class: 'small muted' }, 'Permanently delete your account, progress and points.'), h('a', { class: 'btn danger', href: '/delete-account' }, 'Delete my account…')),
+  );
   // Links like /account#achievements: the panels load late, so scroll once they're in.
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start' });
 }

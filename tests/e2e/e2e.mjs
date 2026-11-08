@@ -1320,6 +1320,47 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('invites/push: no page errors for the invited friend', friendErrors.length === 0, friendErrors.join(' | '));
 }
 
+// ---- delete your account ----
+{
+  const j = async (r) => (await r).json();
+  const dCtx = await newCtx(true);
+  const d = await dCtx.newPage();
+  const dErrors = [];
+  errorsFor(d, dErrors);
+  await d.goto(BASE + '/delete-account');
+  await d.waitForSelector('text=Delete your SnapShift Puzzles account');
+  check('delete account: public page explains steps and data', (await d.locator('main').innerText()).includes('What is deleted') && (await d.locator('text=to delete your account').count()) > 0);
+  await dCtx.request.post(BASE + '/api/auth/signup', { data: { email: 'leaving@example.com', username: 'LeavingSoon', password: 'leavingpass1' } });
+  const free = pub.puzzles.find((p) => p.categoryId === 'animals');
+  const { play } = await j(dCtx.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'easy' } }));
+  const g = E.replay(play.seed, { version: play.engine, difficulty: 'easy', mode: 'classic', daily: false, hardMode: false }, []).state;
+  const acts = [];
+  for (let m = E.suggest(g); m && !E.isSolved(g); m = E.suggest(g)) { acts.push([m.a, m.b]); E.applySuggestion(g, m); }
+  await dCtx.request.post(BASE + `/api/plays/${play.id}/complete`, { data: { actions: acts, elapsedMs: acts.length * 300 } });
+  check('delete account: profile exists before', (await guest.request.get(BASE + '/api/profile/LeavingSoon')).ok());
+  await d.goto(BASE + '/account');
+  await d.waitForSelector('a[href="/delete-account"]');
+  await d.click('a[href="/delete-account"]');
+  await d.waitForSelector('#delete-account');
+  const btn = d.locator('#delete-account button[type=submit]');
+  check('delete account: button locked until password and confirmation', await btn.isDisabled());
+  await d.fill('#del-pw', 'wrongpassword');
+  await d.check('#del-sure');
+  await btn.click();
+  await d.waitForSelector('#delete-account .error:has-text("password")');
+  check('delete account: wrong password refused', true);
+  await d.fill('#del-pw', 'leavingpass1');
+  await btn.click();
+  await d.waitForSelector('text=Your account has been deleted');
+  check('delete account: deleted with the right password', true);
+  check('delete account: signed out', (await j(dCtx.request.get(BASE + '/api/auth/me'))).user === null);
+  check('delete account: can no longer sign in', (await dCtx.request.post(BASE + '/api/auth/login', { data: { email: 'LeavingSoon', password: 'leavingpass1' } })).status() === 401);
+  check('delete account: profile and leaderboard entry gone', (await guest.request.get(BASE + '/api/profile/LeavingSoon')).status() === 404);
+  const again = await dCtx.request.post(BASE + '/api/auth/signup', { data: { email: 'leaving@example.com', username: 'LeavingSoon', password: 'leavingpass1' } });
+  check('delete account: email and username free again', again.ok());
+  check('delete account: no page errors', dErrors.length === 0, dErrors.join(' | '));
+}
+
 // Static pages render
 for (const p of ['about', 'how-to-play', 'faq', 'privacy', 'terms', 'contact', 'supporter', 'categories', 'nope-404']) {
   const r = await guest.goto(BASE + `/${p}`);

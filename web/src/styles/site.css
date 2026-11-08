@@ -103,6 +103,7 @@ p { margin: 0 0 10px; }
 .btn.primary { background: linear-gradient(180deg, #1667b4, #0b4a86); }
 .btn.green { background: var(--pill); }
 .btn.danger { background: #5a1520; }
+.danger-zone { border-color: rgba(255, 90, 110, 0.45); }
 .btn.ghost { background: transparent; border-color: var(--border-soft); }
 .btn.block { width: 100%; }
 .btn.big { min-height: 46px; font-size: 15px; padding: 10px 22px; }

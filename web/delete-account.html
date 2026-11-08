@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Delete Your Account | SnapShift Puzzles</title>
+  <meta name="description" content="How to delete your SnapShift Puzzles account and data, and what is deleted." />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta property="og:title" content="Delete Your Account | SnapShift Puzzles" />
+  <meta property="og:description" content="How to delete your SnapShift Puzzles account and data." />
+  <meta property="og:image" content="/img/logo.png" />
+  <script type="module" src="/src/pages/delete-account.ts"></script>
+</head>
+<body>
+  <div id="app">
+    <section class="panel prose">
+      <h1>Delete your SnapShift Puzzles account</h1>
+      <p>This page explains how to delete your account in <b>SnapShift Puzzles</b> (the website snapshiftpuzzles.com and the SnapShift Puzzles app on Google Play, by Syberscream) and what happens to your data.</p>
+      <h2>How to delete your account</h2>
+      <ol>
+        <li>Sign in at <a href="/account?next=/delete-account">snapshiftpuzzles.com/account</a> (or in the app: Menu → Account → Sign in).</li>
+        <li>Come back to this page, or open <b>Account</b> and choose <b>Delete my account</b> at the bottom.</li>
+        <li>Enter your password and press <b>Delete my account permanently</b>.</li>
+      </ol>
+      <p>Your account is deleted straight away. If you can’t sign in, use the <a href="/contact">contact page</a> with the email address on your account and we’ll delete it for you within 30 days.</p>
+      <div id="delete-form"></div>
+      <h2>What is deleted</h2>
+      <ul>
+        <li>Your account: email address, username and password.</li>
+        <li>Your games and progress: saved games, points, unlocks, medals, achievements, streaks, daily, Time Attack, Slider and event results, challenges and picture requests.</li>
+        <li>Your public profile and your entries on the leaderboards.</li>
+        <li>Daily reminder notifications linked to your account, messages you sent through the contact form, and invite records.</li>
+      </ul>
+      <h2>What is kept</h2>
+      <ul>
+        <li>If you had SnapShift Plus, the payment records that Stripe (our payment provider) must keep by law stay with Stripe. Any active subscription is stopped so you’re not charged again.</li>
+        <li>Short-lived server logs used for security are deleted automatically within 30 days.</li>
+        <li>Nothing else is kept. Deleting an account can’t be undone.</li>
+      </ul>
+      <p>Games played as a guest are only stored on your own device. To remove them, clear this site’s data in your browser, or uninstall the app.</p>
+    </section>
+  </div>
+</body>
+</html>

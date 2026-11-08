@@ -12,6 +12,7 @@ import {
 import { sendEmail } from '../lib/email';
 import { body, fail, int, now, randomId, sha256, siteUrl, str } from '../lib/util';
 import { checkReferral } from '../lib/invites';
+import { stripe, stripeEnabled } from '../lib/stripe';
 
 const app = new Hono<AppEnv>();
 
@@ -213,6 +214,43 @@ app.post('/password', async (c) => {
   const row = await c.env.DB.prepare('SELECT password_hash FROM users WHERE id = ?').bind(user.id).first<{ password_hash: string }>();
   if (!row || !(await verifyPassword(current, row.password_hash))) fail(401, 'Your current password is wrong.');
   await c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(await hashPassword(next), user.id).run();
+  return c.json({ ok: true });
+});
+
+/**
+ * Delete your account and everything linked to it (Google Play requires this).
+ * Needs the password again. An active Plus subscription is stopped first so it
+ * can't charge again; payment records Stripe must keep stay with Stripe.
+ */
+app.post('/delete-account', async (c) => {
+  const user = requireUser(c);
+  const b = await body(c);
+  const password = typeof b.password === 'string' ? b.password : '';
+  const row = await c.env.DB.prepare('SELECT password_hash, stripe_subscription_id FROM users WHERE id = ?')
+    .bind(user.id)
+    .first<{ password_hash: string; stripe_subscription_id: string | null }>();
+  if (!row || !(await verifyPassword(password, row.password_hash))) fail(401, 'That password is wrong.');
+  if (row.stripe_subscription_id && stripeEnabled(c.env)) {
+    try {
+      await stripe(c.env, 'POST', `subscriptions/${encodeURIComponent(row.stripe_subscription_id)}`, { cancel_at_period_end: true });
+    } catch (e) {
+      const sub = await stripe<{ status?: string }>(c.env, 'GET', `subscriptions/${encodeURIComponent(row.stripe_subscription_id)}`).catch(() => null);
+      if (sub && sub.status !== 'canceled' && sub.status !== 'incomplete_expired') {
+        fail(502, 'We couldn’t stop your Plus subscription, so your account wasn’t deleted. Cancel it under Account → Manage billing, then try again.');
+      }
+    }
+  }
+  const id = user.id;
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM push_subs WHERE user_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM contact_messages WHERE user_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM referral_rewards WHERE invitee_id = ? OR inviter_id = ?').bind(id, id),
+    c.env.DB.prepare('UPDATE users SET referred_by = NULL WHERE referred_by = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id),
+    // Everything else (games, points, medals, achievements, results…) goes with the user row.
+    c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id),
+  ]);
+  await endSession(c);
   return c.json({ ok: true });
 });
 
