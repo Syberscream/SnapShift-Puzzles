@@ -41,7 +41,8 @@ type Track = 'menu' | 'game';
 const tracks: Partial<Record<Track, HTMLAudioElement>> = {};
 let current: Track | null = null;
 let wanted: Track | null = null;
-const MUSIC_VOL = 0.38;
+/** Music sits quietly under the game: softer while playing a level. */
+const MUSIC_VOL: Record<Track, number> = { menu: 0.32, game: 0.2 };
 
 function el(t: Track): HTMLAudioElement {
   let a = tracks[t];
@@ -76,12 +77,12 @@ function apply() {
     const a = el(play);
     if (a.paused) {
       a.play().then(
-        () => fade(a, MUSIC_VOL, 900),
+        () => fade(a, MUSIC_VOL[play], 1500),
         () => {
           /* not allowed until the player taps; unlock() retries */
         },
       );
-    } else fade(a, MUSIC_VOL, 400);
+    } else fade(a, MUSIC_VOL[play], 600);
   }
   current = play;
 }
