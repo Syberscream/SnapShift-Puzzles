@@ -1,6 +1,7 @@
 // Canvas board: draws the sliced image and turns clicks, drags and keys into moves.
 //   Classic / Zen: drag a tile onto another, or click two tiles, to swap.
 //   Rotation:      drag to swap, tap a tile to turn it a quarter turn clockwise (or press R).
+//   Slider:        (opt-in via blankTile/onSlide) tap a tile in line with the gap to slide it.
 
 import type { GameState } from '@shared/engine';
 
@@ -9,6 +10,12 @@ export interface BoardOptions {
   showCorrect: boolean;
   onSwap: (a: number, b: number) => void;
   onRotate: (p: number) => void;
+  /**
+   * Slider puzzles: this tile is the empty square (not drawn until the end), and
+   * tapping a tile calls onSlide instead of picking it up. Arrow keys slide too.
+   */
+  blankTile?: number;
+  onSlide?: (p: number) => void;
 }
 
 interface Anim {
@@ -177,6 +184,9 @@ export class Board {
   private get cols() {
     return this.state.cols;
   }
+  private get sliding() {
+    return this.opts.blankTile !== undefined && !!this.opts.onSlide;
+  }
   private get inputOff() {
     return this.paused || this.completed || this.revealed || !this.state;
   }
@@ -242,6 +252,11 @@ export class Board {
       const p = this.posAt(e.clientX, e.clientY);
       if (p < 0 || this.state.locked[p]) return;
       this.keyboardUsed = false;
+      if (this.sliding) {
+        this.opts.onSlide!(p);
+        this.request();
+        return;
+      }
       c.setPointerCapture(e.pointerId);
       this.dragFrom = p;
       this.dragStart = { x: e.clientX, y: e.clientY };
@@ -302,6 +317,17 @@ export class Board {
       let r = Math.floor(this.cursor / cols);
       let col = this.cursor % cols;
       const k = e.key;
+      if (this.sliding && k.startsWith('Arrow')) {
+        // Arrows push the tile next to the gap in that direction into it.
+        e.preventDefault();
+        const b = this.state.tiles.indexOf(this.opts.blankTile!);
+        const br = Math.floor(b / cols);
+        const bc = b % cols;
+        const q =
+          k === 'ArrowLeft' && bc < cols - 1 ? b + 1 : k === 'ArrowRight' && bc > 0 ? b - 1 : k === 'ArrowUp' && br < rows - 1 ? b + cols : k === 'ArrowDown' && br > 0 ? b - cols : -1;
+        if (q >= 0) this.opts.onSlide!(q);
+        return;
+      }
       if (k === 'ArrowLeft') col = (col - 1 + cols) % cols;
       else if (k === 'ArrowRight') col = (col + 1) % cols;
       else if (k === 'ArrowUp') r = (r - 1 + rows) % rows;
@@ -432,6 +458,11 @@ export class Board {
         if (k >= 1) this.turns.delete(p);
         else quarter = turn.from + (1 - Math.pow(1 - k, 3));
       }
+      if (this.state.tiles[p] === this.opts.blankTile) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+        continue;
+      }
       this.drawTile(this.state.tiles[p], r.x, r.y, r.w, r.h, quarter);
     }
     // Seams between tiles. Where both neighbours are in their right place the
@@ -492,6 +523,7 @@ export class Board {
     }
     // Swap animation.
     for (const a of this.anims) {
+      if (a.tile === this.opts.blankTile) continue;
       const k = Math.min(1, (now - a.start) / ANIM_MS);
       const e = 1 - Math.pow(1 - k, 3);
       const f = this.rect(a.from);

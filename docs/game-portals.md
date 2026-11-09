@@ -5,13 +5,19 @@ host the game themselves. The **portal edition** is a stand-alone version of
 SnapShift made for them:
 
 - A real casual-game structure: title screen, a map of picture **worlds** (one per
-  category), levels that unlock one by one and get gradually bigger, **Twist** levels
-  where tiles must also be turned upright, 3 stars per level for using few moves, and
-  a **Daily puzzle** with a streak.
+  category), levels that unlock one by one and get gradually bigger, 3 stars per
+  game, points, and a **Daily puzzle** (a different mode each day) with a streak.
+- **Five ways to play every picture**, opening up as you go: Classic (swap), Twist
+  (tiles turned every which way, after 3 pictures), Slider (one empty square, after 6),
+  Memory (rebuild it without looking, after 10) and Time Rush (beat the clock, after 15).
+- **Trifecta**: 3 stars in Classic, Twist and Slider on one picture, +500 points.
+  **Grand Slam**: 3 stars in all five, +1500 points. Both show on the map.
+- **Trophies**: 13 badges with bronze, silver and gold tiers (Star Collector, Trifecta,
+  Grand Slam, Twister, Slide Master, Total Recall, Speed Demon, Flawless, Combo King …),
+  each paying bonus points.
 - A dark, modern look (navy, frosted glass, violet-to-pink accent, Plus Jakarta Sans),
-  levels shown as photo cards, combo words ("Great", "Brilliant"), confetti and a
-  first-game "how to play" animation.
-- Puzzles start at 12 tiles, fully mixed, and grow to 63 tiles.
+  levels shown as photo cards, combo words and confetti.
+- Classic starts at 12 tiles, fully mixed, and grows to 63 tiles.
 - Background music (two ElevenLabs tracks in `portal/public/music/`) and sound effects,
   each switchable in Settings.
 - Fits any game frame, desktop or phone. No sign-in, no ads of our own; progress is
@@ -41,8 +47,11 @@ allow links out of their sites, so their build has no banner by default;
 `npm run build:portal -- --portal-banner` adds a plain-text version (no link) if
 the portal agrees to it.
 
-Want more levels? `npm run build:portal -- --per 8` puts 8 pictures per world in
-the pack instead of 6. Keep the ZIP under about 25 MB so it loads fast.
+By default the pack has **every free picture** on the site, at full size (about
+150 pictures, 115 MB). That's inside CrazyGames' limits (250 MB, 1,500 files), and
+pictures only download when a level is played, so the game still starts quickly.
+`--small` uses smaller pictures (about a third of the size) and `--per 6` takes only 6
+per category. Members-only pictures are left out (they stay a SnapShift Plus perk).
 
 Try it locally first:
 

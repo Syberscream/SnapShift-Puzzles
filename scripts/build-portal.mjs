@@ -1,8 +1,9 @@
 // Build the game-portal edition: the game plus a bundled picture pack, as ZIP
 // files ready to upload. See docs/game-portals.md.
 //
-//   npm run build:portal                 (pictures from the live site)
-//   npm run build:portal -- --per 6      (8 pictures per category instead of 6)
+//   npm run build:portal                 (every free picture on the live site, full size)
+//   npm run build:portal -- --per 6      (only 6 pictures per category)
+//   npm run build:portal -- --small      (smaller pictures, about a third of the size)
 //   SITE=http://127.0.0.1:8787 npm run build:portal
 //
 // Makes, in dist-portal/:
@@ -19,7 +20,10 @@ const root = resolve(import.meta.dirname, '..');
 const out = join(root, 'dist-portal');
 const SITE = (process.env.SITE || 'https://snapshiftpuzzles.com').replace(/\/$/, '');
 const perArg = process.argv.indexOf('--per');
-const PER = perArg > 0 ? Number(process.argv[perArg + 1]) || 6 : 6;
+// Pictures per category: all of them unless --per N is given.
+const PER = perArg > 0 ? Number(process.argv[perArg + 1]) || 9999 : 9999;
+// Full-size pictures (sharp on big screens) unless --small.
+const SMALL = process.argv.includes('--small');
 // CrazyGames and Poki don't allow links out of their sites. --portal-banner adds a
 // plain-text mention of the website (no link) to their build; ask them first.
 const PORTAL_BANNER = process.argv.includes('--portal-banner') ? 'text' : 'none';
@@ -27,22 +31,35 @@ const PORTAL_BANNER = process.argv.includes('--portal-banner') ? 'text' : 'none'
 console.log(`Building the game with Vite…`);
 execSync('npx vite build --config vite.portal.config.ts', { cwd: root, stdio: 'inherit' });
 
-console.log(`Fetching the picture pack from ${SITE} (${PER} per category)…`);
-// Right after a deploy the site can answer with a page instead of the pack for a
-// few seconds, so try a few times before giving up.
-let pack = null;
-for (let attempt = 1; attempt <= 4 && !pack; attempt++) {
-  const res = await fetch(`${SITE}/api/portal/pack?per=${PER}`, { headers: { accept: 'application/json' } });
-  const text = await res.text();
-  try {
-    pack = JSON.parse(text);
-  } catch {
-    console.warn(`The site answered with ${res.status} ${res.headers.get('content-type') || ''} instead of the picture pack (try ${attempt} of 4).`);
-    if (attempt < 4) await new Promise((r) => setTimeout(r, 5000));
+/** JSON from the site, retrying a few times (right after a deploy it can answer with a page). */
+async function getJson(path) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const res = await fetch(SITE + path, { headers: { accept: 'application/json' } });
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      console.warn(`${path}: the site answered with ${res.status} ${res.headers.get('content-type') || ''} instead of JSON (try ${attempt} of 4).`);
+      if (attempt < 4) await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  throw new Error(`Couldn't read ${SITE}${path}. Is the site up? Open that address in a browser to check.`);
+}
+
+// Every free category (members-only pictures stay a SnapShift Plus perk), in site order.
+console.log(`Reading the picture list from ${SITE}…`);
+const { categories } = await getJson('/api/categories');
+const pack = { puzzles: [], total: 0 };
+for (const cat of categories) {
+  pack.total += cat.count;
+  if (cat.membersOnly) continue;
+  const { puzzles } = await getJson(`/api/categories/${encodeURIComponent(cat.id)}`);
+  for (const p of puzzles.slice(0, PER)) {
+    pack.puzzles.push({ slug: p.slug, title: p.title, category: cat.name, image: SMALL ? p.imageSmall || p.image : p.image || p.imageSmall, thumb: p.thumb || p.imageSmall });
   }
 }
-if (!pack) throw new Error(`Couldn't get the picture pack from ${SITE}/api/portal/pack. Is the latest version deployed? Open that address in a browser to check.`);
-if (!pack.puzzles?.length) throw new Error('The site returned no pictures.');
+if (!pack.puzzles.length) throw new Error('The site returned no pictures.');
+console.log(`${pack.puzzles.length} pictures in ${categories.filter((c) => !c.membersOnly).length} categories (${SMALL ? 'small' : 'full size'}).`);
 
 const app = join(out, 'app');
 mkdirSync(join(app, 'pics'), { recursive: true });
@@ -133,5 +150,7 @@ for (const [name, banner] of [['snapshift-crazygames-poki', PORTAL_BANNER], ['sn
   zipFolder(dir, join(out, `${name}.zip`));
   const mb = (statSync(join(out, `${name}.zip`)).size / 1048576).toFixed(1);
   console.log(`dist-portal/${name}.zip (${mb} MB)`);
+  // CrazyGames allows 250 MB in total; leave some room.
+  if (mb > 240) console.warn(`  That's close to the 250 MB limit some portals have. Try --small or --per.`);
 }
 console.log('Done. Try it locally: npm run preview:portal');
