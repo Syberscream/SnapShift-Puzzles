@@ -16,6 +16,8 @@ export interface BoardOptions {
    */
   blankTile?: number;
   onSlide?: (p: number) => void;
+  /** Give nothing away about which tiles are right (memory games): seams stay until the end. */
+  hideCorrect?: boolean;
 }
 
 interface Anim {
@@ -474,7 +476,7 @@ export class Board {
     ctx.lineWidth = Math.max(1, dpr);
     const { rows, cols } = this;
     const seam = (key: number, a: number, b: number, x1: number, y1: number, x2: number, y2: number) => {
-      const target = this.correct(a) && this.correct(b) ? 0 : 1;
+      const target = (!this.opts.hideCorrect || this.completed) && this.correct(a) && this.correct(b) ? 0 : 1;
       const cur = this.seams.get(key) ?? target;
       const next = Math.abs(target - cur) < 0.02 ? target : cur + (target - cur) * fade;
       if (next !== target) seamsMoving = true;

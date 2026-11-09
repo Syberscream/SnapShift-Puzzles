@@ -9,7 +9,7 @@ SnapShift made for them:
   game, points, and a **Daily puzzle** (a different mode each day) with a streak.
 - **Five ways to play every picture**, opening up as you go: Classic (swap), Twist
   (tiles turned every which way, after 3 pictures), Slider (one empty square, after 6),
-  Memory (rebuild it without looking, after 10) and Time Rush (beat the clock, after 15).
+  Memory (rebuild it without looking: no peeking, outlines, sparkles or progress bar, after 10) and Time Rush (beat the clock, after 15).
 - **Trifecta**: 3 stars in Classic, Twist and Slider on one picture, +500 points.
   **Grand Slam**: 3 stars in all five, +1500 points. Both show on the map.
 - **Trophies**: 13 badges with bronze, silver and gold tiers (Star Collector, Trifecta,

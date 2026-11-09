@@ -432,3 +432,6 @@ a.full-game:hover { background: var(--glass-2); }
   .bonus-row { grid-template-columns: 1fr; }
   .pips i { width: 6px; height: 6px; }
 }
+
+/* Memory: no progress bar (it would show how many tiles are right). */
+.mode-memory .progress { visibility: hidden; }

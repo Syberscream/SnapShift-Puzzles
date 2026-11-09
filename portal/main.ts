@@ -782,6 +782,8 @@ async function startGame(spec: PlaySpec) {
   };
   const PRAISE = ['', '', 'Nice', 'Great', 'Superb', 'Brilliant', 'On fire', 'Unstoppable'];
   const after = (placed: number[], quiet = false) => {
+    // Memory: every move sounds and looks the same, so nothing gives the answer away.
+    if (memory) placed = [];
     if (placed.length && slider) {
       // Sliding moves tiles in and out of place all the time: no combos.
       sfx.correct(Math.min(9, run.correct()), placed.length);
@@ -820,7 +822,7 @@ async function startGame(spec: PlaySpec) {
       return;
     }
     const placed = [a, b].filter((q) => !before[q] && isCorrect(state, q));
-    board!.animateSwap(a, b, placed);
+    board!.animateSwap(a, b, memory ? [] : placed);
     after(placed);
   };
   const onRotate = (q: number) => {
@@ -864,6 +866,7 @@ async function startGame(spec: PlaySpec) {
   moveHandlers = { swap: onSwap, rotate: onRotate, slide: onSlide };
   board = new Board(canvas, img, {
     showCorrect: !memory && !slider,
+    hideCorrect: memory,
     onSwap,
     onRotate,
     ...(slider ? { blankTile: state.rows * state.cols - 1, onSlide } : {}),
