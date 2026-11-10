@@ -47,6 +47,17 @@ const setup = (difficulty, mode = 'classic', daily = false) => ({ version: 2, di
 const ready = (page) => page.waitForFunction(() => document.querySelector('.memorize-note')?.hidden !== false, null, { timeout: 8000 });
 
 /** Solve the board on screen with real input, using the engine to plan moves. */
+/** Finished puzzles wait on the picture until a tap: tap (via a key) until the results open. */
+async function openResults(page, sel = 'dialog.modal:not(.ach-modal)', timeout = 10000) {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    if (await page.locator(sel).first().isVisible().catch(() => false)) return;
+    if (await page.locator('.admire-tip').count()) await page.keyboard.press('Shift');
+    await page.waitForTimeout(250);
+  }
+  await page.waitForSelector(sel, { timeout: 1 });
+}
+
 async function solveByClicking(page, seed, difficulty, existing = [], mode = 'classic') {
   await ready(page);
   const g = E.replay(seed, setup(difficulty, mode), existing).state;
@@ -194,7 +205,7 @@ const slug = new URL(player.url()).searchParams.get('p');
 const started = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: slug, difficulty: 'easy' } })).json();
 check('reopening resumes the same game', started.resumed === true);
 const swaps = await solveByClicking(player, started.play.seed, 'easy', started.play.actions);
-await player.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
+await openResults(player, 'dialog.modal:not(.ach-modal)', 10000);
 await player.waitForTimeout(1200); // points count up
 const resultText = await player.locator('dialog.modal:not(.ach-modal)').innerText();
 check('completion dialog shows medal and points', /medal/i.test(resultText) && /\+\d+ points/.test(resultText), resultText.replace(/\s+/g, ' ').slice(0, 160));
@@ -288,7 +299,7 @@ check('daily is hard with the shared seed', daily.play.difficulty === 'hard' && 
   const box = await player.locator('#board').boundingBox();
   check('rotation board is square-tiled (7:4)', Math.abs(box.width / box.height - 7 / 4) < 0.03, `${box.width}x${box.height}`);
   await solveByClicking(player, rot.play.seed, 'easy', rot.play.actions, 'rotation');
-  await player.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
+  await openResults(player, 'dialog.modal:not(.ach-modal)', 10000);
   check('rotation puzzle completes with a medal', /medal/i.test(await player.locator('dialog.modal:not(.ach-modal)').innerText()));
   await player.screenshot({ path: `${OUT}/09b-rotation-done.png` });
   await player.locator('dialog.modal:not(.ach-modal) button', { hasText: 'Play again' }).click();
@@ -303,7 +314,7 @@ check('daily is hard with the shared seed', daily.play.difficulty === 'hard' && 
   check('zen hides the timer', !(await player.locator('.pill', { hasText: 'Time:' }).isVisible()));
   const zen = await (await player.request.post(BASE + '/api/plays', { data: { puzzle: free.slug, difficulty: 'easy', mode: 'zen' } })).json();
   await solveByClicking(player, zen.play.seed, 'easy', zen.play.actions, 'zen');
-  await player.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
+  await openResults(player, 'dialog.modal:not(.ach-modal)', 10000);
   const zt = await player.locator('dialog.modal:not(.ach-modal)').innerText();
   const after = (await (await player.request.get(BASE + '/api/auth/me')).json()).user.points;
   check('zen finish: no medal, +10 points', /Puzzle complete/.test(zt) && after - before === 10, `${after - before} pts`);
@@ -363,7 +374,7 @@ check('guest game restored after reload', /Moves: 1/.test(await guest.locator('.
   // Finish the guest game, reload, and it should stay finished.
   const save = await guest.evaluate(() => Object.values(JSON.parse(localStorage.getItem('ss_guest_games')))[0]);
   await solveByClicking(guest, save.seed, 'easy', save.actions);
-  await guest.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 10000 });
+  await openResults(guest, 'dialog.modal:not(.ach-modal)', 10000);
   await guest.reload();
   await guest.waitForSelector('.done-bar:not([hidden])', { timeout: 10000 });
   check('guest finished puzzle stays completed', /Completed/.test(await guest.locator('.done-bar').innerText()));
@@ -433,7 +444,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('time attack: clock counting down', /^2:[0-5]\d$/.test(clock1), clock1);
   await gp.screenshot({ path: `${OUT}/13-time-attack.png` });
   await gp.click('text=Finish now');
-  await gp.waitForSelector('dialog.modal:not(.ach-modal)');
+  await openResults(gp, 'dialog.modal:not(.ach-modal)');
   const res = await gp.locator('dialog.modal:not(.ach-modal)').innerText();
   check('time attack: guest result', /Solved\s*1/.test(res) && /150/.test(res) && /Create a free account/.test(res), res.replace(/\s+/g, ' '));
   check('no JS errors (time attack)', gErr.length === 0, gErr.join(' | '));
@@ -674,7 +685,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('challenge: banner for the guest', /PuzzleFan challenges you/.test(await gp.locator('.challenge-bar').innerText()));
   await gp.waitForTimeout(3000); // memorize
   await solveByClicking(gp, info.seed, 'easy');
-  await gp.waitForSelector('dialog.modal:not(.ach-modal) .challenge-result', { timeout: 15000 });
+  await openResults(gp, 'dialog.modal:not(.ach-modal) .challenge-result', 15000);
   check('challenge: guest sees who won', /PuzzleFan/.test(await gp.locator('.challenge-result').innerText()));
   await gp.screenshot({ path: `${OUT}/20-challenge-result.png` });
   await gp.close();
@@ -1014,7 +1025,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
     await sp.mouse.click(box.x + ((pos % 3) + 0.5) * (box.width / 3), box.y + (Math.floor(pos / 3) + 0.5) * (box.height / 3));
     await sp.waitForTimeout(40);
   }
-  await sp.waitForSelector('dialog.modal:not(.ach-modal)', { timeout: 8000 });
+  await openResults(sp, 'dialog.modal:not(.ach-modal)', 8000);
   const txt = await sp.locator('dialog.modal:not(.ach-modal)').innerText();
   check('slider page: solving by tapping shows the result', /Solved!|New best!/.test(txt) && /medal/i.test(txt), txt.slice(0, 120));
   await sp.screenshot({ path: `${OUT}/slider-done.png` });

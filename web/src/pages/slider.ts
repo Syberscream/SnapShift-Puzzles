@@ -285,7 +285,7 @@ async function play(opts: { daily?: Daily; slug?: string; size?: SliderSize }) {
     sfx.win(medal);
     setTimeout(() => confetti(medal), 350);
     // Let the finished picture show before the results.
-    await admire(3000);
+    await admire();
     result(r, medal, localMs);
   }
 

@@ -1061,8 +1061,8 @@ async function win(spec: PlaySpec, extra: { hintsUsed: number; rushMs: number })
   sfx.win();
   confetti(result.trifecta || result.slam ? 260 : stars === 3 ? 180 : 110);
   portal.celebrate();
-  // Enjoy the finished picture for a moment (any tap skips).
-  await admire(2400);
+  // Enjoy the finished picture; the results open on the next tap or key.
+  await admire();
 
   const starEls = [0, 1, 2].map(() => h('span', { class: 'big-star' }, svg(ICON.star, 'star')));
   const nextLevel = l && l.i + 1 < levels.length ? levels[l.i + 1] : null;
