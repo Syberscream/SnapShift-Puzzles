@@ -76,6 +76,7 @@ async function showEvent(eventId: string) {
   const cd = h('span', { class: 'countdown' });
   const startCd = h('b', { class: 'countdown' });
   const pct = d.me && d.me.total ? Math.round((d.me.done / d.me.total) * 100) : 0;
+  const notCounted = d.puzzles.filter((p) => p.finished && !p.eventResult).length;
   mount(
     main,
     h(
@@ -101,6 +102,13 @@ async function showEvent(eventId: string) {
               { class: 'stack', style: 'gap:6px' },
               h('b', {}, `Your progress: ${d.me.done} of ${d.me.total}`),
               h('div', { class: 'progress-bar' }, h('i', { style: `width:${pct}%` })),
+              notCounted && e.status === 'live'
+                ? h(
+                    'p',
+                    { class: 'small muted' },
+                    `${notCounted} ${notCounted === 1 ? 'picture you finished elsewhere doesn’t' : 'pictures you finished elsewhere don’t'} count yet. Only games started from this page count (same rules and shuffle for everyone). They’re marked “Play for event”.`,
+                  )
+                : null,
             )
           : !me()
             ? h('p', { class: 'small' }, h('a', { href: `/account?next=${encodeURIComponent(location.pathname + location.search)}` }, 'Sign in'), ' to go on the event leaderboard.')
@@ -118,6 +126,13 @@ async function showEvent(eventId: string) {
           const card = puzzleCard(p);
           // Play it the event's way (its rules and shuffle) while it's on.
           if (e.status === 'live' && card instanceof HTMLAnchorElement) card.href = `/play?p=${encodeURIComponent(p.slug)}&event=${encodeURIComponent(e.id)}`;
+          // Finished outside the event (another page, other rules): it doesn't count yet.
+          if (e.status === 'live' && !p.eventResult && p.finished) {
+            const label = card.querySelector('.spread > span:last-child');
+            if (label) label.textContent = 'Play for event →';
+            card.classList.add('not-counted');
+            card.title = 'You finished this picture outside the event. Play it here to count it.';
+          }
           if (p.eventResult) {
             card.querySelector('.corner')?.remove();
             card.append(h('span', { class: 'corner' }, p.eventResult.medal ? medalBadge(p.eventResult.medal, true) : h('span', { class: 'pill' }, `${p.eventResult.scorePct}%`)));

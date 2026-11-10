@@ -623,3 +623,6 @@ dialog.modal { max-height: calc(100svh - 16px); overflow-y: auto; overscroll-beh
 /* Invite friends */
 .invite-link { flex: 1 1 260px; min-width: 0; font-size: 14px; }
 .push-offer .btn { margin-top: 6px; }
+
+/* Event page: finished elsewhere, not yet played for the event. */
+.card.not-counted .spread > span:last-child { color: #f0abfc; font-weight: 700; }
