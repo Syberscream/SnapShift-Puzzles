@@ -724,6 +724,8 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await player.goto(BASE + '/event?e=test-week');
   await player.waitForSelector('text=Leaderboard');
   check('events: event page links to event games', ((await player.getAttribute('.grid a.card', 'href')) || '').includes('&event=test-week'));
+  // A picture from a normal category keeps its normal games outside the event page.
+  check('events: category pictures keep normal links', (await j(player.request.get(BASE + `/api/puzzles/${encodeURIComponent(evPuzzles[1].slug)}`))).puzzle?.eventId == null);
   check('events: event page shows rules and prizes', (await player.locator('text=same shuffle for everyone').count()) > 0 && (await player.locator('text=Top 3 win').count()) > 0);
   await player.click('.grid a.card');
   await player.waitForSelector('#board');
@@ -1108,6 +1110,12 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('event pictures: never in categories or latest', !cats.categories.some((c) => c.id === 'events') && !home.latest.some((p) => p.slug === slug));
   check('event pictures: category page hidden', (await guest.request.get(BASE + '/api/categories/events')).status() === 404);
   check('event pictures: playable while the event is on', (await guest.request.get(BASE + `/api/puzzles/${slug}`)).ok());
+  // Any plain link to an event picture plays the event game, so it always counts.
+  check('event pictures: carry their live event', (await j(guest.request.get(BASE + `/api/puzzles/${slug}`))).puzzle?.eventId === 'winter-test');
+  await player.goto(BASE + `/play?p=${encodeURIComponent(slug)}`);
+  await player.waitForSelector('#board');
+  await player.waitForTimeout(600);
+  check('event pictures: a plain link plays the event game', player.url().includes('event=winter-test'), player.url());
   // Event over: no longer playable, even for members.
   await admin.request.put(BASE + '/api/admin/events/winter-test', { data: { title: 'Winter Wonderland', starts: '2020-01-01', ends: '2020-01-07', bonus: 100, puzzleIds: ev.puzzles.map((p) => p.id) } });
   check('event pictures: hidden once the event is over', (await guest.request.get(BASE + `/api/puzzles/${slug}`)).status() === 404);

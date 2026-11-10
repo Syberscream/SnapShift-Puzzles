@@ -75,6 +75,8 @@ export interface PuzzleView {
   inProgress: boolean;
   finished?: boolean;
   inEvent?: boolean;
+  /** The live event it's in: playing it counts for that event. */
+  eventId?: string | null;
 }
 
 export interface Category {

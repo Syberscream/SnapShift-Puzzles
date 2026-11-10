@@ -37,7 +37,8 @@ export function categoryCard(c: Category, showProgress: boolean): HTMLElement {
 
 /** Puzzle card used on the home and category pages. */
 export function puzzleCard(p: PuzzleView, onChange?: () => void): HTMLElement {
-  const href = `/play?p=${encodeURIComponent(p.slug)}`;
+  // Pictures in a live event open the event game, so playing them counts there.
+  const href = `/play?p=${encodeURIComponent(p.slug)}${p.eventId ? `&event=${encodeURIComponent(p.eventId)}` : ''}`;
   if (p.unlocked) {
     return h(
       'a',

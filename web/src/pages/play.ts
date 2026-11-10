@@ -231,20 +231,23 @@ async function shareOrCopy(text: string, done = 'Copied to the clipboard.') {
 }
 const helpText = h('p', { class: 'small muted', style: 'margin-top:8px' });
 
-async function loadPuzzle(): Promise<void> {
-  if (eventParam && slug) {
-    const ev = await api
-      .get<{ event: { id: string; title: string; status: string; difficulty: Difficulty; mode: Mode }; puzzles: { id: number; slug: string }[] }>(`/events/${encodeURIComponent(eventParam)}`)
-      .catch(() => null);
-    const p = ev?.puzzles.find((x) => x.slug === slug);
-    if (ev && p && ev.event.status === 'live') {
-      eventInfo = { id: ev.event.id, title: ev.event.title, difficulty: ev.event.difficulty, mode: ev.event.mode, puzzleId: p.id };
-      difficulty = eventInfo.difficulty;
-      mode = eventInfo.mode;
-    } else if (ev) {
-      toast(ev.event.status === 'upcoming' ? 'The event hasn’t started yet' : 'This event has ended', 'This game won’t count for the event.');
-    }
+/** Play this puzzle the event's way: its difficulty, mode and shared shuffle. */
+async function joinEvent(eventId: string, quiet = false) {
+  const ev = await api
+    .get<{ event: { id: string; title: string; status: string; difficulty: Difficulty; mode: Mode }; puzzles: { id: number; slug: string }[] }>(`/events/${encodeURIComponent(eventId)}`)
+    .catch(() => null);
+  const p = ev?.puzzles.find((x) => x.slug === slug);
+  if (ev && p && ev.event.status === 'live') {
+    eventInfo = { id: ev.event.id, title: ev.event.title, difficulty: ev.event.difficulty, mode: ev.event.mode, puzzleId: p.id };
+    difficulty = eventInfo.difficulty;
+    mode = eventInfo.mode;
+  } else if (ev && !quiet) {
+    toast(ev.event.status === 'upcoming' ? 'The event hasn’t started yet' : 'This event has ended', 'This game won’t count for the event.');
   }
+}
+
+async function loadPuzzle(): Promise<void> {
+  if (eventParam && slug) await joinEvent(eventParam);
   if (challengeId) {
     challenge = await api.get<ChallengeInfo>(`/challenges/${encodeURIComponent(challengeId)}`);
     slug = challenge.puzzle.slug;
@@ -262,11 +265,20 @@ async function loadPuzzle(): Promise<void> {
     return;
   }
   const d = await api.get<{
-    puzzle: { slug: string; title: string; image: string; imageSmall?: string | null; thumb: string; unlocked: boolean; unlockCost: number; lock: PuzzleInfo['lock']; publicAt: number | null };
+    puzzle: { slug: string; title: string; image: string; imageSmall?: string | null; thumb: string; unlocked: boolean; unlockCost: number; lock: PuzzleInfo['lock']; publicAt: number | null; eventId?: string | null };
     category: { id: string; name: string } | null;
     next: { slug: string; title: string } | null;
   }>(`/puzzles/${encodeURIComponent(slug)}`);
   puzzle = { ...d.puzzle, categoryName: d.category?.name ?? '', categoryId: d.category?.id ?? null, next: d.next };
+  // A picture in a live event, opened from a plain link: play the event game so it counts.
+  if (!eventInfo && d.puzzle.eventId) {
+    await joinEvent(d.puzzle.eventId, true);
+    if (eventInfo) {
+      const u = new URL(location.href);
+      u.searchParams.set('event', d.puzzle.eventId);
+      history.replaceState(history.state, '', u);
+    }
+  }
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

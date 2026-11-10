@@ -64,6 +64,8 @@ export interface PuzzleView {
   finished: boolean;
   /** In an event that's on today. */
   inEvent: boolean;
+  /** Event-only picture in a live event: play links open the event game. */
+  eventId: string | null;
   bestMedal: string | null;
   inProgress: boolean;
 }
@@ -125,14 +127,17 @@ export function earlyUntil(p: Pick<PuzzleRow, 'published_at'>, t = now()): numbe
   return open > t ? open : null;
 }
 
-/** Puzzles in an event that's on today: open to everyone while it runs. */
-export async function activeEventPuzzleIds(env: Env, day = dayKey(env)): Promise<Set<number>> {
+/**
+ * Puzzles in an event that's on today (open to everyone while it runs), with the
+ * event each belongs to (the one that started first, if it's in more than one).
+ */
+export async function activeEventPuzzleIds(env: Env, day = dayKey(env)): Promise<Map<number, string>> {
   const { results } = await env.DB.prepare(
-    'SELECT ep.puzzle_id AS id FROM event_puzzles ep JOIN events e ON e.id = ep.event_id WHERE e.starts <= ? AND e.ends >= ?',
+    'SELECT ep.puzzle_id AS id, e.id AS event_id FROM event_puzzles ep JOIN events e ON e.id = ep.event_id WHERE e.starts <= ? AND e.ends >= ? ORDER BY e.starts DESC',
   )
     .bind(day, day)
-    .all<{ id: number }>();
-  return new Set(results.map((r) => r.id));
+    .all<{ id: number; event_id: string }>();
+  return new Map(results.map((r) => [r.id, r.event_id]));
 }
 
 /** Is this (non-daily) puzzle open to the viewer, and if not, why? */
@@ -163,7 +168,7 @@ export function toView(
   state: Awaited<ReturnType<typeof userPuzzleState>>,
   viewer: Viewer,
   membersOnly = false,
-  eventIds: Set<number> = new Set(),
+  eventIds: ReadonlyMap<number, string> = new Map(),
 ): PuzzleView {
   const cost = unlockCost(index);
   const a = access(p, index, viewer, membersOnly, state.unlocked.has(p.id), eventIds.has(p.id));
@@ -182,6 +187,8 @@ export function toView(
     publicAt: a.publicAt,
     finished: state.finished.has(p.id),
     inEvent: eventIds.has(p.id),
+    // Event-only pictures have no other way to play: their games always count for the event.
+    eventId: p.category_id === EVENT_CATEGORY ? (eventIds.get(p.id) ?? null) : null,
     bestMedal: state.best.get(p.id) ?? null,
     inProgress: state.inProgress.has(p.id),
   };
