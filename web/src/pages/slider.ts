@@ -3,6 +3,7 @@
 // leaderboard; any picture you can play can be slid at 3×3, 4×4 or 5×5 (Plus).
 
 import { celebrateAchievements } from '../lib/achievement-popup';
+import { admire } from '../lib/admire';
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
 import { countdown, errorText, h, medalBadge, modal, mount, pickImage, plusTag, qs, store, toast, userLink, bg } from '../lib/ui';
@@ -283,7 +284,9 @@ async function play(opts: { daily?: Daily; slug?: string; size?: SliderSize }) {
     const medal = r?.medal ?? sliderMedal(size, localMs);
     sfx.win(medal);
     setTimeout(() => confetti(medal), 350);
-    setTimeout(() => result(r, medal, localMs), 900);
+    // Let the finished picture show before the results.
+    await admire(3000);
+    result(r, medal, localMs);
   }
 
   function result(r: Finish | null, medal: string, localMs: number) {

@@ -7,6 +7,7 @@
 import '@fontsource-variable/plus-jakarta-sans';
 import './style.css';
 import { Board } from '@web/game/board';
+import { admire } from '@web/lib/admire';
 import { correctCount, isCorrect, isSolved, newGameWithRules, randomSeed, rotate, seedFromString, suggest, swap, type GameState } from '@shared/engine';
 import { distance, lineSteps, slide, sliderNew, sliderSolved, type SliderSize, type SliderState } from '@shared/slider';
 import { portal } from './sdk';
@@ -1060,6 +1061,8 @@ async function win(spec: PlaySpec, extra: { hintsUsed: number; rushMs: number })
   sfx.win();
   confetti(result.trifecta || result.slam ? 260 : stars === 3 ? 180 : 110);
   portal.celebrate();
+  // Enjoy the finished picture for a moment (any tap skips).
+  await admire(2400);
 
   const starEls = [0, 1, 2].map(() => h('span', { class: 'big-star' }, svg(ICON.star, 'star')));
   const nextLevel = l && l.i + 1 < levels.length ? levels[l.i + 1] : null;

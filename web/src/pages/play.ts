@@ -1,4 +1,5 @@
 import { pushOffer } from '../lib/push';
+import { admire } from '../lib/admire';
 import { fullscreenButton } from '../lib/fullscreen';
 import { suggestLandscape } from '../lib/rotate-hint';
 import { celebrateAchievements } from '../lib/achievement-popup';
@@ -455,6 +456,8 @@ function scheduleSave(now = false) {
   if (finished) return;
   clearTimeout(saveTimer);
   const doSave = async () => {
+    // A save queued by an earlier move must not overwrite the finished game.
+    if (finished) return;
     if (user && play) {
       try {
         await api.put(`/plays/${play.id}`, { actions, elapsedMs: Math.round(elapsed()) });
@@ -614,6 +617,7 @@ function togglePause(force?: boolean) {
 
 async function finish() {
   finished = true;
+  clearTimeout(saveTimer);
   noteFinish();
   // The finishing shimmer plays while the result is recorded.
   const party = board.celebrate();
@@ -630,6 +634,7 @@ async function finish() {
     showCompleted(done);
     sfx.win(rating?.medal ?? 'silver');
     await party;
+    await admire();
     showResult(
       {
         rating,
@@ -666,6 +671,7 @@ async function finish() {
     showCompleted({ medal: r.rating?.medal ?? null, scorePct: r.rating?.scorePct ?? null, moves: r.moves, elapsedMs: r.elapsedMs });
     sfx.win(r.rating?.medal ?? 'silver');
     await party;
+    await admire();
     showResult(r, false);
   } catch (e) {
     toast('Could not record your finish', errorText(e), 'bad');
