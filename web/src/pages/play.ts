@@ -3,6 +3,7 @@ import { admire } from '../lib/admire';
 import { fullscreenButton } from '../lib/fullscreen';
 import { suggestLandscape } from '../lib/rotate-hint';
 import { celebrateAchievements } from '../lib/achievement-popup';
+import { celebrateEvent } from '../lib/event-complete';
 import { api, ApiError } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
 import { bg, errorText, h, medalBadge, modal, mount, plusTag, qs, store, timeUntil, toast, pickImage } from '../lib/ui';
@@ -723,7 +724,14 @@ function showResult(r: CompleteResult, guest: boolean) {
       challengeBtn.disabled = false;
     }
   });
-  celebrateAchievements(r.achievements);
+  // Finished a whole event: its celebration first, then any achievements.
+  const doneEvents = (r.events ?? []).filter((e) => e.total > 0 && e.done >= e.total);
+  if (doneEvents.length && !guest)
+    void (async () => {
+      for (const e of doneEvents) await celebrateEvent(e.id, 900);
+      celebrateAchievements(r.achievements, 300);
+    })();
+  else celebrateAchievements(r.achievements);
   const d = modal(
     rating ? h('div', { class: `result-medal ${rating.medal} celebrate` }, medalBadge(rating.medal), h('span', { class: 'medal-name' }, `${rating.medal} medal`)) : h('div', { class: 'result-medal celebrate', style: 'font-size:48px' }, '✓'),
     h('h2', { style: 'text-align:center' }, rating ? `${label} medal!` : 'Puzzle complete'),

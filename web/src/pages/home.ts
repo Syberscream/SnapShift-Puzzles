@@ -11,7 +11,16 @@ interface Home {
   dailyResult: { score_pct: number; elapsed_ms: number; moves: number; medal: string } | null;
   streak: { current: number; best: number; doneToday: boolean } | null;
   continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; challenge: string | null; thumb: string }[];
-  events: { id: string; title: string; description: string; image: string; ends: string; bonus: number; prizes: number[] }[];
+  events: {
+    id: string;
+    title: string;
+    description: string;
+    image: string;
+    ends: string;
+    bonus: number;
+    prizes: number[];
+    me: { done: number; total: number; completed: boolean; rank: number | null; players: number; bonus: number | null } | null;
+  }[];
   upcoming: { id: string; title: string; description: string; image: string; starts: string; startsInMs: number; prizes: number[] }[];
   categories: Category[];
   latest: PuzzleView[];
@@ -140,22 +149,66 @@ async function render(d: Home) {
     ),
   );
 
-  const events = d.events.map((e) =>
-    h(
+  const PLACES = ['🥇', '🥈', '🥉'];
+  const events = d.events.map((e) => {
+    const until = new Date(e.ends + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const url = `/event?e=${encodeURIComponent(e.id)}`;
+    const me = e.me;
+    const prizes = e.prizes.some((x) => x > 0);
+    // Finished it: show that, the bonus and where they stand for the prizes.
+    if (me?.completed)
+      return h(
+        'section',
+        { class: 'panel event-panel event-complete' },
+        e.image ? h('div', { class: 'event-art', style: bg(e.image) }, h('span', { class: 'event-art-badge' }, '✓ Completed')) : null,
+        h(
+          'div',
+          { class: 'stack' },
+          h('div', { class: 'row' }, h('span', { class: 'pill event-done-pill' }, '🏅 Event complete'), h('span', { class: 'muted small' }, `Prizes on ${until}`)),
+          h('h2', {}, e.title),
+          h(
+            'div',
+            { class: 'event-done-stats' },
+            h('div', {}, h('small', {}, 'Puzzles'), h('b', {}, `${me.done}/${me.total}`)),
+            me.bonus ? h('div', {}, h('small', {}, 'Bonus'), h('b', {}, `+${me.bonus.toLocaleString()}`)) : null,
+            me.rank ? h('div', {}, h('small', {}, 'Your rank'), h('b', {}, `${me.rank <= 3 && prizes ? PLACES[me.rank - 1] + ' ' : ''}#${me.rank}`)) : null,
+          ),
+          h(
+            'p',
+            { class: 'small' },
+            prizes
+              ? me.rank && me.rank <= 3
+                ? `You're in the prizes! Stay in the top 3 until ${until} to win ${e.prizes[me.rank - 1].toLocaleString()} points. Replay puzzles to raise your score.`
+                : `The top 3 on ${until} win up to ${Math.max(...e.prizes).toLocaleString()} points. Replay puzzles to raise your score.`
+              : 'Well done! Your event badge is on your profile.',
+          ),
+          h('div', { class: 'row' }, h('a', { class: 'btn primary', href: url + '#leaderboard' }, 'See the leaderboard'), h('a', { class: 'btn', href: url }, 'Replay puzzles')),
+        ),
+      );
+    const started = !!me && me.done > 0;
+    return h(
       'section',
       { class: 'panel event-panel' },
       e.image ? h('div', { class: 'event-art', style: bg(e.image) }) : null,
       h(
         'div',
         { class: 'stack' },
-        h('div', { class: 'row' }, h('span', { class: 'pill event-pill' }, '🎉 Event'), h('span', { class: 'muted small' }, `Until ${new Date(e.ends + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`)),
+        h('div', { class: 'row' }, h('span', { class: 'pill event-pill' }, '🎉 Event'), h('span', { class: 'muted small' }, `Until ${until}`)),
         h('h2', {}, e.title),
         e.description ? h('p', { class: 'muted' }, e.description) : null,
-        h('p', { class: 'small' }, `Every event puzzle is free to play while it runs.${e.bonus ? ` Finish them all for +${e.bonus} bonus points.` : ''}${e.prizes.some((x) => x > 0) ? ` Top 3 win up to ${Math.max(...e.prizes).toLocaleString()} points.` : ''}`),
-        h('div', { class: 'row' }, h('a', { class: 'btn primary', href: `/event?e=${encodeURIComponent(e.id)}` }, 'Play the event')),
+        started
+          ? h(
+              'div',
+              { class: 'stack event-progress' },
+              h('b', { class: 'small' }, `Your progress: ${me!.done} of ${me!.total}${me!.rank ? ` · #${me!.rank} on the leaderboard` : ''}`),
+              h('div', { class: 'progress-bar' }, h('i', { style: `width:${Math.round((me!.done / Math.max(1, me!.total)) * 100)}%` })),
+            )
+          : null,
+        h('p', { class: 'small' }, `Every event puzzle is free to play while it runs.${e.bonus ? ` Finish them all for +${e.bonus} bonus points.` : ''}${prizes ? ` Top 3 win up to ${Math.max(...e.prizes).toLocaleString()} points.` : ''}`),
+        h('div', { class: 'row' }, h('a', { class: 'btn primary', href: url }, started ? 'Continue the event' : 'Play the event')),
       ),
-    ),
-  );
+    );
+  });
 
   // Coming soon: a countdown to events about to start.
   const upcoming = (d.upcoming ?? []).map((e) => {

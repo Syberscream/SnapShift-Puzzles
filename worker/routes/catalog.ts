@@ -24,7 +24,7 @@ import { dayKey, daysBetween, fail, msUntilNextDay, now, str, body } from '../li
 import { unlockCost } from '../../shared/rules';
 import { publicSite } from '../lib/site';
 import { isMember } from '../lib/membership';
-import { activeEvents, categoryProgress, eventImage, eventPrizes, EVENTS_WITH_COVER, type EventRow } from '../lib/rewards';
+import { activeEvents, categoryProgress, eventImage, eventPrizes, eventStanding, EVENTS_WITH_COVER, type EventRow } from '../lib/rewards';
 import { collectionBonus } from '../../shared/achievements';
 
 const app = new Hono<AppEnv>();
@@ -120,7 +120,22 @@ app.get('/home', async (c) => {
       done: progress.get(cat.id)?.done ?? 0,
     })),
     latest: latestViews,
-    events: events.map((e) => ({ id: e.id, title: e.title, description: e.description, image: eventImage(e), ends: e.ends, bonus: e.bonus, prizes: eventPrizes(e) })),
+    events: await Promise.all(
+      events.map(async (e) => {
+        // The player's own standing: progress, rank, and whether they've finished it.
+        const s = user ? await eventStanding(c.env, e.id, user.id) : null;
+        return {
+          id: e.id,
+          title: e.title,
+          description: e.description,
+          image: eventImage(e),
+          ends: e.ends,
+          bonus: e.bonus,
+          prizes: eventPrizes(e),
+          me: s ? { done: s.done, total: s.total, completed: s.total > 0 && s.done >= s.total, rank: s.rank, players: s.players, bonus: s.bonus } : null,
+        };
+      }),
+    ),
     // "Coming soon": events starting within their teaser window.
     upcoming: (
       await c.env.DB.prepare(`${EVENTS_WITH_COVER} WHERE e.starts > ? AND e.teaser_days > 0 ORDER BY e.starts LIMIT 3`).bind(today).all<EventRow>()

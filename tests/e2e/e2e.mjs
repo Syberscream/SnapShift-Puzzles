@@ -720,6 +720,25 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await apiSolve(player, { puzzle: evPuzzles[0].slug, event: 'test-week', fresh: true });
   const ev = await j(admin.request.get(BASE + '/api/events/test-week'));
   check('events: leaderboard', ev.leaderboard[0]?.username === 'Syber' && ev.leaderboard[0].done === 2 && ev.leaderboard[1]?.username === 'PuzzleFan');
+  check('events: your standing (done, rank, bonus)', ev.me?.completed === true && ev.me.rank === 1 && ev.me.bonus === 300 && ev.me.players === 2, JSON.stringify(ev.me));
+  // Finished it: the home page says so, and the event page celebrates once.
+  await admin.goto(BASE + '/');
+  await admin.waitForSelector('.event-complete', { timeout: 10000 });
+  await admin.locator('.event-complete').screenshot({ path: `${OUT}/21b-event-complete-home.png` });
+  check('events: home page shows the event completed', /Event complete/.test(await admin.locator('.event-complete').innerText()) && /#1/.test(await admin.locator('.event-complete').innerText()));
+  await admin.goto(BASE + '/event?e=test-week');
+  await admin.waitForSelector('dialog.event-done-modal', { timeout: 10000 });
+  await admin.waitForTimeout(900);
+  await admin.screenshot({ path: `${OUT}/21c-event-complete-popup.png` });
+  check('events: completion pop-up with bonus and rank', /\+300/.test(await admin.locator('dialog.event-done-modal').innerText()) && /#1/.test(await admin.locator('dialog.event-done-modal').innerText()));
+  await admin.locator('dialog.event-done-modal .btn.primary').click();
+  await admin.reload();
+  await admin.waitForSelector('text=Leaderboard');
+  await admin.waitForTimeout(1500);
+  check('events: completion pop-up shows only once', (await admin.locator('dialog.event-done-modal').count()) === 0);
+  const playerHome = await j(player.request.get(BASE + '/api/home'));
+  const pe = playerHome.events.find((x) => x.id === 'test-week');
+  check('events: home shows progress for players part-way', pe?.me?.done === 1 && pe.me.completed === false, JSON.stringify(pe?.me));
   // The event page links to event games.
   await player.goto(BASE + '/event?e=test-week');
   await player.waitForSelector('text=Leaderboard');
@@ -1017,7 +1036,9 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await sp.waitForSelector('text=Slide any picture');
   check('slider page: today’s slider and sizes', (await sp.locator('h1', { hasText: 'Today’s Slider' }).count()) === 1 && (await sp.locator('button[data-size]').count()) === 3);
   const startResp = sp.waitForResponse((r) => r.url().includes('/api/slider/start'));
-  await sp.goto(BASE + `/slider?p=${encodeURIComponent(d.puzzle.slug)}&size=3`);
+  // A picture guests can play (today's slider picture may be a locked one).
+  const freePic = (await j(sCtx.request.get(BASE + '/api/home'))).latest.find((p) => p.unlocked)?.slug ?? d.puzzle.slug;
+  await sp.goto(BASE + `/slider?p=${encodeURIComponent(freePic)}&size=3`);
   const st = await (await startResp).json();
   await sp.waitForSelector('.slider-tile');
   await sp.waitForTimeout(300);
@@ -1038,7 +1059,7 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await guest.goto(BASE + '/');
   await guest.waitForSelector('text=Slider Puzzle');
   check('home: slider panel', await guest.locator('a[href="/slider?daily=1"]').first().isVisible());
-  await guest.goto(BASE + `/play?p=${encodeURIComponent(d.puzzle.slug)}&d=easy`);
+  await guest.goto(BASE + `/play?p=${encodeURIComponent(freePic)}&d=easy`);
   await guest.waitForSelector('#board');
   check('play page: “Play as slider” link', (await guest.locator('a', { hasText: 'Play as slider' }).count()) === 1);
 }

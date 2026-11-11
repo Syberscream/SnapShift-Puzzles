@@ -270,6 +270,26 @@ export async function eventLeaderboard(env: Env, eventId: string, limit = 50): P
   return results;
 }
 
+/** A player's place in an event: rank (1 = top), puzzles done and total, bonus earned. */
+export async function eventStanding(
+  env: Env,
+  eventId: string,
+  userId: number,
+): Promise<{ rank: number | null; players: number; done: number; total: number; bonus: number | null }> {
+  const [board, counts, reward] = await Promise.all([
+    eventLeaderboard(env, eventId, 100_000),
+    env.DB.prepare(
+      `SELECT (SELECT COUNT(*) FROM event_puzzles ep JOIN puzzles p ON p.id = ep.puzzle_id WHERE ep.event_id = ?1 AND p.status = 'published') AS total,
+              (SELECT COUNT(*) FROM event_results WHERE event_id = ?1 AND user_id = ?2) AS done`,
+    )
+      .bind(eventId, userId)
+      .first<{ total: number; done: number }>(),
+    env.DB.prepare('SELECT points FROM event_rewards WHERE event_id = ? AND user_id = ?').bind(eventId, userId).first<{ points: number }>(),
+  ]);
+  const i = board.findIndex((r) => r.user_id === userId);
+  return { rank: i >= 0 ? i + 1 : null, players: board.length, done: counts?.done ?? 0, total: counts?.total ?? 0, bonus: reward ? reward.points : null };
+}
+
 /** Pay 1st/2nd/3rd for events that have ended (once each). */
 export async function settleEventPrizes(env: Env, today = dayKey(env)): Promise<number> {
   const { results } = await env.DB.prepare('SELECT * FROM events WHERE ends < ? AND prizes_paid_at IS NULL').bind(today).all<EventRow>();

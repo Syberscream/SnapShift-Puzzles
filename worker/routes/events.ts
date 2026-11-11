@@ -4,7 +4,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { activeEventPuzzleIds, categoryIndexes, media, membersOnlyCategories, toView, userPuzzleState, viewerOf, type PuzzleRow, imageFields } from '../lib/catalog';
-import { eventImage, eventLeaderboard, eventPrizes, EVENTS_WITH_COVER, settleEventPrizes, type EventRow } from '../lib/rewards';
+import { eventImage, eventLeaderboard, eventPrizes, eventStanding, EVENTS_WITH_COVER, settleEventPrizes, type EventRow } from '../lib/rewards';
 import { dayKey, fail, msUntilNextDay, addDays, daysBetween } from '../lib/util';
 
 const app = new Hono<AppEnv>();
@@ -69,7 +69,12 @@ app.get('/:id', async (c) => {
       eventResult: mine.get(p.id) ? { scorePct: mine.get(p.id)!.score_pct, medal: mine.get(p.id)!.medal } : null,
     })),
     leaderboard: board.map((r, i) => ({ rank: i + 1, username: r.username, done: r.done, total: r.total, plus: !!r.plus, isMe: r.user_id === user?.id })),
-    me: user ? { done: mine.size, total: rows.length } : null,
+    me: user
+      ? await (async () => {
+          const s = await eventStanding(c.env, e.id, user.id);
+          return { done: mine.size, total: rows.length, completed: rows.length > 0 && mine.size >= rows.length, rank: s.rank, players: s.players, bonus: s.bonus };
+        })()
+      : null,
     winners,
     // Days until it starts (upcoming events): for the countdown.
     startsInMs: e.starts > today ? msUntilNextDay(c.env) + (daysBetween(today, e.starts) - 1) * 86400_000 : null,

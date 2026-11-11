@@ -4,6 +4,7 @@ import { api, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, longCountdown, medalBadge, mount, plusTag, qs, userLink } from '../lib/ui';
 import { puzzleCard } from './shared';
+import { celebrateEvent } from '../lib/event-complete';
 
 interface EventView {
   id: string;
@@ -67,7 +68,7 @@ async function showEvent(eventId: string) {
     nextDayInMs: number;
     puzzles: (PuzzleView & { eventResult: { scorePct: number; medal: string | null } | null })[];
     leaderboard: { rank: number; username: string; done: number; total: number; plus: boolean; isMe: boolean }[];
-    me: { done: number; total: number } | null;
+    me: { done: number; total: number; completed: boolean; rank: number | null; players: number; bonus: number | null } | null;
     winners: { username: string; place: number; points: number }[];
     startsInMs: number | null;
   }>(`/events/${encodeURIComponent(eventId)}`);
@@ -155,7 +156,7 @@ async function showEvent(eventId: string) {
       : null,
     h(
       'section',
-      { class: 'panel' },
+      { class: 'panel', id: 'leaderboard' },
       h('h2', {}, 'Leaderboard'),
       h('p', { class: 'muted small' }, 'Most puzzles finished, then the highest total score (your best on each puzzle).'),
       d.leaderboard.length
@@ -176,4 +177,7 @@ async function showEvent(eventId: string) {
   );
   countdown(cd, d.nextDayInMs);
   if (d.startsInMs != null) longCountdown(startCd, d.startsInMs, () => location.reload());
+  // Finished the whole event (maybe before this pop-up existed): celebrate once.
+  if (d.me?.completed) celebrateEvent(e.id, 700, d as unknown as Parameters<typeof celebrateEvent>[2]).catch((err) => console.error('event celebration', err));
+  if (location.hash === '#leaderboard') document.getElementById('leaderboard')?.scrollIntoView();
 }
