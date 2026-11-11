@@ -24,6 +24,7 @@ import { dayKey, daysBetween, fail, msUntilNextDay, now, str, body } from '../li
 import { unlockCost } from '../../shared/rules';
 import { publicSite } from '../lib/site';
 import { isMember } from '../lib/membership';
+import { timeAttackToday } from './timeattack';
 import { activeEvents, categoryProgress, eventImage, eventPrizes, eventStanding, EVENTS_WITH_COVER, type EventRow } from '../lib/rewards';
 import { collectionBonus } from '../../shared/achievements';
 
@@ -115,6 +116,7 @@ app.get('/home', async (c) => {
       : null,
     dailyResult,
     sliderToday: sliderToday ? { elapsedMs: sliderToday.elapsed_ms, moves: sliderToday.moves, medal: sliderToday.medal } : null,
+    timeAttackToday: await timeAttackToday(c.env, user, isMember(user)),
     streak,
     continue: continuePlays,
     categories: cats.results.map((cat) => ({

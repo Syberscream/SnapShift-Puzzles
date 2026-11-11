@@ -660,3 +660,9 @@ dialog.event-done-modal { overflow: hidden; max-width: min(480px, calc(100vw - 2
 @media (max-width: 760px) { .slider-complete { grid-template-columns: 1fr; } .slider-complete-art { max-height: 60vh; } }
 .done-badge { display: inline-block; margin-left: 10px; vertical-align: middle; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 900; color: #06210f; background: #4ade80; }
 .panel.slider-done { border-color: rgba(74, 222, 128, 0.5) !important; }
+
+/* Time Attack: played / done for today. */
+.ta-today { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: rgba(74, 222, 128, 0.07); border: 1px solid rgba(74, 222, 128, 0.35); }
+.ta-today .done-badge { margin-left: 0; }
+.ta-today p { margin: 0; }
+.panel.ta-played, .panel.ta-done { border-color: rgba(74, 222, 128, 0.5) !important; }

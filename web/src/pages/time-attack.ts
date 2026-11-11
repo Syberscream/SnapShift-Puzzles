@@ -6,7 +6,7 @@ import { suggestLandscape } from '../lib/rotate-hint';
 import { celebrateAchievements } from '../lib/achievement-popup';
 import { api } from '../lib/api';
 import { me, setPoints, shell, showError } from '../lib/shell';
-import { errorText, h, modal, mount, plural, plusTag, store, toast, userLink, pickImage } from '../lib/ui';
+import { countdown as liveCountdown, errorText, h, modal, mount, plural, plusTag, store, toast, userLink, pickImage } from '../lib/ui';
 import { ApiError } from '../lib/api';
 import { Board } from '../game/board';
 import { isMuted, setMuted, sfx } from '../game/sound';
@@ -34,6 +34,15 @@ interface Board_ {
   weekEnds: string;
   rows: { rank: number; username: string; score: number; solved: number; runs: number; plus: boolean; isMe: boolean }[];
   me: { score: number; runs: number; rank: number | null } | null;
+  /** Signed-in players: today's runs, best run and free runs left (null = unlimited). */
+  today?: TodayTA | null;
+  nextDayInMs?: number;
+}
+interface TodayTA {
+  runs: number;
+  best: number | null;
+  solved: number | null;
+  runsLeft: number | null;
 }
 interface Finish {
   solved: number;
@@ -53,6 +62,8 @@ const guestBest = store<number>('ss_ta_guest_best', 0);
 /** Guests get the same daily allowance as free players, counted on this device. */
 const guestRuns = store<{ day: string; n: number }>('ss_ta_guest_runs', { day: '', n: 0 });
 const localDay = () => new Date().toLocaleDateString('en-CA');
+/** Guests' best run today, on this device. */
+const guestToday = store<{ day: string; best: number; solved: number }>('ss_ta_guest_today', { day: '', best: 0, solved: 0 });
 
 // ---- run state ----
 let run: Run | null = null;
@@ -241,6 +252,8 @@ async function endRun() {
   if (!run.runId) {
     const best = Math.max(guestBest.get(), score);
     guestBest.set(best);
+    const t = guestToday.get();
+    if (t.day !== localDay() || score >= t.best) guestToday.set({ day: localDay(), best: score, solved });
     return showResult({ solved, moves: played.reduce((n, l) => n + l.length, 0), score, points: 0, pointsCapped: false, bestThisWeek: best, newBest: score >= best && score > 0, rank: null, balance: 0 }, true);
   }
   try {
@@ -319,11 +332,21 @@ async function intro() {
   } catch {
     /* leaderboard is optional here */
   }
+  // Today so far: from the server, or (guests) from this device.
+  const g = guestRuns.get();
+  const gt = guestToday.get();
+  const today: TodayTA | null = user
+    ? (lb?.today ?? null)
+    : g.day === localDay() && g.n > 0
+      ? { runs: g.n, best: gt.day === localDay() ? gt.best : null, solved: gt.day === localDay() ? gt.solved : null, runsLeft: Math.max(0, PLUS.freeTimeAttackRuns - g.n) }
+      : null;
+  const outOfRuns = !!today && today.runsLeft === 0;
+  const newRunsCd = h('b', { class: 'countdown' });
   mount(
     main,
     h(
       'section',
-      { class: 'panel' },
+      { class: `panel${today && today.runs > 0 ? ' ta-played' : ''}` },
       h(
         'div',
         { class: 'stack' },
@@ -342,10 +365,36 @@ async function intro() {
         !user?.member
           ? h('p', { class: 'small muted' }, `${PLUS.freeTimeAttackRuns} runs a day for free players. `, plusTag(), ' members play as many as they like.')
           : null,
-        lb?.me ? h('div', { class: 'notice' }, `Your best this week: ${lb.me.score}${lb.me.rank ? ` (#${lb.me.rank})` : ''} · ${plural(lb.me.runs, 'run')}.`) : null,
-        !user && guestBest.get() ? h('div', { class: 'notice' }, `Your best on this device: ${guestBest.get()}.`) : null,
+        today && today.runs > 0
+          ? h(
+              'div',
+              { class: `ta-today${outOfRuns ? ' out' : ''}` },
+              h('span', { class: 'done-badge' }, outOfRuns ? '✓ Done for today' : '✓ Played today'),
+              h(
+                'div',
+                { class: 'event-done-stats' },
+                today.best != null ? h('div', {}, h('small', {}, 'Best today'), h('b', {}, String(today.best))) : null,
+                today.solved != null ? h('div', {}, h('small', {}, 'Solved'), h('b', {}, String(today.solved))) : null,
+                lb?.me ? h('div', {}, h('small', {}, 'Best this week'), h('b', {}, `${lb.me.score}${lb.me.rank ? ` · #${lb.me.rank}` : ''}`)) : null,
+                h('div', {}, h('small', {}, 'Runs left today'), h('b', {}, today.runsLeft == null ? '∞' : String(today.runsLeft))),
+              ),
+              outOfRuns ? h('p', { class: 'small' }, 'New runs in ', newRunsCd, '.', user?.member ? '' : ' SnapShift Plus members play as many as they like.') : null,
+            )
+          : lb?.me
+            ? h('div', { class: 'notice' }, `Your best this week: ${lb.me.score}${lb.me.rank ? ` (#${lb.me.rank})` : ''} · ${plural(lb.me.runs, 'run')}.`)
+            : null,
+        !user && guestBest.get() && !(today && today.runs > 0) ? h('div', { class: 'notice' }, `Your best on this device: ${guestBest.get()}.`) : null,
         !user ? h('p', { class: 'small' }, 'Guests can play. ', h('a', { href: '/account?next=/time-attack' }, 'Sign in'), ' to go on the leaderboard and earn points.') : null,
-        h('div', { class: 'row' }, h('button', { class: 'btn primary big', id: 'ta-start', onclick: () => void startRun() }, 'Start'), h('a', { class: 'btn', href: '/leaderboard?tab=timeattack' }, 'Full leaderboard')),
+        h(
+          'div',
+          { class: 'row' },
+          outOfRuns
+            ? user?.member
+              ? null
+              : h('a', { class: 'btn primary big', href: '/plus' }, 'Unlimited runs with Plus')
+            : h('button', { class: 'btn primary big', id: 'ta-start', onclick: () => void startRun() }, today && today.runs > 0 ? 'Play again' : 'Start'),
+          h('a', { class: 'btn', href: '/leaderboard?tab=timeattack' }, 'Full leaderboard'),
+        ),
       ),
     ),
     lb && lb.rows.length
@@ -366,6 +415,12 @@ async function intro() {
         )
       : null,
   );
+  // Free runs come back at the next day (the server's day; guests' at local midnight).
+  if (outOfRuns) {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    liveCountdown(newRunsCd, user ? (lb?.nextDayInMs ?? 0) : midnight.getTime() - Date.now());
+  }
 }
 
 window.addEventListener('beforeunload', (e) => {

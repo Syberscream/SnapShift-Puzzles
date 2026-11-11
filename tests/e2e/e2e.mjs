@@ -415,7 +415,17 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await player.goto(BASE + '/leaderboard?tab=timeattack');
   await player.waitForSelector('text=Time Attack · week of');
   check('time attack: leaderboard tab', (await player.locator('tbody tr').count()) === 1);
-
+  // Played today: the Time Attack page and home say so.
+  check('time attack: today’s runs and best', lb.today?.runs === 1 && lb.today.best === 450 && lb.today.solved === 3, JSON.stringify(lb.today));
+  const homeTa = (await (await player.request.get(BASE + '/api/home')).json()).timeAttackToday;
+  check('time attack: home knows you played today', homeTa?.runs === 1 && homeTa.best === 450, JSON.stringify(homeTa));
+  await player.goto(BASE + '/time-attack');
+  await player.waitForSelector('.ta-today');
+  const taCard = await player.locator('.ta-today').innerText();
+  check('time attack: “Played today” with your best', /Played today/.test(taCard) && /450/.test(taCard), taCard.replace(/\s+/g, ' '));
+  await player.goto(BASE + '/');
+  await player.waitForSelector('text=Time Attack');
+  check('home: Time Attack shows “Played today”', /Played today/.test(await player.locator('section.panel', { hasText: 'Time Attack' }).first().innerText()));
   // Guest plays through the UI.
   const gp = await gCtx.newPage();
   const gErr = [];
@@ -447,6 +457,17 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   await openResults(gp, 'dialog.modal:not(.ach-modal)');
   const res = await gp.locator('dialog.modal:not(.ach-modal)').innerText();
   check('time attack: guest result', /Solved\s*1/.test(res) && /150/.test(res) && /Create a free account/.test(res), res.replace(/\s+/g, ' '));
+  await gp.keyboard.press('Escape');
+  await gp.goto(BASE + '/time-attack');
+  await gp.waitForSelector('.ta-today');
+  check('time attack: guests see “Played today” too', /Played today/.test(await gp.locator('.ta-today').innerText()) && /150/.test(await gp.locator('.ta-today').innerText()));
+  // Out of free runs: “Done for today”, and no Start button.
+  await gp.evaluate(() => localStorage.setItem('ss_ta_guest_runs', JSON.stringify({ day: new Date().toLocaleDateString('en-CA'), n: 3 })));
+  await gp.reload();
+  await gp.waitForSelector('.ta-today');
+  const doneCard = await gp.locator('.ta-today').innerText();
+  check('time attack: “Done for today” when the free runs are used', /Done for today/.test(doneCard) && /New runs in \d\d:\d\d:\d\d/.test(doneCard) && (await gp.locator('#ta-start').count()) === 0, doneCard.replace(/\s+/g, ' '));
+  await gp.screenshot({ path: `${OUT}/13b-time-attack-done.png` });
   check('no JS errors (time attack)', gErr.length === 0, gErr.join(' | '));
   await gp.close();
 }

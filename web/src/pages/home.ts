@@ -3,6 +3,7 @@ import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, medalBadge, mount, plural, plusTag, store, longCountdown } from '../lib/ui';
 import { categoryCard, puzzleCard } from './shared';
 import { plusSection } from '../lib/plus-promo';
+import { PLUS } from '@shared/rules';
 
 interface Home {
   today: string;
@@ -10,6 +11,7 @@ interface Home {
   daily: { day: string; slug: string; title: string; thumb: string; categoryId: string } | null;
   dailyResult: { score_pct: number; elapsed_ms: number; moves: number; medal: string } | null;
   sliderToday?: { elapsedMs: number; moves: number; medal: string } | null;
+  timeAttackToday?: { runs: number; best: number | null; solved: number | null; runsLeft: number | null } | null;
   streak: { current: number; best: number; doneToday: boolean } | null;
   continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; challenge: string | null; thumb: string }[];
   events: {
@@ -128,14 +130,45 @@ async function render(d: Home) {
     ? h('section', { class: 'panel' }, h('div', { class: 'panel-head' }, h('h2', {}, 'New puzzles')), h('div', { class: 'grid' }, d.latest.map((p) => puzzleCard(p))))
     : null;
 
+  // Played Time Attack today? Signed in: from the server. Guests: on this device.
+  const taToday = (() => {
+    if (me()) return d.timeAttackToday?.runs ? d.timeAttackToday : null;
+    try {
+      const day = new Date().toLocaleDateString('en-CA');
+      const runs = JSON.parse(localStorage.getItem('ss_ta_guest_runs') || '{}') as { day?: string; n?: number };
+      const best = JSON.parse(localStorage.getItem('ss_ta_guest_today') || '{}') as { day?: string; best?: number; solved?: number };
+      if (runs.day !== day || !runs.n) return null;
+      return { runs: runs.n, best: best.day === day ? (best.best ?? null) : null, solved: best.day === day ? (best.solved ?? null) : null, runsLeft: Math.max(0, PLUS.freeTimeAttackRuns - runs.n) };
+    } catch {
+      return null;
+    }
+  })();
+  const taOut = !!taToday && taToday.runsLeft === 0;
   const ta = h(
     'section',
-    { class: 'panel' },
+    { class: `panel${taToday ? ' ta-done' : ''}` },
     h(
       'div',
       { class: 'panel-head' },
-      h('div', {}, h('h2', {}, 'Time Attack'), h('p', { class: 'muted small' }, '3 minutes. As many quick 3×4 puzzles as you can solve. New weekly leaderboard every Monday.')),
-      h('div', { class: 'row' }, h('a', { class: 'btn primary', href: '/time-attack' }, 'Play Time Attack'), h('a', { class: 'btn', href: '/leaderboard?tab=timeattack' }, 'This week')),
+      h(
+        'div',
+        {},
+        h('h2', {}, 'Time Attack', taToday ? h('span', { class: 'done-badge' }, taOut ? '✓ Done for today' : '✓ Played today') : null),
+        taToday
+          ? h(
+              'p',
+              { class: 'small' },
+              taToday.best != null ? `Best today: ${taToday.best}${taToday.solved != null ? ` (${taToday.solved} solved)` : ''}. ` : '',
+              taToday.runsLeft == null ? 'Play as many runs as you like.' : taOut ? 'New runs tomorrow.' : `${taToday.runsLeft} ${taToday.runsLeft === 1 ? 'run' : 'runs'} left today.`,
+            )
+          : h('p', { class: 'muted small' }, '3 minutes. As many quick 3×4 puzzles as you can solve. New weekly leaderboard every Monday.'),
+      ),
+      h(
+        'div',
+        { class: 'row' },
+        h('a', { class: `btn${taOut ? '' : ' primary'}`, href: '/time-attack' }, taOut ? 'See your runs' : taToday ? 'Play again' : 'Play Time Attack'),
+        h('a', { class: 'btn', href: '/leaderboard?tab=timeattack' }, 'This week'),
+      ),
     ),
   );
 

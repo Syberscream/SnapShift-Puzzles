@@ -9,7 +9,7 @@ import { isMember, plusSql } from '../lib/membership';
 import { checkAchievements } from '../lib/rewards';
 import { DAILY_CATEGORY, media, type PuzzleRow, imageFields } from '../lib/catalog';
 import { balance, creditStatements } from '../lib/points';
-import { addDays, body, dayKey, fail, now, randomId, weekOf } from '../lib/util';
+import { addDays, body, dayKey, fail, msUntilNextDay, now, randomId, weekOf } from '../lib/util';
 import { isSolved, randomSeed, replay, rng, type Action } from '../../shared/engine';
 import { PLUS, TIME_ATTACK, TIME_ATTACK_SETUP as TA_SETUP, timeAttackScore } from '../../shared/rules';
 
@@ -29,6 +29,21 @@ interface RunRow {
   moves: number | null;
   score: number | null;
   points: number | null;
+}
+
+/** A player's Time Attack today: runs played, best run, free runs left (null = unlimited). */
+export async function timeAttackToday(env: AppEnv['Bindings'], user: { id: number } | null, member: boolean) {
+  if (!user) return null;
+  const r = await env.DB.prepare(
+    `SELECT COUNT(*) AS runs,
+       (SELECT score FROM time_attack_runs WHERE user_id = ?1 AND day = ?2 AND finished_at IS NOT NULL ORDER BY score DESC LIMIT 1) AS best,
+       (SELECT solved FROM time_attack_runs WHERE user_id = ?1 AND day = ?2 AND finished_at IS NOT NULL ORDER BY score DESC LIMIT 1) AS solved
+     FROM time_attack_runs WHERE user_id = ?1 AND day = ?2`,
+  )
+    .bind(user.id, dayKey(env))
+    .first<{ runs: number; best: number | null; solved: number | null }>();
+  const runs = r?.runs ?? 0;
+  return { runs, best: r?.best ?? null, solved: r?.solved ?? null, runsLeft: member ? null : Math.max(0, PLUS.freeTimeAttackRuns - runs) };
 }
 
 /** Start a run. Signed-in players get it recorded; guests get puzzles only. */
@@ -200,6 +215,8 @@ app.get('/leaderboard', async (c) => {
     weekEnds: addDays(week, 6),
     rows: results.map((r, i) => ({ rank: i + 1, username: r.username, score: r.score, solved: r.solved, runs: r.runs, plus: !!r.plus, isMe: r.user_id === user?.id })),
     me,
+    today: await timeAttackToday(c.env, user, isMember(user)),
+    nextDayInMs: msUntilNextDay(c.env),
   });
 });
 
