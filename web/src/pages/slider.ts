@@ -460,7 +460,7 @@ async function intro() {
             d.leaderboard.me
               ? h('div', { class: 'notice' }, h('b', {}, 'Done today! '), medalBadge(d.leaderboard.me.medal), ` ${shortClock(d.leaderboard.me.elapsedMs)} · ${d.leaderboard.me.moves} moves${d.leaderboard.me.rank ? ` · #${d.leaderboard.me.rank}` : ''}`)
               : null,
-            h('div', { class: 'row' }, h('a', { class: 'btn primary big', href: '/slider?daily=1' }, d.leaderboard.me ? 'Try to beat it' : 'Play today’s slider')),
+            h('div', { class: 'row' }, h('a', { class: 'btn primary big', href: d.leaderboard.me ? '/slider?daily=1&again=1' : '/slider?daily=1' }, d.leaderboard.me ? 'Try to beat it' : 'Play today’s slider')),
             !user ? h('p', { class: 'small muted' }, 'Guests can play. ', h('a', { href: '/account?next=/slider' }, 'Sign in'), ' to get on the leaderboard and earn points.') : null,
           ),
         )
@@ -505,13 +505,64 @@ async function intro() {
   if (d) countdown(cd, d.nextInMs);
 }
 
+// ---------------- today's slider, already solved ----------------
+
+/** Your result on today's slider: from the server, or (guests) from this device. */
+function dailyDone(d: Daily): { elapsedMs: number; moves: number | null; medal: string; rank: number | null } | null {
+  if (d.leaderboard.me) return d.leaderboard.me;
+  if (me()) return null;
+  const ms = guestBest.get()[`daily:${d.day}:${d.size}`];
+  return ms ? { elapsedMs: ms, moves: null, medal: sliderMedal(d.size, ms), rank: null } : null;
+}
+
+function completedDaily(d: Daily, r: NonNullable<ReturnType<typeof dailyDone>>) {
+  document.body.classList.remove('game-page');
+  const cd = h('span', { class: 'countdown' });
+  mount(
+    main,
+    h(
+      'section',
+      { class: 'panel slider-complete' },
+      h('div', { class: 'slider-complete-art', style: bg(pickImage(d.puzzle, true)) }, h('span', { class: 'event-art-badge' }, '✓ Completed today')),
+      h(
+        'div',
+        { class: 'stack' },
+        h('div', { class: 'row' }, h('span', { class: 'pill' }, h('span', { class: 'label' }, 'New slider in'), cd)),
+        h('h1', {}, `Today’s Slider · ${d.puzzle.title}`),
+        h('p', { class: 'muted' }, 'You solved today’s slider. Nice sliding!'),
+        h(
+          'div',
+          { class: 'event-done-stats' },
+          h('div', {}, h('small', {}, 'Medal'), h('b', {}, medalBadge(r.medal))),
+          h('div', {}, h('small', {}, 'Time'), h('b', {}, shortClock(r.elapsedMs))),
+          r.moves ? h('div', {}, h('small', {}, 'Moves'), h('b', {}, String(r.moves))) : null,
+          r.rank ? h('div', {}, h('small', {}, 'Rank today'), h('b', {}, `#${r.rank}`)) : null,
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          h('a', { class: 'btn primary', href: '/slider?daily=1&again=1' }, 'Try to beat your time'),
+          h('a', { class: 'btn', href: '/slider' }, 'Leaderboard'),
+          h('a', { class: 'btn', href: '/' }, 'Home'),
+        ),
+        !me() ? h('p', { class: 'small muted' }, h('a', { href: '/account?next=/slider' }, 'Sign in'), ' to get on the leaderboard and earn points.') : null,
+      ),
+    ),
+  );
+  countdown(cd, d.nextInMs);
+}
+
 // ---------------- route ----------------
 
 const slug = qs('p');
 const sizeQ = Number(qs('size'));
 if (qs('daily')) {
   try {
-    await play({ daily: await api.get<Daily>('/slider/daily') });
+    const d = await api.get<Daily>('/slider/daily');
+    // Already solved today's slider: show the result, and replay only if asked.
+    const done = dailyDone(d);
+    if (done && !qs('again')) completedDaily(d, done);
+    else await play({ daily: d });
   } catch (e) {
     showError(main, errorText(e));
   }

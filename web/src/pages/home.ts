@@ -9,6 +9,7 @@ interface Home {
   nextDailyInMs: number;
   daily: { day: string; slug: string; title: string; thumb: string; categoryId: string } | null;
   dailyResult: { score_pct: number; elapsed_ms: number; moves: number; medal: string } | null;
+  sliderToday?: { elapsedMs: number; moves: number; medal: string } | null;
   streak: { current: number; best: number; doneToday: boolean } | null;
   continue: { playId: string; slug: string; title: string; difficulty: string; mode: string; daily: string | null; challenge: string | null; thumb: string }[];
   events: {
@@ -138,14 +139,45 @@ async function render(d: Home) {
     ),
   );
 
+  // Today's slider done? Signed in: from the server. Guests: kept on this device.
+  const guestSlider = (() => {
+    try {
+      const all = JSON.parse(localStorage.getItem('ss_slider_guest_best') || '{}') as Record<string, number>;
+      const ms = all[`daily:${d.today}:4`];
+      return ms ? { elapsedMs: ms, moves: 0, medal: '' } : null;
+    } catch {
+      return null;
+    }
+  })();
+  const sliderDone = d.sliderToday ?? (me() ? null : guestSlider);
+  const secs = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round((ms % 60000) / 1000)).padStart(2, '0')}`;
   const slider = h(
     'section',
-    { class: 'panel' },
+    { class: `panel${sliderDone ? ' slider-done' : ''}` },
     h(
       'div',
       { class: 'panel-head' },
-      h('div', {}, h('h2', {}, 'Slider Puzzle'), h('p', { class: 'muted small' }, 'Slide tiles into the empty square to rebuild the picture. A new 4×4 slider every day, fastest time wins.')),
-      h('div', { class: 'row' }, h('a', { class: 'btn primary', href: '/slider?daily=1' }, 'Play today’s slider'), h('a', { class: 'btn', href: '/slider' }, 'More sizes')),
+      h(
+        'div',
+        {},
+        h('h2', {}, 'Slider Puzzle', sliderDone ? h('span', { class: 'done-badge' }, '✓ Done today') : null),
+        sliderDone
+          ? h(
+              'p',
+              { class: 'small' },
+              sliderDone.medal ? medalBadge(sliderDone.medal) : null,
+              ` Today’s slider in ${secs(sliderDone.elapsedMs)}${sliderDone.moves ? ` · ${sliderDone.moves} moves` : ''}. A new one tomorrow!`,
+            )
+          : h('p', { class: 'muted small' }, 'Slide tiles into the empty square to rebuild the picture. A new 4×4 slider every day, fastest time wins.'),
+      ),
+      h(
+        'div',
+        { class: 'row' },
+        sliderDone
+          ? h('a', { class: 'btn', href: '/slider?daily=1' }, 'See your result')
+          : h('a', { class: 'btn primary', href: '/slider?daily=1' }, 'Play today’s slider'),
+        h('a', { class: 'btn', href: '/slider' }, 'More sizes'),
+      ),
     ),
   );
 

@@ -95,6 +95,12 @@ app.get('/home', async (c) => {
     }));
   }
 
+  // Today's slider: done already? (Guests keep theirs on the device.)
+  const sliderToday = user
+    ? await c.env.DB.prepare('SELECT elapsed_ms, moves, medal FROM slider_results WHERE day = ? AND user_id = ?')
+        .bind(today, user.id)
+        .first<{ elapsed_ms: number; moves: number; medal: string }>()
+    : null;
   return c.json({
     today,
     nextDailyInMs: msUntilNextDay(c.env),
@@ -108,6 +114,7 @@ app.get('/home', async (c) => {
         }
       : null,
     dailyResult,
+    sliderToday: sliderToday ? { elapsedMs: sliderToday.elapsed_ms, moves: sliderToday.moves, medal: sliderToday.medal } : null,
     streak,
     continue: continuePlays,
     categories: cats.results.map((cat) => ({
