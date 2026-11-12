@@ -1460,6 +1460,25 @@ await guest.waitForSelector('text=Thanks!');
 const msgs = (await (await admin.request.get(BASE + '/api/admin/messages')).json()).messages;
 check('contact message reaches admin', msgs.length === 1);
 
+// Long categories come in pages of 20.
+{
+  sql("INSERT INTO categories (id, name, description, sort) VALUES ('pagetest', 'Page Test', 'Lots of pictures', 99)");
+  const vals = [...Array(45)].map((_, i) => `('pagetest-${i + 1}', 'pagetest', 'Paging ${i + 1}', 'published', 'x/p${i}.webp', 'x/p${i}.webp', 'x/p${i}.webp', ${i}, 1, 1)`).join(', ');
+  sql(`INSERT INTO puzzles (slug, category_id, title, status, original_key, image_key, thumb_key, sort, created_at, published_at) VALUES ${vals}`);
+  await guest.goto(BASE + '/category?c=pagetest');
+  await guest.waitForSelector('.pager');
+  check('categories: 20 per page', (await guest.locator('.grid a.card, .grid .card').count()) === 20 && /1–20 of 45/.test(await guest.locator('.pager').first().innerText()));
+  await guest.locator('.pager').first().getByRole('button', { name: 'Next page' }).click();
+  await guest.waitForFunction(() => /21–40 of 45/.test(document.querySelector('.pager')?.textContent || ''));
+  check('categories: next page, and it’s in the address', guest.url().includes('page=2') && /Paging 21/.test(await guest.locator('.grid').innerText()));
+  await guest.goto(BASE + '/category?c=pagetest&page=3');
+  await guest.waitForSelector('.pager');
+  check('categories: opening page 3 directly', (await guest.locator('.grid .card').count()) === 5 && /41–45 of 45/.test(await guest.locator('.pager').first().innerText()));
+  await guest.screenshot({ path: `${OUT}/category-pages.png`, fullPage: false });
+  sql("DELETE FROM puzzles WHERE category_id = 'pagetest'");
+  sql("DELETE FROM categories WHERE id = 'pagetest'");
+}
+
 check('no JS errors (admin)', adminErrors.length === 0, adminErrors.join(' | '));
 check('no JS errors (player)', playerErrors.length === 0, playerErrors.join(' | '));
 check('no JS errors (guest)', guestErrors.length === 0, guestErrors.join(' | '));

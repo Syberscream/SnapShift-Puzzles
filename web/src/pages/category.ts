@@ -1,7 +1,7 @@
 import { api, type Category, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, mount, plural, plusTag, qs } from '../lib/ui';
-import { categoryCard, puzzleCard } from './shared';
+import { categoryCard, pager, PER_PAGE, puzzleCard } from './shared';
 import { plusStrip } from '../lib/plus-promo';
 
 const main = await shell({ title: 'Puzzles' });
@@ -26,6 +26,14 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
   }
 } else {
   let filter: 'all' | 'unlocked' | 'locked' = 'all';
+  // Long categories come in pages of 20; the page is kept in the address (?page=3).
+  let page = Math.max(1, Number(qs('page')) || 1);
+  const setPageInUrl = () => {
+    const u = new URL(location.href);
+    if (page > 1) u.searchParams.set('page', String(page));
+    else u.searchParams.delete('page');
+    history.replaceState(history.state, '', u);
+  };
   const load = async () => {
     try {
       const d = await api.get<{
@@ -42,9 +50,22 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
       document.title = `${d.category.name} puzzles | SnapShift Puzzles`;
       const cd = h('span', { class: 'countdown' });
       const grid = h('div', { class: 'grid' });
-      const draw = () => {
+      const pagerTop = h('div', { class: 'pager-wrap' });
+      const pagerBottom = h('div', { class: 'pager-wrap' });
+      const draw = (scroll = false) => {
         const list = d.puzzles.filter((p) => (filter === 'all' ? true : filter === 'unlocked' ? p.unlocked : !p.unlocked));
-        mount(grid, list.length ? list.map((p) => puzzleCard(p, load)) : h('p', { class: 'muted' }, 'Nothing here yet.'));
+        const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+        page = Math.min(page, pages);
+        const slice = list.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+        mount(grid, slice.length ? slice.map((p) => puzzleCard(p, load)) : h('p', { class: 'muted' }, 'Nothing here yet.'));
+        const go = (p: number) => {
+          page = p;
+          draw(true);
+        };
+        mount(pagerTop, pager(page, list.length, go));
+        mount(pagerBottom, pager(page, list.length, go));
+        setPageInUrl();
+        if (scroll) pagerTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
       const filterBtn = (key: typeof filter, label: string) =>
         h(
@@ -54,6 +75,7 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
             'aria-pressed': String(filter === key),
             onclick: (ev: Event) => {
               filter = key;
+              page = 1;
               (ev.currentTarget as HTMLElement).parentElement!.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
               (ev.currentTarget as HTMLElement).setAttribute('aria-pressed', 'true');
               draw();
@@ -89,7 +111,9 @@ if (/\/categories(\.html)?$/.test(location.pathname) || !id) {
             )
           : null,
         h('div', { class: 'row', style: 'margin-bottom:12px' }, h('span', { class: 'muted small' }, 'Show'), filterBtn('all', 'All'), filterBtn('unlocked', 'Unlocked'), filterBtn('locked', 'Locked')),
+        pagerTop,
         grid,
+        pagerBottom,
         d.unlockedCount < d.puzzles.length ? await plusStrip('Plus members can play every puzzle here right away, no points needed.') : null,
       );
       countdown(cd, d.nextDailyInMs);

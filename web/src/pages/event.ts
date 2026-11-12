@@ -3,7 +3,7 @@
 import { api, type PuzzleView } from '../lib/api';
 import { me, shell, showError } from '../lib/shell';
 import { bg, countdown, errorText, h, longCountdown, medalBadge, mount, plusTag, qs, userLink } from '../lib/ui';
-import { puzzleCard } from './shared';
+import { pager, PER_PAGE, puzzleCard } from './shared';
 import { celebrateEvent } from '../lib/event-complete';
 
 interface EventView {
@@ -78,6 +78,44 @@ async function showEvent(eventId: string) {
   const startCd = h('b', { class: 'countdown' });
   const pct = d.me && d.me.total ? Math.round((d.me.done / d.me.total) * 100) : 0;
   const notCounted = d.puzzles.filter((p) => p.finished && !p.eventResult).length;
+  // The event's puzzle cards, 20 to a page for big events (?page=2 in the address).
+  const eventCard = (p: (typeof d.puzzles)[number]) => {
+    const card = puzzleCard(p);
+    // Play it the event's way (its rules and shuffle) while it's on.
+    if (e.status === 'live' && card instanceof HTMLAnchorElement) card.href = `/play?p=${encodeURIComponent(p.slug)}&event=${encodeURIComponent(e.id)}`;
+    // Finished outside the event (another page, other rules): it doesn't count yet.
+    if (e.status === 'live' && !p.eventResult && p.finished) {
+      const label = card.querySelector('.spread > span:last-child');
+      if (label) label.textContent = 'Play for event →';
+      card.classList.add('not-counted');
+      card.title = 'You finished this picture outside the event. Play it here to count it.';
+    }
+    if (p.eventResult) {
+      card.querySelector('.corner')?.remove();
+      card.append(h('span', { class: 'corner' }, p.eventResult.medal ? medalBadge(p.eventResult.medal, true) : h('span', { class: 'pill' }, `${p.eventResult.scorePct}%`)));
+    }
+    return card;
+  };
+  let evPage = Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1);
+  const evGrid = h('div', { class: 'grid' });
+  const evPagerTop = h('div', { class: 'pager-wrap' });
+  const evPagerBottom = h('div', { class: 'pager-wrap' });
+  const drawEvent = (scroll = false) => {
+    evPage = Math.min(evPage, Math.max(1, Math.ceil(d.puzzles.length / PER_PAGE)));
+    mount(evGrid, d.puzzles.slice((evPage - 1) * PER_PAGE, evPage * PER_PAGE).map(eventCard));
+    const go = (n: number) => {
+      evPage = n;
+      drawEvent(true);
+    };
+    mount(evPagerTop, pager(evPage, d.puzzles.length, go));
+    mount(evPagerBottom, pager(evPage, d.puzzles.length, go));
+    const u = new URL(location.href);
+    if (evPage > 1) u.searchParams.set('page', String(evPage));
+    else u.searchParams.delete('page');
+    history.replaceState(history.state, '', u);
+    if (scroll) evPagerTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  drawEvent();
   mount(
     main,
     h(
@@ -120,27 +158,9 @@ async function showEvent(eventId: string) {
       'section',
       { class: 'panel' },
       h('h2', {}, 'Puzzles'),
-      h(
-        'div',
-        { class: 'grid' },
-        d.puzzles.map((p) => {
-          const card = puzzleCard(p);
-          // Play it the event's way (its rules and shuffle) while it's on.
-          if (e.status === 'live' && card instanceof HTMLAnchorElement) card.href = `/play?p=${encodeURIComponent(p.slug)}&event=${encodeURIComponent(e.id)}`;
-          // Finished outside the event (another page, other rules): it doesn't count yet.
-          if (e.status === 'live' && !p.eventResult && p.finished) {
-            const label = card.querySelector('.spread > span:last-child');
-            if (label) label.textContent = 'Play for event →';
-            card.classList.add('not-counted');
-            card.title = 'You finished this picture outside the event. Play it here to count it.';
-          }
-          if (p.eventResult) {
-            card.querySelector('.corner')?.remove();
-            card.append(h('span', { class: 'corner' }, p.eventResult.medal ? medalBadge(p.eventResult.medal, true) : h('span', { class: 'pill' }, `${p.eventResult.scorePct}%`)));
-          }
-          return card;
-        }),
-      ),
+      evPagerTop,
+      evGrid,
+      evPagerBottom,
     ),
     d.winners.length
       ? h(

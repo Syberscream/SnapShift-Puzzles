@@ -666,3 +666,13 @@ dialog.event-done-modal { overflow: hidden; max-width: min(480px, calc(100vw - 2
 .ta-today .done-badge { margin-left: 0; }
 .ta-today p { margin: 0; }
 .panel.ta-played, .panel.ta-done { border-color: rgba(74, 222, 128, 0.5) !important; }
+
+/* Page buttons for long puzzle lists. */
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; }
+.pager .page-nums { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pager .page-btn { min-width: 40px; }
+.pager .page-btn.current { background: #f5c542; color: #1a1200; border-color: #f5c542; opacity: 1; font-weight: 800; }
+.pager .page-btn:disabled:not(.current) { opacity: 0.4; }
+.pager .page-gap { opacity: 0.6; padding: 0 2px; }
+.pager .page-count { width: 100%; text-align: center; }
+.pager-wrap:empty { display: none; }

@@ -126,3 +126,44 @@ function unlockDialog(p: PuzzleView, onChange?: () => void) {
     }
   });
 }
+
+/** Puzzles per page in long lists (categories, events). */
+export const PER_PAGE = 20;
+
+/**
+ * Page buttons: ‹ Prev · 1 … 4 5 6 … 12 · Next ›, plus "21–40 of 312".
+ * `go` gets the new page number (1-based).
+ */
+export function pager(page: number, total: number, go: (p: number) => void, per = PER_PAGE): HTMLElement | null {
+  const pages = Math.ceil(total / per);
+  if (pages <= 1) return null;
+  const btn = (label: string, p: number, opts: { current?: boolean; disabled?: boolean; aria?: string } = {}) =>
+    h(
+      'button',
+      {
+        class: `btn small page-btn${opts.current ? ' current' : ''}`,
+        disabled: opts.disabled || opts.current ? true : undefined,
+        'aria-current': opts.current ? 'page' : undefined,
+        'aria-label': opts.aria,
+        onclick: () => go(p),
+      },
+      label,
+    );
+  // Always the first and last page, and the two either side of this one.
+  const shown = [...new Set([1, page - 2, page - 1, page, page + 1, page + 2, pages])].filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b);
+  const nums: HTMLElement[] = [];
+  shown.forEach((p, i) => {
+    if (i && p - shown[i - 1] > 1) nums.push(h('span', { class: 'page-gap', 'aria-hidden': 'true' }, '…'));
+    nums.push(btn(String(p), p, { current: p === page, aria: `Page ${p}` }));
+  });
+  const from = (page - 1) * per + 1;
+  const to = Math.min(total, page * per);
+  return h(
+    'nav',
+    { class: 'pager', 'aria-label': 'Pages' },
+    btn('‹ Prev', page - 1, { disabled: page <= 1, aria: 'Previous page' }),
+    h('span', { class: 'page-nums' }, nums),
+    btn('Next ›', page + 1, { disabled: page >= pages, aria: 'Next page' }),
+    h('span', { class: 'muted small page-count' }, `${from}–${to} of ${total}`),
+  );
+}
