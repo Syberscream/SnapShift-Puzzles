@@ -11,7 +11,10 @@ import { pickIdea, titleFromPrompt, PUZZLE_SUFFIX, LOOKS, isLook, lookStyle } fr
 import { rng, randomSeed } from '../../shared/engine';
 import { BILLING_DEFAULTS, getBilling, type BillingSettings } from './billing';
 import { setLifetime } from '../lib/membership';
-import { sendStreakReminders } from '../lib/reminders';
+import { nextMilestone, sendStreakReminders } from '../lib/reminders';
+import { resetEmail, streakReminderEmail, verifyEmail, type Email } from '../lib/email-templates';
+import { sendEmail } from '../lib/email';
+import { dailyStreak, getDaily } from '../lib/catalog';
 import { sendDailyPushes } from '../lib/push';
 import analytics from './analytics';
 
@@ -471,6 +474,37 @@ app.post('/users/:id/supporter', async (c) => {
 /** Send any streak reminders that are due now, ignoring the evening start time. */
 app.post('/reminders/run', async (c) => c.json({ log: await sendStreakReminders(c.env, Date.now(), true) }));
 app.post('/push/run', async (c) => c.json({ log: await sendDailyPushes(c.env, Date.now(), true) }));
+
+/** An email as players get it, filled in with your account and today's puzzle. */
+async function sampleEmail(c: { env: AppEnv['Bindings']; get: (k: 'user') => AppEnv['Variables']['user'] }, kind: string): Promise<Email> {
+  const env = c.env;
+  const user = c.get('user')!;
+  const base = env.APP_URL.replace(/\/$/, '');
+  if (kind === 'verify') return verifyEmail({ base, appName: env.APP_NAME, link: `${base}/account?verify=sample` });
+  if (kind === 'reset') return resetEmail({ base, appName: env.APP_NAME, link: `${base}/account?reset=sample` });
+  if (kind !== 'streak') fail(404, 'No such email.');
+  const today = dayKey(env);
+  const daily = await getDaily(env, today).catch(() => null);
+  const pic = daily ? media(daily.puzzle.small_key || daily.puzzle.image_key || daily.puzzle.original_key) : '';
+  const streak = Math.max(2, (await dailyStreak(env, user.id, today)).current);
+  return streakReminderEmail({
+    base,
+    username: user.username,
+    streak,
+    puzzle: daily && pic ? { title: daily.puzzle.title, image: pic.startsWith('http') ? pic : base + pic } : null,
+    next: nextMilestone(streak + 1),
+    unsub: `${base}/account`,
+  });
+}
+app.get('/email-preview/:kind', async (c) => c.html((await sampleEmail(c, c.req.param('kind'))).html));
+/** Send yourself a sample, to see it in your own email app. */
+app.post('/email-test/:kind', async (c) => {
+  const mail = await sampleEmail(c, c.req.param('kind'));
+  const user = c.get('user')!;
+  const ok = await sendEmail(c.env, user.email, `[Test] ${mail.subject}`, mail.text, undefined, mail.html);
+  if (!ok) fail(502, 'The email couldn’t be sent. Is RESEND_API_KEY set?');
+  return c.json({ ok: true, to: user.email });
+});
 
 // ---------- events ----------
 

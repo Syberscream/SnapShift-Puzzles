@@ -278,6 +278,46 @@ async function overview() {
         stat('Joined by invite', o.invitedPlayers ?? 0),
       ),
     ),
+    emailPanel(),
+  );
+}
+
+/** See the player emails as they look, and send yourself a test copy. */
+function emailPanel() {
+  const row = (kind: string, label: string) =>
+    h(
+      'div',
+      { class: 'row' },
+      h('b', { style: 'min-width:150px' }, label),
+      h('a', { class: 'btn small', href: `/api/admin/email-preview/${kind}`, target: '_blank', rel: 'noopener' }, 'Preview'),
+      h(
+        'button',
+        {
+          class: 'btn small',
+          onclick: async (e: Event) => {
+            const b = e.currentTarget as HTMLButtonElement;
+            b.disabled = true;
+            try {
+              const r = await api.post<{ to: string }>(`/admin/email-test/${kind}`, {});
+              toast('Test email sent', `Check ${r.to}`);
+            } catch (err) {
+              toast('Not sent', errorText(err));
+            } finally {
+              b.disabled = false;
+            }
+          },
+        },
+        'Send me a test',
+      ),
+    );
+  return h(
+    'section',
+    { class: 'panel' },
+    h('h2', {}, 'Emails'),
+    h('p', { class: 'muted small' }, 'What players receive. Previews use your account and today’s puzzle.'),
+    row('streak', 'Streak reminder'),
+    row('verify', 'Welcome / verify'),
+    row('reset', 'Password reset'),
   );
 }
 

@@ -10,6 +10,7 @@ import {
   verifyPassword,
 } from '../lib/auth';
 import { sendEmail } from '../lib/email';
+import { resetEmail, verifyEmail } from '../lib/email-templates';
 import { body, fail, int, now, randomId, sha256, siteUrl, str } from '../lib/util';
 import { checkReferral } from '../lib/invites';
 import { stripe, stripeEnabled } from '../lib/stripe';
@@ -32,12 +33,8 @@ async function issueEmailToken(c: { env: AppEnv['Bindings'] }, userId: number, k
 async function sendVerification(env: AppEnv['Bindings'], user: { id: number; email: string }, base: string) {
   const token = await issueEmailToken({ env }, user.id, 'verify', 48 * 60);
   const link = `${base}/account?verify=${token}`;
-  const sent = await sendEmail(
-    env,
-    user.email,
-    `Verify your ${env.APP_NAME} account`,
-    `Welcome to ${env.APP_NAME}!\n\nConfirm your email address:\n${link}\n\nIf you didn't create this account, ignore this email.`,
-  );
+  const mail = verifyEmail({ base, appName: env.APP_NAME, link });
+  const sent = await sendEmail(env, user.email, mail.subject, mail.text, undefined, mail.html);
   return { sent, link };
 }
 
@@ -145,12 +142,8 @@ app.post('/forgot', async (c) => {
   if (user) {
     const token = await issueEmailToken(c, user.id, 'reset', 60);
     devLink = `${siteUrl(c.env, c.req.url)}/account?reset=${token}`;
-    await sendEmail(
-      c.env,
-      user.email,
-      `Reset your ${c.env.APP_NAME} password`,
-      `Someone asked to reset your password.\n\nChoose a new one here (valid for 1 hour):\n${devLink}\n\nIf this wasn't you, ignore this email.`,
-    );
+    const mail = resetEmail({ base: siteUrl(c.env, c.req.url), appName: c.env.APP_NAME, link: devLink });
+    await sendEmail(c.env, user.email, mail.subject, mail.text, undefined, mail.html);
   }
   // Same answer whether or not the email exists.
   return c.json({ ok: true, ...(c.env.DEV_MODE === '1' && devLink ? { devLink } : {}) });

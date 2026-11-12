@@ -813,6 +813,15 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('reminders: sent to a player with a streak at risk', run1.log.some((l) => l.includes(`user ${pf.id}`) && l.includes('2 days')), run1.log.join(' | '));
   const run2 = await j(admin.request.post(BASE + '/api/admin/reminders/run'));
   check('reminders: only once a day', !run2.log.some((l) => l.includes(`user ${pf.id}`)));
+  // The designed emails: admins can preview them; players can't.
+  const prev = await admin.request.get(BASE + '/api/admin/email-preview/streak');
+  const prevHtml = await prev.text();
+  check('emails: streak reminder preview', prev.ok() && /day streak/.test(prevHtml) && /Play today’s puzzle/.test(prevHtml) && /email-logo\.png/.test(prevHtml) && /\/daily/.test(prevHtml));
+  const pv = await (await admin.request.get(BASE + '/api/admin/email-preview/verify')).text();
+  const pr = await (await admin.request.get(BASE + '/api/admin/email-preview/reset')).text();
+  check('emails: verify and reset previews', /Confirm my email/.test(pv) && /Choose a new password/.test(pr));
+  check('emails: previews are admin-only', (await player.request.get(BASE + '/api/admin/email-preview/streak')).status() === 403);
+  check('emails: logo for emails is served', (await admin.request.get(BASE + '/img/email-logo.png')).ok());
   const me1 = (await j(admin.request.get(BASE + '/api/auth/me'))).user;
   check('reminders: preference saved', me1.remindStreak === true);
   const tok = (await j(admin.request.get(BASE + '/api/admin/users?q=Syber'))).users;
