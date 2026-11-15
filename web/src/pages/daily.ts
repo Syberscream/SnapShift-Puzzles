@@ -18,7 +18,7 @@ interface ArchiveDay {
   title: string;
   thumb: string;
   players: number;
-  mine: { medal: string; score_pct: number } | null;
+  mine: { medal: string | null; score_pct: number; late?: boolean } | null;
   locked: boolean;
 }
 
@@ -35,12 +35,16 @@ try {
           'a',
           { class: 'card', href: d.locked ? '/plus' : `/play?daily=${d.day}`, title: d.locked ? 'Older dailies are part of SnapShift Plus' : '' },
           h('div', { class: `thumb wide${d.locked ? ' archive-locked' : ''}`, style: bg(d.thumb) }),
-          d.mine ? h('span', { class: 'corner' }, medalBadge(d.mine.medal, true)) : d.locked ? h('span', { class: 'corner' }, plusTag('PLUS')) : null,
+          d.mine
+            ? h('span', { class: 'corner' }, d.mine.medal ? medalBadge(d.mine.medal, true) : h('span', { class: 'pill' }, '✓ Done'))
+            : d.locked
+              ? h('span', { class: 'corner' }, plusTag('PLUS'))
+              : null,
           h(
             'div',
             { class: 'meta' },
             h('b', {}, d.title),
-            h('div', { class: 'spread' }, h('span', {}, d.day === t.day ? `Today · ${d.day}` : d.day), h('span', {}, `${d.players} players`)),
+            h('div', { class: 'spread' }, h('span', {}, d.day === t.day ? `Today · ${d.day}` : d.day), h('span', {}, d.mine?.late ? '✓ Played from archive' : `${d.players} players`)),
           ),
         ),
       );

@@ -94,7 +94,8 @@ const admin = await adminCtx.newPage();
 const adminErrors = [];
 errorsFor(admin, adminErrors);
 await admin.goto(BASE + '/account?signup=1');
-await admin.fill('#email', 'syberscream@gmail.com');
+// A test-only admin address (run.sh makes it the admin for the local server).
+await admin.fill('#email', 'admin@snapshift.test');
 await admin.fill('#username', 'Syber');
 await admin.fill('#password', 'adminpass123');
 await admin.click('button[type=submit]');
@@ -666,6 +667,20 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   check('achievements: “Achievement unlocked!” popup shown', popped.length > 0 && popped.every((a) => a.title && /^\+\d+ points$/.test(a.reward)), JSON.stringify(popped));
   const ledger = await j(player.request.get(BASE + '/api/me/ledger'));
   check('achievements: reward points paid once each', ledger.rows.filter((r) => r.reason === 'achievement' && r.ref === 'first-finish').length === 1);
+
+  // A missed daily, finished later from the archive, shows as done there.
+  {
+    const serverDay = (await j(player.request.get(BASE + '/api/home'))).today;
+    const lateDay = new Date(Date.parse(serverDay + 'T12:00:00Z') - 2 * 86400000).toISOString().slice(0, 10);
+    await player.request.get(BASE + `/api/daily/day/${lateDay}`);
+    await apiSolve(player, { daily: lateDay });
+    const arc = await j(player.request.get(BASE + '/api/daily/archive'));
+    const row = arc.days.find((x) => x.day === lateDay);
+    check('daily archive: finished-later days show as done', !!row?.mine && row.mine.late === true && !!row.mine.medal, JSON.stringify(row?.mine));
+    await player.goto(BASE + '/daily');
+    await player.waitForSelector('text=Played from archive');
+    check('daily archive: card says “Played from archive”', (await player.locator('a.card', { hasText: 'Played from archive' }).count()) >= 1);
+  }
 
   // Collections: a 3-puzzle category, finished by the player.
   await admin.request.put(BASE + '/api/admin/categories/tiny', { data: { name: 'Tiny', description: 'Three puzzles', tile_url: '/img/categories/art.png', sort: 50, generate: false } });

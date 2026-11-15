@@ -80,6 +80,15 @@ app.get('/daily/archive', async (c) => {
       .bind(user.id, ...results.map((x) => x.day))
       .all<Record<string, unknown>>();
     mine = new Map(r.results.map((x) => [String(x.day), x]));
+    // Finished later from the archive: not on that day's leaderboard, but done.
+    const late = await c.env.DB.prepare(
+      `SELECT daily_day AS day, medal, MAX(score_pct) AS score_pct, elapsed_ms FROM plays
+       WHERE user_id = ? AND completed_at IS NOT NULL AND daily_day IN (${results.map(() => '?').join(',')})
+       GROUP BY daily_day`,
+    )
+      .bind(user.id, ...results.map((x) => x.day))
+      .all<Record<string, unknown>>();
+    for (const x of late.results) if (!mine.has(String(x.day))) mine.set(String(x.day), { ...x, late: true });
   }
   return c.json({
     days: results.map((r) => ({

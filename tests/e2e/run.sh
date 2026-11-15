@@ -10,7 +10,7 @@ OUT="${OUT:-/tmp/snapshift-e2e}"; mkdir -p "$OUT" "$OUT/img"; cp "$IMG" "$OUT/im
 npx tsc shared/engine.ts shared/rules.ts shared/slider.ts --outDir tests/e2e/.engine --module ES2022 --target ES2022 --moduleResolution bundler --skipLibCheck
 sed -i.bak "s#from './rules'#from './rules.js'#" tests/e2e/.engine/engine.js && sed -i.bak "s#from './engine'#from './engine.js'#" tests/e2e/.engine/slider.js && echo '{"type":"module"}' > tests/e2e/.engine/package.json
 npx vite build >/dev/null
-printf 'DEV_MODE=1\nELEVENLABS_API_KEY=test-key\nELEVENLABS_BASE_URL=http://127.0.0.1:8790\nSTRIPE_SECRET_KEY=sk_test_mock\nSTRIPE_WEBHOOK_SECRET=whsec_test\nSTRIPE_BASE_URL=http://127.0.0.1:8791\nCF_ANALYTICS_TOKEN=cf-test\nCF_API_BASE_URL=http://127.0.0.1:8792\n' > .dev.vars
+printf 'DEV_MODE=1\nELEVENLABS_API_KEY=test-key\nELEVENLABS_BASE_URL=http://127.0.0.1:8790\nSTRIPE_SECRET_KEY=sk_test_mock\nSTRIPE_WEBHOOK_SECRET=whsec_test\nSTRIPE_BASE_URL=http://127.0.0.1:8791\nCF_ANALYTICS_TOKEN=cf-test\nCF_API_BASE_URL=http://127.0.0.1:8792\nADMIN_EMAILS=admin@snapshift.test\n' > .dev.vars
 rm -rf .wrangler/state && npx wrangler d1 migrations apply snapshift --local >/dev/null
 node tests/e2e/mock-elevenlabs.mjs "$OUT/img" & MOCK=$!
 node tests/e2e/mock-stripe.mjs http://127.0.0.1:8787 whsec_test & STRIPE=$!
