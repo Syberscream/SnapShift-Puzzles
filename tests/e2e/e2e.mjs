@@ -681,11 +681,19 @@ await guest.screenshot({ path: `${OUT}/12-mobile-play.png`, fullPage: true });
   const ach = await j(player.request.get(BASE + '/api/me/achievements'));
   const got = new Set(ach.achievements.filter((a) => a.earnedAt).map((a) => a.id));
   check('achievements: earned while playing', got.has('first-finish') && got.has('gold-1'), [...got].join(','));
-  check('achievements: 42 to unlock', ach.achievements.length === 42);
+  check('achievements: 48 to unlock', ach.achievements.length === 48);
   const popped = await player.evaluate(() => JSON.parse(localStorage.getItem('__ach') || '[]'));
   check('achievements: “Achievement unlocked!” popup shown', popped.length > 0 && popped.every((a) => a.title && /^\+\d+ points$/.test(a.reward)), JSON.stringify(popped));
   const ledger = await j(player.request.get(BASE + '/api/me/ledger'));
   check('achievements: reward points paid once each', ledger.rows.filter((r) => r.reason === 'achievement' && r.ref === 'first-finish').length === 1);
+  {
+    // Points achievements count points earned by playing, not admin gifts.
+    await apiSolve(player, { puzzle: (await j(player.request.get(BASE + '/api/categories/animals'))).puzzles[0].slug, difficulty: 'easy', fresh: true });
+    const rows = (await j(player.request.get(BASE + '/api/me/ledger'))).rows;
+    const earned = rows.filter((r) => r.delta > 0 && r.reason !== 'admin').reduce((t, r) => t + r.delta, 0);
+    const has = (await j(player.request.get(BASE + '/api/me/achievements'))).achievements.find((a) => a.id === 'points-1k')?.earnedAt;
+    check('achievements: points milestone follows points earned (gifts excluded)', earned >= 1000 ? !!has : !has, `earned ${earned}, has ${!!has}`);
+  }
 
   // A missed daily, finished later from the archive, shows as done there.
   {

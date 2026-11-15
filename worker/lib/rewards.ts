@@ -174,7 +174,8 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
          (SELECT COUNT(*) FROM challenge_results cr JOIN challenges ch ON ch.id = cr.challenge_id
             WHERE cr.user_id = ?1 AND ch.user_id != ?1
               AND ((ABS(cr.elapsed_ms - ch.elapsed_ms) <= 500 AND cr.moves < ch.moves) OR (ABS(cr.elapsed_ms - ch.elapsed_ms) > 500 AND cr.elapsed_ms < ch.elapsed_ms))) AS challengeWins,
-         (SELECT COUNT(*) FROM referral_rewards WHERE inviter_id = ?1) AS invites`,
+         (SELECT COUNT(*) FROM referral_rewards WHERE inviter_id = ?1) AS invites,
+         (SELECT COALESCE(SUM(delta), 0) FROM points_ledger WHERE user_id = ?1 AND delta > 0 AND reason != 'admin') AS pointsEarned`,
     ).bind(userId),
     env.DB.prepare('SELECT achievement FROM user_achievements WHERE user_id = ?').bind(userId),
   ]);
@@ -222,6 +223,9 @@ export async function checkAchievements(env: Env, userId: number, extra: string[
   when(s.challengeWins >= 5, 'challenge-5');
   when(s.invites >= 1, 'invite-1');
   when(s.invites >= 5, 'invite-5');
+  // Points earned from playing (gifts from the admin don't count; spending doesn't take any away).
+  for (const [n, id] of [[1000, 'points-1k'], [5000, 'points-5k'], [10000, 'points-10k'], [25000, 'points-25k'], [50000, 'points-50k'], [100000, 'points-100k']] as const)
+    when(s.pointsEarned >= n, id);
   const fresh = [...earned].filter((id) => !owned.has(id) && ACHIEVEMENT_BY_ID.has(id));
   if (!fresh.length) return [];
   const t = now();

@@ -53,6 +53,13 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'challenge-5', title: 'Rival', description: 'Beat 5 friends’ challenges.', icon: '⚔️', reward: 150 },
   { id: 'invite-1', title: 'Bring a Friend', description: 'A friend you invited joins and finishes 3 puzzles.', icon: '💌', reward: 50 },
   { id: 'invite-5', title: 'Party Starter', description: '5 friends you invited join and finish 3 puzzles.', icon: '🎈', reward: 250 },
+  // ---- points earned (all time, so spending points never takes one away) ----
+  { id: 'points-1k', title: 'Pocket Change', description: 'Earn 1,000 points in total.', icon: '🪙', reward: 50 },
+  { id: 'points-5k', title: 'Piggy Bank', description: 'Earn 5,000 points in total.', icon: '🐷', reward: 150 },
+  { id: 'points-10k', title: 'Treasure Hunter', description: 'Earn 10,000 points in total.', icon: '💎', reward: 250 },
+  { id: 'points-25k', title: 'Jackpot', description: 'Earn 25,000 points in total.', icon: '🎰', reward: 500 },
+  { id: 'points-50k', title: 'Tycoon', description: 'Earn 50,000 points in total.', icon: '🎩', reward: 750 },
+  { id: 'points-100k', title: 'Living Legend', description: 'Earn 100,000 points in total.', icon: '🌠', reward: 1500 },
 ];
 
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
