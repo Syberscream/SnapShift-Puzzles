@@ -521,9 +521,12 @@ dialog.ach-modal { overflow: hidden; max-width: min(420px, calc(100vw - 32px)); 
 .ach-pop { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 8px 4px 2px; }
 .ach-pop h2 { margin: 4px 0 0; font-size: 26px; }
 .ach-pop p { margin: 0; }
-.ach-rays { position: absolute; top: -120px; left: 50%; width: 420px; height: 420px; margin-left: -210px; z-index: 0; pointer-events: none; opacity: 0.55;
+/* The rays spin inside a box that stays still and clips them: a spinning square's
+   corners otherwise poke past the popup and the scroll bar flickers on and off. */
+.ach-rays { position: absolute; top: -120px; left: 0; right: 0; height: 420px; overflow: hidden; z-index: 0; pointer-events: none; opacity: 0.55;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 0, #000 89px, transparent 184px); mask-image: radial-gradient(circle at 50% 50%, #000 0, #000 89px, transparent 184px); }
+.ach-rays::before { content: ''; position: absolute; top: 50%; left: 50%; width: 600px; height: 600px; margin: -300px 0 0 -300px;
   background: repeating-conic-gradient(from 0deg, rgba(245, 197, 66, 0.28) 0deg 10deg, transparent 10deg 24deg);
-  -webkit-mask-image: radial-gradient(circle, #000 0, #000 30%, transparent 62%); mask-image: radial-gradient(circle, #000 0, #000 30%, transparent 62%);
   animation: ach-spin 14s linear infinite; }
 .ach-pop > :not(.ach-rays) { position: relative; z-index: 1; }
 .ach-badge { width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; font-size: 58px; margin-top: 6px;
@@ -535,7 +538,7 @@ dialog.ach-modal { overflow: hidden; max-width: min(420px, calc(100vw - 32px)); 
 .achievement .ach-pts { margin-left: auto; font-weight: 800; font-size: 13px; color: var(--gold, #f5c542); white-space: nowrap; }
 @keyframes ach-spin { to { transform: rotate(360deg); } }
 @keyframes ach-pop-in { from { transform: scale(0.3); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .ach-rays, .ach-badge, .ach-reward { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ach-rays::before, .ach-badge, .ach-reward { animation: none; } }
 .brand-text { font-weight: 900; font-size: 26px; letter-spacing: -0.5px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
 .brand-text b { color: #ff8a1f; }
 
@@ -602,7 +605,7 @@ dialog.modal { max-height: calc(100svh - 16px); overflow-y: auto; overscroll-beh
   .ach-pop h2 { font-size: 20px; margin: 0; }
   .ach-pop .ach-reward { justify-self: start; margin-top: 4px; padding: 4px 12px; font-size: 15px; }
   .ach-pop .ach-actions { grid-column: 1 / -1; margin-top: 8px; justify-content: flex-end; }
-  .ach-rays { top: -150px; left: 0; margin-left: -130px; width: 300px; height: 300px; }
+  .ach-rays { top: -150px; left: -130px; right: auto; width: 300px; height: 300px; -webkit-mask-image: radial-gradient(circle, #000 0, #000 64px, transparent 131px); mask-image: radial-gradient(circle, #000 0, #000 64px, transparent 131px); }
   .rotate-card { padding: 14px; gap: 6px; }
 }
 .cover-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
