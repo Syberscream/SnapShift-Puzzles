@@ -679,3 +679,4 @@ dialog.event-done-modal { overflow: hidden; max-width: min(480px, calc(100vw - 2
 .pager .page-gap { opacity: 0.6; padding: 0 2px; }
 .pager .page-count { width: 100%; text-align: center; }
 .pager-wrap:empty { display: none; }
+.ach-more { display: block; margin: 12px auto 0; }

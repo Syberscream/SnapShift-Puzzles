@@ -347,6 +347,25 @@ await player.waitForSelector('.card');
 await player.screenshot({ path: `${OUT}/09-daily.png`, fullPage: true });
 await player.goto(BASE + '/account');
 await player.waitForSelector('text=Points history');
+{
+  const order = await player.evaluate(() => {
+    const ach = document.getElementById('achievements');
+    const hist = [...document.querySelectorAll('h2')].find((x) => x.textContent === 'Points history');
+    return !!ach && !!hist && !!(ach.compareDocumentPosition(hist) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  check('account: achievements come before points history', order);
+  const shortN = await player.locator('#achievements .achievement').count();
+  await player.locator('.ach-more').click();
+  check('account: achievements start short, Show all opens the rest', shortN < (await player.locator('#achievements .achievement').count()) && (await player.locator('.ach-more').count()) === 0);
+  const lp = await (await player.request.get(BASE + '/api/me/ledger?page=1')).json();
+  check('account: points history comes in pages of 10', lp.per === 10 && lp.rows.length <= 10 && lp.total >= lp.rows.length && lp.total > 0, JSON.stringify({ n: lp.rows.length, total: lp.total }));
+  check('account: at most 10 history rows on screen', (await player.locator('.ledger-list tr').count()) <= 10);
+  if (lp.total > 10) {
+    await player.locator('.ledger-list .page-btn', { hasText: '2' }).first().click();
+    await player.waitForFunction(() => document.querySelector('.ledger-list .page-btn.current')?.textContent === '2');
+    check('account: points history page 2 opens', (await player.locator('.ledger-list tr').count()) >= 1);
+  }
+}
 await player.screenshot({ path: `${OUT}/10-account.png`, fullPage: true });
 
 // ---------- guest on a phone ----------

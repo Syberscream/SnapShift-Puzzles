@@ -174,6 +174,16 @@ app.get('/me/summary', async (c) => {
 
 app.get('/me/ledger', async (c) => {
   const user = requireUser(c);
+  // ?page=N (10 a page, newest first, with the total) for the account page; ?before=id for older callers.
+  const page = int(c.req.query('page'), 0);
+  if (page > 0) {
+    const per = 10;
+    const [rows, total] = await Promise.all([
+      c.env.DB.prepare('SELECT id, delta, reason, ref, created_at FROM points_ledger WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?').bind(user.id, per, (page - 1) * per).all(),
+      c.env.DB.prepare('SELECT COUNT(*) AS n FROM points_ledger WHERE user_id = ?').bind(user.id).first<{ n: number }>(),
+    ]);
+    return c.json({ rows: rows.results, total: total?.n ?? 0, per });
+  }
   const before = int(c.req.query('before'), 0) || Number.MAX_SAFE_INTEGER;
   const { results } = await c.env.DB.prepare(
     'SELECT id, delta, reason, ref, created_at FROM points_ledger WHERE user_id = ? AND id < ? ORDER BY id DESC LIMIT 50',

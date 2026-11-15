@@ -4,6 +4,7 @@
 import { api, type Me } from '../lib/api';
 import { bg, errorText, h, hasPaidPlus, medalBadge, mount, plusTag, toast } from '../lib/ui';
 import { FRAME_LABELS, FRAMES, MODE_LABELS, PLUS, RULES, type Difficulty, type Mode } from '@shared/rules';
+import { pager, PER_PAGE } from './shared';
 
 async function openPortal(btn: HTMLButtonElement) {
   btn.disabled = true;
@@ -135,38 +136,47 @@ export async function requestsPanel(): Promise<HTMLElement> {
 
 export async function medalsPanel(): Promise<HTMLElement> {
   const d = await api.get<{ puzzles: { slug: string; title: string; thumb: string; daily: string | null; results: { difficulty: Difficulty; mode: Mode; medal: string | null }[] }[] }>('/plus/medals');
-  return h(
-    'section',
-    { class: 'panel' },
-    h('h2', {}, `Medal collection (${d.puzzles.length})`),
-    d.puzzles.length
-      ? h(
-          'div',
-          { class: 'medal-grid' },
-          d.puzzles.map((p) =>
+  const panel = h('section', { class: 'panel', id: 'medals' }, h('h2', {}, `Medal collection (${d.puzzles.length})`));
+  if (!d.puzzles.length) {
+    panel.append(h('p', { class: 'muted' }, 'Finish puzzles to fill your collection.'));
+    return panel;
+  }
+  const body = h('div', {});
+  panel.append(body);
+  // 20 a page, so the collection doesn't become one endless wall.
+  const show = (page: number, scroll = false) => {
+    body.replaceChildren(
+      h(
+        'div',
+        { class: 'medal-grid' },
+        d.puzzles.slice((page - 1) * PER_PAGE, page * PER_PAGE).map((p) =>
+          h(
+            'a',
+            { class: 'card', href: p.daily ? `/play?daily=${p.daily}` : `/play?p=${encodeURIComponent(p.slug)}` },
+            h('div', { class: 'thumb wide', style: bg(p.thumb) }),
             h(
-              'a',
-              { class: 'card', href: p.daily ? `/play?daily=${p.daily}` : `/play?p=${encodeURIComponent(p.slug)}` },
-              h('div', { class: 'thumb wide', style: bg(p.thumb) }),
+              'div',
+              { class: 'meta' },
+              h('b', {}, p.title),
               h(
                 'div',
-                { class: 'meta' },
-                h('b', {}, p.title),
-                h(
-                  'div',
-                  { class: 'medal-row' },
-                  p.results.map((r) =>
-                    r.medal
-                      ? h('span', { title: `${RULES[r.difficulty].label} · ${MODE_LABELS[r.mode]}` }, medalBadge(r.medal))
-                      : h('span', { class: 'pill dark small', title: `${RULES[r.difficulty].label} · ${MODE_LABELS[r.mode]}` }, 'Zen ✓'),
-                  ),
+                { class: 'medal-row' },
+                p.results.map((r) =>
+                  r.medal
+                    ? h('span', { title: `${RULES[r.difficulty].label} · ${MODE_LABELS[r.mode]}` }, medalBadge(r.medal))
+                    : h('span', { class: 'pill dark small', title: `${RULES[r.difficulty].label} · ${MODE_LABELS[r.mode]}` }, 'Zen ✓'),
                 ),
               ),
             ),
           ),
-        )
-      : h('p', { class: 'muted' }, 'Finish puzzles to fill your collection.'),
-  );
+        ),
+      ),
+      pager(page, d.puzzles.length, (p) => show(p, true)) ?? '',
+    );
+    if (scroll) panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  show(1);
+  return panel;
 }
 
 /** Streak reminder email on/off. */
@@ -196,24 +206,40 @@ export async function achievementsPanel(): Promise<HTMLElement> {
   const d = await api.get<{ achievements: { id: string; title: string; description: string; icon: string; reward: number; earnedAt: number | null }[] }>('/me/achievements');
   const got = d.achievements.filter((a) => a.earnedAt).length;
   const list = [...d.achievements].sort((a, b) => (b.earnedAt ? 1 : 0) - (a.earnedAt ? 1 : 0));
+  const card = (a: (typeof list)[number]) =>
+    h(
+      'div',
+      { class: `achievement${a.earnedAt ? ' earned' : ''}`, title: a.earnedAt ? `Earned ${new Date(a.earnedAt).toLocaleDateString()}` : 'Not earned yet' },
+      h('span', { class: 'icon', 'aria-hidden': 'true' }, a.icon),
+      h('span', {}, h('b', {}, a.title), h('span', { class: 'small muted' }, a.description)),
+      a.reward ? h('span', { class: 'ach-pts' }, `+${a.reward}`) : null,
+    );
+  // It sits at the top of the account page, so it starts short: what you've
+  // earned and the next few to go for, with the rest one tap away.
+  const short = got + 4;
+  const grid = h('div', { class: 'achievements' }, list.slice(0, short).map(card));
+  const rest = list.length - short;
+  const more =
+    rest > 0
+      ? h(
+          'button',
+          {
+            class: 'btn small ach-more',
+            onclick: () => {
+              grid.replaceChildren(...list.map(card));
+              more?.remove();
+            },
+          },
+          `Show all ${list.length} (${rest} more to earn)`,
+        )
+      : null;
   return h(
     'section',
     { class: 'panel', id: 'achievements' },
     h('h2', {}, `Achievements (${got} of ${d.achievements.length})`),
     h('p', { class: 'small muted' }, 'Each achievement pays its points once, the moment you earn it.'),
-    h(
-      'div',
-      { class: 'achievements' },
-      list.map((a) =>
-        h(
-          'div',
-          { class: `achievement${a.earnedAt ? ' earned' : ''}`, title: a.earnedAt ? `Earned ${new Date(a.earnedAt).toLocaleDateString()}` : 'Not earned yet' },
-          h('span', { class: 'icon', 'aria-hidden': 'true' }, a.icon),
-          h('span', {}, h('b', {}, a.title), h('span', { class: 'small muted' }, a.description)),
-          a.reward ? h('span', { class: 'ach-pts' }, `+${a.reward}`) : null,
-        ),
-      ),
-    ),
+    grid,
+    more,
   );
 }
 

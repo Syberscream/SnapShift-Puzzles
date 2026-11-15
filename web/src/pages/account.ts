@@ -3,6 +3,7 @@ import { api, type Me } from '../lib/api';
 import { invitedBy, inviteStore, me, shell } from '../lib/shell';
 import { errorText, h, medalBadge, mount, qs, toast, plusTag, hasPaidPlus } from '../lib/ui';
 import { achievementsPanel, framePanel, invitesPanel, medalsPanel, membershipPanel, profilePanel, remindersPanel, requestsPanel } from './account-plus';
+import { pager } from './shared';
 
 const main = await shell({ title: 'Account' });
 const next = qs('next') && qs('next').startsWith('/') && !qs('next').startsWith('//') ? qs('next') : '/';
@@ -120,6 +121,37 @@ async function profileView(user: Me) {
     },
   );
   pw.classList.remove('form-narrow');
+  // Points history: 10 at a time, with page buttons.
+  type Row = { delta: number; reason: string; ref: string | null; created_at: number };
+  const history = h('div', { class: 'ledger-list' });
+  const showPage = async (page: number, scroll = false) => {
+    const d = await api.get<{ rows: Row[]; total: number; per: number }>(`/me/ledger?page=${page}`).catch(() => null);
+    if (!d) return;
+    history.replaceChildren(
+      d.rows.length
+        ? h(
+            'table',
+            {},
+            h(
+              'tbody',
+              {},
+              d.rows.map((l) =>
+                h(
+                  'tr',
+                  {},
+                  h('td', {}, l.reason === 'admin' ? (l.delta > 0 ? 'Gift' : 'Adjustment') : (reasons[l.reason] ?? l.reason), l.reason === 'admin' && l.ref ? h('div', { class: 'small muted' }, l.ref) : null),
+                  h('td', { class: 'muted small' }, new Date(l.created_at).toLocaleString()),
+                  h('td', { class: 'num', style: `color:${l.delta > 0 ? 'var(--ok)' : 'var(--muted)'}` }, `${l.delta > 0 ? '+' : ''}${l.delta}`),
+                ),
+              ),
+            ),
+          )
+        : h('p', { class: 'muted' }, 'Finish a puzzle to earn your first points.'),
+      pager(page, d.total, (p) => void showPage(p, true), d.per) ?? '',
+    );
+    if (scroll) history.parentElement?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  await showPage(1);
   mount(
     main,
     !user.emailVerified
@@ -154,6 +186,7 @@ async function profileView(user: Me) {
         h('div', { class: 'stat' }, h('span', { class: 'muted small' }, 'Medals'), h('b', {}, medalBadge('gold'), ` ${s.medals.gold}  `, medalBadge('silver'), ` ${s.medals.silver}  `, medalBadge('bronze'), ` ${s.medals.bronze}`)),
       ),
     ),
+    await achievementsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))),
     h(
       'div',
       { class: 'two-col' },
@@ -161,31 +194,12 @@ async function profileView(user: Me) {
         'section',
         { class: 'panel' },
         h('h2', {}, 'Points history'),
-        s.ledger.length
-          ? h(
-              'table',
-              {},
-              h(
-                'tbody',
-                {},
-                s.ledger.map((l) =>
-                  h(
-                    'tr',
-                    {},
-                    h('td', {}, l.reason === 'admin' ? (l.delta > 0 ? 'Gift' : 'Adjustment') : (reasons[l.reason] ?? l.reason), l.reason === 'admin' && l.ref ? h('div', { class: 'small muted' }, l.ref) : null),
-                    h('td', { class: 'muted small' }, new Date(l.created_at).toLocaleString()),
-                    h('td', { class: 'num', style: `color:${l.delta > 0 ? 'var(--ok)' : 'var(--muted)'}` }, `${l.delta > 0 ? '+' : ''}${l.delta}`),
-                  ),
-                ),
-              ),
-            )
-          : h('p', { class: 'muted' }, 'Finish a puzzle to earn your first points.'),
+        history,
       ),
       pw,
     ),
   );
   main.append(await invitesPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
-  main.append(await achievementsPanel().catch((e) => h('p', { class: 'error' }, errorText(e))));
   main.append(profilePanel(user), pushPanel(), remindersPanel(user));
   main.append(membershipPanel(user, s.freezesLeft));
   if (user.member) {
