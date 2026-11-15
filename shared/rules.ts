@@ -121,8 +121,8 @@ export const SCORE_DOUBLE_BONUS = 5;
 
 /** Medal thresholds on the 0..1 overall score (72% move efficiency, 28% speed). */
 export const MEDAL_WEIGHTS = { moves: 0.72, speed: 0.28 };
-export const MEDAL_GOLD = 0.9;
-export const MEDAL_SILVER = 0.76;
+export const MEDAL_GOLD = 0.75;
+export const MEDAL_SILVER = 0.58;
 
 /** Daily challenge: always Hard classic, no place-tile helper, bonus on completion. */
 export const DAILY_DIFFICULTY: Difficulty = 'hard';
