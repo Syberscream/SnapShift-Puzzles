@@ -2,6 +2,8 @@ export interface Env {
   DB: D1Database;
   MEDIA: R2Bucket;
   ASSETS: Fetcher;
+  /** Cloudflare Workers AI (Admin → Etsy listing text). */
+  AI?: Ai;
 
   APP_NAME: string;
   APP_URL: string;

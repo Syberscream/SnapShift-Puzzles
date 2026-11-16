@@ -3,6 +3,7 @@ import { dayChart, rankBars } from '../lib/charts';
 import { me, requireSignIn, shell } from '../lib/shell';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { applyTheme, type Banner, type Theme } from '../lib/theme';
+import { etsyTab } from './admin-etsy';
 
 interface AdminPuzzle {
   id: number;
@@ -73,6 +74,7 @@ const TABS: [string, string, () => Promise<void>][] = [
   ['site', 'Site settings', site],
   ['membership', 'Membership', membership],
   ['events', 'Events', events],
+  ['etsy', 'Etsy prep', () => etsyTab(body)],
 ];
 
 async function show(key: string, fn: () => Promise<void>) {

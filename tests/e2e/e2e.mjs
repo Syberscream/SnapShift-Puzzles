@@ -1521,6 +1521,99 @@ check('contact message reaches admin', msgs.length === 1);
   sql("DELETE FROM categories WHERE id = 'pagetest'");
 }
 
+// ---- Admin → Etsy prep ----
+{
+  await admin.addInitScript(() => localStorage.setItem('ss_etsy_test_max', '480'));
+  await admin.goto(BASE + '/admin');
+  await admin.locator('[data-tab="etsy"]').click();
+  await admin.waitForSelector('.etsy-card');
+  const list = await (await admin.request.get(BASE + '/api/admin/etsy')).json();
+  check('etsy: every published picture is listed with a first draft', list.puzzles.length > 0 && list.puzzles.every((p) => p.status === 'none' && p.title.length <= 140 && p.tags.length <= 13));
+  // Upload a mockup (a plain wall with a dark frame) and mark its corners.
+  const png = await admin.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 2400;
+    c.height = 1600;
+    const x = c.getContext('2d');
+    x.fillStyle = '#d8d0c4';
+    x.fillRect(0, 0, 2400, 1600);
+    x.fillStyle = '#222';
+    x.fillRect(700, 300, 1000, 720);
+    x.fillStyle = '#fff';
+    x.fillRect(740, 340, 920, 640);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  await admin.locator('.etsy-mockups input[type=file]').setInputFiles({ name: 'Test wall.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await admin.waitForSelector('.etsy-corners img');
+  await admin.waitForFunction(() => document.querySelector('.etsy-corners img')?.complete);
+  const box = await admin.locator('.etsy-corners img').boundingBox();
+  for (const [u, v] of [[800 / 2400, 400 / 1600], [1600 / 2400, 400 / 1600], [1600 / 2400, 920 / 1600], [800 / 2400, 920 / 1600]]) await admin.mouse.click(box.x + u * box.width, box.y + v * box.height);
+  check('etsy: four corner dots placed', (await admin.locator('.etsy-dot').count()) === 4);
+  await admin.locator('.etsy-corner-editor').getByRole('button', { name: 'Save' }).click();
+  await admin.waitForFunction(() => /1 ready to use/.test(document.body.textContent || ''));
+  const mk = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).mockups[0];
+  check('etsy: mockup saved with its corners', mk && mk.corners?.length === 4 && Math.abs(mk.corners[0][0] - 1 / 3) < 0.02 && Math.abs(mk.corners[2][1] - 0.575) < 0.02, JSON.stringify(mk?.corners));
+  // AI text fails cleanly when the AI can't be reached (no Cloudflare login here).
+  const first = list.puzzles[0];
+  const aiRes = await admin.request.post(BASE + `/api/admin/etsy/items/${first.id}/write`, { data: { image: 'data:image/jpeg;base64,/9j/4AAQ', name: first.name } });
+  check('etsy: AI writer answers with a clear error, not a crash', [502, 503].includes(aiRes.status()), String(aiRes.status()));
+  // Prepare one picture in the browser and check the zip.
+  await admin.locator(`.etsy-card[data-id="${first.id}"] input[type=checkbox]`).check();
+  const logs = [];
+  admin.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`.slice(0, 300)));
+  const [dl] = await Promise.all([
+    admin.waitForEvent('download', { timeout: 300000 }).catch(async (e) => {
+      console.log('QUEUE:', await admin.locator('.etsy-queue').innerText().catch(() => '?'), '\nCONSOLE:', logs.join('\n'), '\nERRORS:', adminErrors.join(' | '));
+      await admin.screenshot({ path: `${OUT}/etsy-fail.png` });
+      throw e;
+    }),
+    admin.getByRole('button', { name: /Prepare selected \(1\)/ }).click(),
+  ]);
+  const zipPath = `${OUT}/etsy.zip`;
+  await dl.saveAs(zipPath);
+  const { unzipSync } = await import('fflate');
+  const { readFileSync } = await import('node:fs');
+  const z = unzipSync(readFileSync(zipPath));
+  const names = Object.keys(z);
+  const prints = names.filter((n) => n.includes('1 - Digital files'));
+  const photos = names.filter((n) => n.includes('2 - Listing photos'));
+  const jpegSize = (u) => {
+    for (let i = 2; i < u.length; ) {
+      if (u[i] !== 0xff) return null;
+      const m = u[i + 1];
+      const len = (u[i + 2] << 8) | u[i + 3];
+      if (m >= 0xc0 && m <= 0xc3) return [(u[i + 7] << 8) | u[i + 8], (u[i + 5] << 8) | u[i + 6]];
+      i += 2 + len;
+    }
+    return null;
+  };
+  const dims = prints.map((n) => jpegSize(z[n]));
+  const dpi = prints.every((n) => z[n][13] === 1 && ((z[n][14] << 8) | z[n][15]) === 300);
+  check('etsy: zip has 5 print files', prints.length === 5, names.join(', '));
+  check('etsy: print files at full size (36x24, 24x18, 20x16, 14x11, A1 at 300 DPI)', JSON.stringify(dims) === JSON.stringify([[10800, 7200], [7200, 5400], [6000, 4800], [4200, 3300], [7016, 4961]]), JSON.stringify(dims));
+  check('etsy: print files say 300 DPI', dpi);
+  check('etsy: each print file under 20 MB', prints.every((n) => z[n].length < 20 * 1024 * 1024), prints.map((n) => (z[n].length / 1048576).toFixed(1)).join(','));
+  check('etsy: listing photos (mockup + sizes + close-up + download card)', photos.length === 4 && photos[0].endsWith('01-room-1.jpg'), photos.join(', '));
+  const text = new TextDecoder().decode(z[names.find((n) => n.endsWith('3 - Listing text.txt'))]);
+  check('etsy: listing text has title, tags, description and the AI note', /TITLE/.test(text) && /TAGS/.test(text) && /WHAT YOU GET/.test(text) && /using AI image tools/.test(text));
+  for (const n of photos.slice(0, 2)) (await import('node:fs')).writeFileSync(`${OUT}/etsy-${n.split('/').pop()}`, z[n]);
+  await admin.waitForSelector('.etsy-job.done');
+  const after = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.find((p) => p.id === first.id);
+  check('etsy: prepared picture is marked Prepared', after.status === 'prepared');
+  await admin.screenshot({ path: `${OUT}/etsy-admin.png`, fullPage: false });
+  // List it on Etsy: wrong links are refused, a real one shows "Get it as wall art".
+  const bad = await admin.request.put(BASE + `/api/admin/etsy/items/${first.id}`, { data: { etsyUrl: 'https://example.com/x' } });
+  check('etsy: non-Etsy links refused', bad.status() === 422);
+  await admin.locator(`.etsy-card[data-id="${first.id}"] .meta`).click();
+  await admin.locator('.etsy-editor input[type=url]').fill('https://www.etsy.com/listing/123456/test-print');
+  await admin.locator('.etsy-editor').getByRole('button', { name: 'Save' }).click();
+  await admin.waitForFunction((id) => document.querySelector(`.etsy-card[data-id="${id}"] .pill`)?.textContent === 'Listed on Etsy', first.id);
+  const wa = await (await guest.request.get(BASE + `/api/puzzles/${first.slug}/wall-art`)).json();
+  check('etsy: listed picture gives players the wall-art link', wa.url === 'https://www.etsy.com/listing/123456/test-print');
+  const none = await (await guest.request.get(BASE + `/api/puzzles/${list.puzzles[1]?.slug ?? 'x'}/wall-art`)).json();
+  check('etsy: unlisted pictures have no link', none.url === null);
+}
+
 check('no JS errors (admin)', adminErrors.length === 0, adminErrors.join(' | '));
 check('no JS errors (player)', playerErrors.length === 0, playerErrors.join(' | '));
 check('no JS errors (guest)', guestErrors.length === 0, guestErrors.join(' | '));

@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { readdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, 'web');
@@ -51,8 +51,24 @@ const themeBoot = {
   },
 };
 
+/**
+ * Admin → Etsy prep upscales pictures in the browser with ONNX Runtime. Copy just
+ * the two builds it uses (WebGPU, and plain CPU as the fallback) into dist/ort.
+ * The default build's file is over Cloudflare's 25 MB limit for one file.
+ */
+const ORT_FILES = ['ort.jspi.min.mjs', 'ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'];
+const ortCopy = {
+  name: 'snapshift-ort-copy',
+  closeBundle() {
+    const from = resolve(import.meta.dirname, 'node_modules/onnxruntime-web/dist');
+    const to = resolve(import.meta.dirname, 'dist/ort');
+    mkdirSync(to, { recursive: true });
+    for (const f of ORT_FILES) copyFileSync(resolve(from, f), resolve(to, f));
+  },
+};
+
 export default defineConfig({
-  plugins: [themeBoot],
+  plugins: [themeBoot, ortCopy],
   root,
   publicDir: resolve(import.meta.dirname, 'public'),
   resolve: { alias: { '@shared': resolve(import.meta.dirname, 'shared') } },

@@ -17,6 +17,7 @@ import { sendEmail } from '../lib/email';
 import { dailyStreak, getDaily } from '../lib/catalog';
 import { sendDailyPushes } from '../lib/push';
 import analytics from './analytics';
+import etsy from './admin-etsy';
 
 const app = new Hono<AppEnv>();
 app.use('*', async (c, next) => {
@@ -50,6 +51,7 @@ function adminPuzzle(p: PuzzleRow) {
 }
 
 app.route('/analytics', analytics);
+app.route('/etsy', etsy);
 
 app.get('/overview', async (c) => {
   const today = dayKey(c.env);

@@ -24,6 +24,8 @@
   "r2_buckets": [
     { "binding": "MEDIA", "bucket_name": "snapshift-media" }
   ],
+  // Cloudflare's AI, for writing Etsy listing text (Admin → Etsy prep).
+  "ai": { "binding": "AI" },
   // Every 10 minutes: plan new ElevenLabs generations and collect finished ones.
   "triggers": { "crons": ["*/10 * * * *"] },
   "vars": {

@@ -11,11 +11,14 @@ npx tsc shared/engine.ts shared/rules.ts shared/slider.ts --outDir tests/e2e/.en
 sed -i.bak "s#from './rules'#from './rules.js'#" tests/e2e/.engine/engine.js && sed -i.bak "s#from './engine'#from './engine.js'#" tests/e2e/.engine/slider.js && echo '{"type":"module"}' > tests/e2e/.engine/package.json
 npx vite build >/dev/null
 printf 'DEV_MODE=1\nELEVENLABS_API_KEY=test-key\nELEVENLABS_BASE_URL=http://127.0.0.1:8790\nSTRIPE_SECRET_KEY=sk_test_mock\nSTRIPE_WEBHOOK_SECRET=whsec_test\nSTRIPE_BASE_URL=http://127.0.0.1:8791\nCF_ANALYTICS_TOKEN=cf-test\nCF_API_BASE_URL=http://127.0.0.1:8792\nADMIN_EMAILS=admin@snapshift.test\n' > .dev.vars
-rm -rf .wrangler/state && npx wrangler d1 migrations apply snapshift --local >/dev/null
+# Cloudflare's AI only runs online (it needs a login), so the local test server uses
+# a copy of the config without it; the Etsy writer then answers "not set up".
+grep -v '"ai":' wrangler.jsonc > wrangler.e2e.jsonc
+rm -rf .wrangler/state && npx wrangler d1 migrations apply snapshift --local -c wrangler.e2e.jsonc >/dev/null
 node tests/e2e/mock-elevenlabs.mjs "$OUT/img" & MOCK=$!
 node tests/e2e/mock-stripe.mjs http://127.0.0.1:8787 whsec_test & STRIPE=$!
 node tests/e2e/mock-cloudflare.mjs & CF=$!
-npx wrangler dev --port 8787 --ip 127.0.0.1 >"$OUT/wrangler.log" 2>&1 & WR=$!
-trap 'kill $MOCK $STRIPE $CF $WR 2>/dev/null; rm -f .dev.vars' EXIT
+npx wrangler dev -c wrangler.e2e.jsonc --port 8787 --ip 127.0.0.1 >"$OUT/wrangler.log" 2>&1 & WR=$!
+trap 'kill $MOCK $STRIPE $CF $WR 2>/dev/null; rm -f .dev.vars wrangler.e2e.jsonc' EXIT
 sleep 8
 node tests/e2e/e2e.mjs "$OUT" "$OUT/img/test.png"

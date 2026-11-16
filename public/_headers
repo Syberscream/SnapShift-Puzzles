@@ -1,0 +1,13 @@
+# Admin: cross-origin isolation, so the Etsy upscaler can use every CPU core
+# when the computer has no WebGPU.
+/admin
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+/admin.html
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+# The upscaler's own files (its helper threads need the same isolation).
+/ort/*
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin

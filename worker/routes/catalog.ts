@@ -246,6 +246,18 @@ app.get('/puzzles/:slug', async (c) => {
   return c.json({ puzzle: { ...view, width: p.width, height: p.height }, category: cat, next, best });
 });
 
+/** The Etsy print of this picture, once the admin has listed it ("Get this as wall art"). */
+app.get('/puzzles/:slug/wall-art', async (c) => {
+  const r = await c.env.DB.prepare(
+    `SELECT e.etsy_url FROM etsy_items e JOIN puzzles p ON p.id = e.puzzle_id
+     WHERE p.slug = ? AND p.status = 'published' AND e.status = 'listed' AND e.etsy_url IS NOT NULL`,
+  )
+    .bind(c.req.param('slug'))
+    .first<{ etsy_url: string }>();
+  c.header('Cache-Control', 'public, max-age=300');
+  return c.json({ url: r?.etsy_url ?? null });
+});
+
 app.post('/puzzles/:slug/unlock', async (c) => {
   const user = requireUser(c);
   const p = await c.env.DB.prepare("SELECT * FROM puzzles WHERE slug = ? AND status = 'published'").bind(c.req.param('slug')).first<PuzzleRow>();

@@ -789,6 +789,7 @@ function showResult(r: CompleteResult, guest: boolean) {
     (dailyDay ? pushOffer() : null) ??
       (!guest && dailyDay && r.streak && r.streak.current >= 2 && user && !user.remindStreak && user.emailVerified ? reminderOffer() : null),
     r.milestone ? h('div', { class: 'notice warn' }, h('b', {}, `${r.milestone.title}! `), `${r.milestone.days}-day streak: +${r.milestone.points} bonus points.`) : null,
+    wallArt(puzzle.slug),
     h(
       'div',
       { class: 'row end' },
@@ -803,6 +804,24 @@ function showResult(r: CompleteResult, guest: boolean) {
         : h('a', { class: 'btn primary', href: puzzle.categoryId ? `/category?c=${puzzle.categoryId}` : '/' }, 'More puzzles'),
     ),
   );
+}
+
+/** "Get this as wall art": filled in once we know the picture is listed on Etsy. */
+function wallArt(slug: string): HTMLElement {
+  const box = h('div', { class: 'wall-art', hidden: true });
+  void api
+    .get<{ url: string | null }>(`/puzzles/${encodeURIComponent(slug)}/wall-art`)
+    .then((r) => {
+      if (!r.url) return;
+      box.append(
+        h('span', {}, '🖼️ Love this picture? '),
+        h('a', { class: 'btn small gold', href: r.url, target: '_blank', rel: 'noopener' }, 'Get it as wall art'),
+        h('span', { class: 'small muted' }, ' Printable, high resolution, on Etsy.'),
+      );
+      box.hidden = false;
+    })
+    .catch(() => null);
+  return box;
 }
 
 /** After a daily: offer an evening email if the streak is about to lapse. */

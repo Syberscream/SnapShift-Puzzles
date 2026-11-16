@@ -7,3 +7,4 @@ dist/
 Thumbs.db
 tests/e2e/.engine/
 dist-portal/
+wrangler.e2e.jsonc
