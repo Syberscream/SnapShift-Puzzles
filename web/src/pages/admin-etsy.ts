@@ -22,6 +22,7 @@ interface Item {
   written: boolean;
   focus: number;
   etsyUrl: string | null;
+  mockupIds: number[];
   preparedAt: number | null;
 }
 interface Data {
@@ -37,6 +38,92 @@ let search = '';
 let page = 1;
 const selected = new Set<number>();
 let busy = false;
+const MAX_MOCKUPS = ETSY.photos - 3;
+const isReady = (m: Mockup) => !!m.corners;
+/** The mockups a picture will use: its own picks, else the defaults (up to 7). */
+function chosenMockups(d: Data, p: Item): Mockup[] {
+  const own = p.mockupIds.map((id) => d.mockups.find((m) => m.id === id)).filter((m): m is Mockup => !!m && isReady(m));
+  return own.length ? own : d.mockups.filter((m) => m.active && isReady(m)).slice(0, MAX_MOCKUPS);
+}
+
+/** Thumbnails to tick, up to 7, in the order ticked. */
+function mockupPicker(d: Data, chosen: number[], onChange: (ids: number[]) => void): HTMLElement {
+  const ready = d.mockups.filter(isReady);
+  const count = h('span', { class: 'small muted' });
+  const grid = h('div', { class: 'etsy-pick-grid' });
+  const draw = () => {
+    count.textContent = chosen.length ? `${chosen.length} of ${MAX_MOCKUPS} picked (in this order)` : `None picked: uses your default mockups. Pick up to ${MAX_MOCKUPS}.`;
+    grid.replaceChildren(
+      ...ready.map((m) => {
+        const i = chosen.indexOf(m.id);
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: `etsy-pick ${i >= 0 ? 'on' : ''}`,
+            title: m.name,
+            style: bg(m.image),
+            onclick: () => {
+              if (i >= 0) chosen.splice(i, 1);
+              else if (chosen.length >= MAX_MOCKUPS) return toast(`At most ${MAX_MOCKUPS} mockups`, 'Etsy allows 10 photos; 3 are the sizes chart, close-up and download card.', 'bad');
+              else chosen.push(m.id);
+              onChange(chosen);
+              draw();
+            },
+          },
+          i >= 0 ? h('span', { class: 'etsy-pick-n' }, String(i + 1)) : null,
+          h('span', { class: 'etsy-pick-name' }, m.name),
+        );
+      }),
+    );
+  };
+  draw();
+  return h(
+    'div',
+    { class: 'etsy-picker' },
+    h('div', { class: 'row spread' }, count, chosen.length ? h('button', { type: 'button', class: 'btn small', onclick: () => ((chosen.length = 0), onChange(chosen), draw()) }, 'Clear (use defaults)') : null),
+    ready.length ? grid : h('p', { class: 'small muted' }, 'No mockups with corners set yet. Upload some in Room mockups above.'),
+  );
+}
+
+/** Choose mockups for every selected picture at once. */
+function bulkMockups(d: Data, rerender: () => void) {
+  const ids = [...selected];
+  const chosen: number[] = [];
+  const dlg = modal(
+    h(
+      'div',
+      { class: 'etsy-editor' },
+      h('h2', {}, `Mockups for ${ids.length} selected ${ids.length === 1 ? 'picture' : 'pictures'}`),
+      h('p', { class: 'small muted' }, 'This replaces their current mockup picks. Pick none to put them back on your defaults.'),
+      mockupPicker(d, chosen, () => null),
+      h(
+        'div',
+        { class: 'row end' },
+        h('button', { class: 'btn', onclick: () => dlg.close() }, 'Cancel'),
+        h(
+          'button',
+          {
+            class: 'btn primary',
+            onclick: async () => {
+              try {
+                await api.put('/admin/etsy/items-mockups', { ids, mockupIds: chosen });
+                for (const p of d.puzzles) if (ids.includes(p.id)) p.mockupIds = [...chosen];
+                toast('Mockups set', `${ids.length} ${ids.length === 1 ? 'picture' : 'pictures'}.`, 'good');
+                dlg.close();
+                rerender();
+              } catch (e) {
+                toast('Couldn’t save', errorText(e), 'bad');
+              }
+            },
+          },
+          'Apply',
+        ),
+      ),
+    ),
+  );
+  dlg.classList.add('etsy-modal', 'wide');
+}
 
 export async function etsyTab(body: HTMLElement): Promise<void> {
   const d = await api.get<Data>('/admin/etsy');
@@ -108,6 +195,7 @@ function render(body: HTMLElement, d: Data) {
         { class: 'row etsy-tools' },
         h('button', { class: 'btn small', onclick: () => (slice.forEach((p) => selected.add(p.id)), rerender()) }, 'Select this page'),
         h('button', { class: 'btn small', onclick: () => (selected.clear(), rerender()) }, 'Clear selection'),
+        h('button', { class: 'btn small', disabled: !selected.size || busy, onclick: () => bulkMockups(d, rerender) }, `Mockups for selected (${selected.size})`),
         prepBtn,
       ),
     ),
@@ -145,6 +233,7 @@ function card(d: Data, p: Item, rerender: () => void): HTMLElement {
       h('b', {}, p.name),
       h('span', { class: 'small muted' }, p.category ?? ''),
       h('span', { class: `pill small etsy-${p.status}` }, STATUS_LABEL[p.status]),
+      p.mockupIds.length ? h('span', { class: 'small muted' }, `🖼 ${p.mockupIds.length} mockup${p.mockupIds.length === 1 ? '' : 's'} picked`) : null,
     ),
   );
 }
@@ -170,16 +259,18 @@ function editor(d: Data, p: Item, rerender: () => void) {
   tags.addEventListener('input', count);
   count();
 
+  const picks = [...p.mockupIds];
   const save = async (extra: Record<string, unknown> = {}) => {
-    const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null }>(`/admin/etsy/items/${p.id}`, {
+    const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null; mockupIds: number[] }>(`/admin/etsy/items/${p.id}`, {
       title: title.value,
       intro: intro.value,
       tags: tags.value,
       status: status.value,
       etsyUrl: url.value.trim(),
+      mockupIds: picks,
       ...extra,
     });
-    Object.assign(p, { title: r.title ?? p.title, intro: r.intro ?? p.intro, tags: r.tags ?? p.tags, status: r.status, etsyUrl: r.etsy_url, written: true });
+    Object.assign(p, { title: r.title ?? p.title, intro: r.intro ?? p.intro, tags: r.tags ?? p.tags, status: r.status, etsyUrl: r.etsy_url, written: true, mockupIds: r.mockupIds ?? picks });
     tags.value = p.tags.join(', ');
     count();
   };
@@ -216,6 +307,8 @@ function editor(d: Data, p: Item, rerender: () => void) {
       h('label', {}, h('span', { class: 'row spread' }, 'Tags, comma-separated ', tagNote), tags),
       h('div', { class: 'row' }, aiBtn, copy('Title', () => title.value), copy('Description', () => fullDescription(intro.value)), copy('Tags', () => tags.value)),
       !d.ai ? h('p', { class: 'small muted' }, 'AI writing turns on after the next deploy (it uses Cloudflare’s built-in AI).') : null,
+      h('b', {}, 'Mockups for this picture'),
+      mockupPicker(d, picks, () => null),
       h('div', { class: 'row' }, h('label', {}, 'Status', status), h('label', { class: 'grow' }, 'Etsy listing link (shows “Get this as wall art” to players)', url)),
       h(
         'div',
@@ -314,7 +407,7 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
         step(r, 'Making the print files…', 0.72);
         const files = await printFiles(big, prefix, p.focus, (i) => step(r, `Making the print files… ${i + 1}/5`, 0.72 + (i + 1) * 0.04));
         step(r, 'Making the listing photos…', 0.92);
-        const photos = await listingPhotos(big, p.name, p.focus, d.mockups);
+        const photos = await listingPhotos(big, p.name, p.focus, chosenMockups(d, p));
         const text = listingText(p, big.height > big.width);
         step(r, 'Zipping…', 0.97);
         const zip = makeZip(p.name.replace(/[\\/:*?"<>|]+/g, ''), files, photos, text);
@@ -351,10 +444,19 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
 
 // ---------- mockups ----------
 
+let mockupsOpen: boolean | null = null;
+
 function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
   const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: true, hidden: true }) as HTMLInputElement;
+  const progress = h('span', { class: 'small muted' });
   file.addEventListener('change', async () => {
-    for (const f of file.files ?? []) {
+    const files = [...(file.files ?? [])];
+    file.value = '';
+    let done = 0;
+    let failed = 0;
+    const added: Mockup[] = [];
+    for (const f of files) {
+      progress.textContent = `Uploading ${done + failed + 1} of ${files.length}…`;
       try {
         const url = URL.createObjectURL(f);
         const img = await loadImage(url);
@@ -366,50 +468,70 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
         form.set('height', String(img.naturalHeight));
         const m = await api.post<Mockup>('/admin/etsy/mockups', form);
         d.mockups.push(m);
-        rerender();
-        cornerEditor(m, d, rerender);
+        added.push(m);
+        done++;
       } catch (e) {
-        toast('Couldn’t upload the mockup', errorText(e), 'bad');
+        failed++;
+        toast(`Couldn’t upload ${f.name}`, errorText(e), 'bad');
       }
     }
-    file.value = '';
+    mockupsOpen = true;
+    rerender();
+    if (added.length) {
+      toast(`${done} mockup${done === 1 ? '' : 's'} uploaded`, 'Now mark the frame corners on each one.', 'good');
+      cornerEditor(added[0], d, rerender);
+    }
   });
-  const ready = d.mockups.filter((m) => m.active && m.corners).length;
-  return h(
-    'section',
-    { class: 'panel' },
-    h('h2', {}, `Room mockups (${d.mockups.length})`),
+  const ready = d.mockups.filter(isReady);
+  const todo = d.mockups.filter((m) => !isReady(m));
+  const defaults = ready.filter((m) => m.active);
+  const open = mockupsOpen ?? (todo.length > 0 || d.mockups.length === 0);
+  const details = h(
+    'details',
+    { class: 'panel etsy-mockups-panel', open },
+    h('summary', {}, h('h2', {}, `Room mockups (${d.mockups.length})`), h('span', { class: 'small muted' }, ` ${ready.length} ready · ${defaults.length} default${todo.length ? ` · ${todo.length} need corners` : ''}`)),
     h(
       'p',
       { class: 'muted' },
-      'Upload photos of an empty frame on a wall (landscape frames suit these pictures best), then click the four corners of the picture area. Every prepared listing gets one photo per mockup, up to 7. With no mockups, two simple built-in rooms are used.',
+      `Upload photos of an empty frame on a wall, then mark the four corners of the picture area. Each listing uses the mockups you pick for that picture (up to ${MAX_MOCKUPS}). Pictures with no picks use your ★ starred defaults (up to ${MAX_MOCKUPS}; the first ${MAX_MOCKUPS} uploads start starred). With no mockups at all, two simple built-in rooms are used.`,
     ),
-    h('p', { class: 'small muted' }, `${ready} ready to use.`),
+    h(
+      'div',
+      { class: 'row' },
+      h('button', { class: 'btn primary', onclick: () => file.click() }, '+ Upload mockups'),
+      todo.length ? h('button', { class: 'btn', onclick: () => cornerEditor(todo[0], d, rerender) }, `Mark corners (${todo.length} to do)`) : null,
+      progress,
+      file,
+    ),
     h(
       'div',
       { class: 'etsy-mockups' },
       d.mockups.map((m) =>
         h(
           'div',
-          { class: `etsy-mockup ${m.active ? '' : 'off'}` },
-          h('div', { class: 'thumb wide', style: bg(m.image), onclick: () => cornerEditor(m, d, rerender) }),
+          { class: `etsy-mockup ${isReady(m) ? '' : 'todo'}` },
+          h('div', { class: 'thumb wide', style: bg(m.image), title: 'Mark corners', onclick: () => cornerEditor(m, d, rerender) }),
           h('b', { class: 'small' }, m.name),
-          h('span', { class: 'small muted' }, m.corners ? (m.active ? 'In use' : 'Turned off') : '⚠ Corners not set'),
+          h('span', { class: 'small muted' }, !isReady(m) ? '⚠ Corners not set' : m.active ? '★ Default' : 'Ready (pick per picture)'),
           h(
             'div',
             { class: 'row' },
             h('button', { class: 'btn small', onclick: () => cornerEditor(m, d, rerender) }, 'Corners'),
-            h(
-              'button',
-              {
-                class: 'btn small',
-                onclick: async () => {
-                  Object.assign(m, await api.put<Mockup>(`/admin/etsy/mockups/${m.id}`, { active: !m.active }));
-                  rerender();
-                },
-              },
-              m.active ? 'Turn off' : 'Turn on',
-            ),
+            isReady(m)
+              ? h(
+                  'button',
+                  {
+                    class: 'btn small',
+                    title: 'Defaults are used for pictures without their own mockup picks',
+                    onclick: async () => {
+                      Object.assign(m, await api.put<Mockup>(`/admin/etsy/mockups/${m.id}`, { active: !m.active }));
+                      mockupsOpen = true;
+                      rerender();
+                    },
+                  },
+                  m.active ? 'Unstar' : '★ Star',
+                )
+              : null,
             h(
               'button',
               {
@@ -418,18 +540,21 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
                   if (!confirm(`Delete the mockup “${m.name}”?`)) return;
                   await api.del(`/admin/etsy/mockups/${m.id}`);
                   d.mockups = d.mockups.filter((x) => x.id !== m.id);
+                  for (const p of d.puzzles) p.mockupIds = p.mockupIds.filter((id) => id !== m.id);
+                  mockupsOpen = true;
                   rerender();
                 },
+                title: 'Delete',
               },
-              'Delete',
+              '🗑',
             ),
           ),
         ),
       ),
-      h('button', { class: 'btn etsy-mockup-add', onclick: () => file.click() }, '+ Upload mockups'),
-      file,
     ),
   );
+  details.addEventListener('toggle', () => (mockupsOpen = details.open));
+  return details;
 }
 
 /**
@@ -551,13 +676,17 @@ function cornerEditor(m: Mockup, d: Data, rerender: () => void) {
                 try {
                   Object.assign(m, await api.put<Mockup>(`/admin/etsy/mockups/${m.id}`, { corners: pts, name: name.value }));
                   dlg.close();
+                  mockupsOpen = true;
                   rerender();
+                  // Straight on to the next mockup that still needs corners.
+                  const next = d.mockups.find((x) => !x.corners && x.id !== m.id);
+                  if (next) cornerEditor(next, d, rerender);
                 } catch (e) {
                   toast('Couldn’t save', errorText(e), 'bad');
                 }
               },
             },
-            'Save',
+            d.mockups.some((x) => !x.corners && x.id !== m.id) ? 'Save & next' : 'Save',
           ),
         ),
       ),

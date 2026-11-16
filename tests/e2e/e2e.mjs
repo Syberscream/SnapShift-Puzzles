@@ -1529,35 +1529,60 @@ check('contact message reaches admin', msgs.length === 1);
   await admin.waitForSelector('.etsy-card');
   const list = await (await admin.request.get(BASE + '/api/admin/etsy')).json();
   check('etsy: every published picture is listed with a first draft', list.puzzles.length > 0 && list.puzzles.every((p) => p.status === 'none' && p.title.length <= 140 && p.tags.length <= 13));
-  // Upload a mockup (a plain wall with a dark frame) and mark its corners.
-  const png = await admin.evaluate(() => {
-    const c = document.createElement('canvas');
-    c.width = 2400;
-    c.height = 1600;
-    const x = c.getContext('2d');
-    x.fillStyle = '#d8d0c4';
-    x.fillRect(0, 0, 2400, 1600);
-    x.fillStyle = '#222';
-    x.fillRect(700, 300, 1000, 720);
-    x.fillStyle = '#fff';
-    x.fillRect(740, 340, 920, 640);
-    return c.toDataURL('image/png').split(',')[1];
-  });
-  await admin.locator('.etsy-mockups input[type=file]').setInputFiles({ name: 'Test wall.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
-  await admin.waitForSelector('.etsy-corners img');
-  await admin.waitForFunction(() => document.querySelector('.etsy-corners img')?.complete);
-  const box = await admin.locator('.etsy-corners img').boundingBox();
-  for (const [u, v] of [[800 / 2400, 400 / 1600], [1600 / 2400, 400 / 1600], [1600 / 2400, 920 / 1600], [800 / 2400, 920 / 1600]]) await admin.mouse.click(box.x + u * box.width, box.y + v * box.height);
+  // Upload two mockups at once (plain walls with a dark frame in different places) and mark their corners.
+  const wall = (fx, fy, fw, fh) =>
+    admin.evaluate(([fx, fy, fw, fh]) => {
+      const c = document.createElement('canvas');
+      c.width = 2400;
+      c.height = 1600;
+      const x = c.getContext('2d');
+      x.fillStyle = '#d8d0c4';
+      x.fillRect(0, 0, 2400, 1600);
+      x.fillStyle = '#222';
+      x.fillRect(fx, fy, fw, fh);
+      x.fillStyle = '#fff';
+      x.fillRect(fx + 40, fy + 40, fw - 80, fh - 80);
+      return c.toDataURL('image/png').split(',')[1];
+    }, [fx, fy, fw, fh]);
+  const [wallA, wallB] = [await wall(700, 300, 1000, 720), await wall(220, 220, 760, 560)];
+  await admin.locator('.etsy-mockups-panel input[type=file]').setInputFiles([
+    { name: 'Wall A.png', mimeType: 'image/png', buffer: Buffer.from(wallA, 'base64') },
+    { name: 'Wall B.png', mimeType: 'image/png', buffer: Buffer.from(wallB, 'base64') },
+  ]);
+  const mark = async (pts) => {
+    await admin.waitForSelector('.etsy-corners img');
+    await admin.waitForFunction(() => document.querySelector('.etsy-corners img')?.complete && document.querySelectorAll('.etsy-dot').length === 0);
+    const box = await admin.locator('.etsy-corners img').boundingBox();
+    for (const [u, v] of pts) await admin.mouse.click(box.x + (u / 2400) * box.width, box.y + (v / 1600) * box.height);
+  };
+  await mark([[800, 400], [1600, 400], [1600, 920], [800, 920]]);
   check('etsy: four corner dots placed', (await admin.locator('.etsy-dot').count()) === 4);
-  await admin.locator('.etsy-corner-editor').getByRole('button', { name: 'Save' }).click();
-  await admin.waitForFunction(() => /1 ready to use/.test(document.body.textContent || ''));
-  const mk = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).mockups[0];
+  check('etsy: corner editor offers Save & next while others need corners', (await admin.locator('.etsy-corner-editor').getByRole('button', { name: 'Save & next' }).count()) === 1);
+  await admin.locator('.etsy-corner-editor').getByRole('button', { name: 'Save & next' }).click();
+  await admin.waitForFunction(() => document.querySelector('.etsy-corner-editor input')?.value === 'Wall B');
+  await mark([[300, 300], [900, 300], [900, 700], [300, 700]]);
+  await admin.locator('.etsy-corner-editor').getByRole('button', { name: 'Save', exact: true }).click();
+  await admin.waitForFunction(() => /2 ready/.test(document.querySelector('.etsy-mockups-panel summary')?.textContent || ''));
+  const mks = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).mockups;
+  const mk = mks.find((m) => m.name === 'Wall A');
+  const mkB = mks.find((m) => m.name === 'Wall B');
   check('etsy: mockup saved with its corners', mk && mk.corners?.length === 4 && Math.abs(mk.corners[0][0] - 1 / 3) < 0.02 && Math.abs(mk.corners[2][1] - 0.575) < 0.02, JSON.stringify(mk?.corners));
+  check('etsy: second mockup saved via Save & next', mkB && Math.abs(mkB.corners[0][0] - 0.125) < 0.02 && Math.abs(mkB.corners[2][1] - 0.4375) < 0.02, JSON.stringify(mkB?.corners));
   // AI text fails cleanly when the AI can't be reached (no Cloudflare login here).
   const first = list.puzzles[0];
   const aiRes = await admin.request.post(BASE + `/api/admin/etsy/items/${first.id}/write`, { data: { image: 'data:image/jpeg;base64,/9j/4AAQ', name: first.name } });
   check('etsy: AI writer answers with a clear error, not a crash', [502, 503].includes(aiRes.status()), String(aiRes.status()));
-  // Prepare one picture in the browser and check the zip.
+  // Pick only Wall B for the first picture (bulk "Mockups for selected").
+  await admin.locator(`.etsy-card[data-id="${first.id}"] input[type=checkbox]`).check();
+  await admin.getByRole('button', { name: /Mockups for selected \(1\)/ }).click();
+  await admin.locator('.etsy-pick', { hasText: 'Wall B' }).last().click();
+  await admin.getByRole('button', { name: 'Apply' }).click();
+  await admin.waitForSelector(`.etsy-card[data-id="${first.id}"] >> text=1 mockup picked`);
+  const picked = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.find((p) => p.id === first.id);
+  check('etsy: mockups picked for a picture are saved', JSON.stringify(picked.mockupIds) === JSON.stringify([mkB.id]));
+  const tooMany = await admin.request.put(BASE + `/api/admin/etsy/items/${first.id}`, { data: { mockupIds: [1, 2, 3, 4, 5, 6, 7, 8] } });
+  check('etsy: more than 7 mockups refused', tooMany.status() === 422);
+  // Prepare that picture in the browser and check the zip.
   await admin.locator(`.etsy-card[data-id="${first.id}"] input[type=checkbox]`).check();
   const logs = [];
   admin.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`.slice(0, 300)));
@@ -1598,7 +1623,7 @@ check('contact message reaches admin', msgs.length === 1);
   check('etsy: listing text has title, tags, description and the AI note', /TITLE/.test(text) && /TAGS/.test(text) && /WHAT YOU GET/.test(text) && /using AI image tools/.test(text));
   for (const n of photos.slice(0, 2)) (await import('node:fs')).writeFileSync(`${OUT}/etsy-${n.split('/').pop()}`, z[n]);
   {
-    // The art fills exactly the area marked on the mockup (800..1600 × 400..920 of 2400×1600), and nothing outside it.
+    // Only the picked mockup (Wall B) is used, and the art fills exactly its marked area (300..900 × 300..700), nothing outside it.
     const room = Buffer.from(z[photos[0]]).toString('base64');
     const px = await admin.evaluate(async (b64) => {
       const img = new Image();
@@ -1610,7 +1635,7 @@ check('contact message reaches admin', msgs.length === 1);
       const x = c.getContext('2d');
       x.drawImage(img, 0, 0);
       const at = (u, v) => [...x.getImageData(u, v, 1, 1).data.slice(0, 3)];
-      return { size: [c.width, c.height], inside: [at(812, 412), at(1588, 412), at(1588, 908), at(812, 908), at(1200, 660)], outside: [at(770, 660), at(1630, 660), at(1200, 370), at(1200, 950)] };
+      return { size: [c.width, c.height], inside: [at(312, 312), at(888, 312), at(888, 688), at(312, 688), at(600, 500)], outside: [at(285, 500), at(915, 500), at(600, 285), at(600, 715)] };
     }, room);
     const white = (p) => p.every((v) => v > 235);
     check('etsy: art fills the marked frame on the mockup, corner to corner', px.inside.every((p) => !white(p)), JSON.stringify(px.inside));

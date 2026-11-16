@@ -583,7 +583,8 @@ export async function onMockup(big: HTMLCanvasElement, m: Mockup, focus: number)
 
 export async function listingPhotos(big: HTMLCanvasElement, name: string, focus: number, mockups: Mockup[]): Promise<{ name: string; bytes: Uint8Array }[]> {
   await document.fonts.load(`800 60px "Plus Jakarta Sans Variable"`).catch(() => null);
-  const ready = mockups.filter((m) => m.active && m.corners);
+  // The caller picks which mockups (the picture's own choice, or the defaults).
+  const ready = mockups.filter((m) => m.corners);
   const rooms: HTMLCanvasElement[] = [];
   for (const m of ready.slice(0, ETSY.photos - 3)) rooms.push(await onMockup(big, m, focus));
   if (!rooms.length) rooms.push(livingRoom(big, focus), accentWall(big, focus));

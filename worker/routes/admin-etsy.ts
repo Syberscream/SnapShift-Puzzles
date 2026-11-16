@@ -19,6 +19,7 @@ interface ItemRow {
   etsy_url: string | null;
   prepared_at: number | null;
   updated_at: number;
+  mockups: string | null;
 }
 interface MockupRow {
   id: number;
@@ -71,6 +72,7 @@ app.get('/', async (c) => {
         written: !!e?.title,
         focus: e?.focus ?? 0.5,
         etsyUrl: e?.etsy_url ?? null,
+        mockupIds: e?.mockups ? (JSON.parse(e.mockups) as number[]) : [],
         preparedAt: e?.prepared_at ?? null,
       };
     }),
@@ -78,6 +80,18 @@ app.get('/', async (c) => {
     ai: !!c.env.AI,
   });
 });
+
+/** Up to 7 mockups per listing (Etsy allows 10 photos; 3 are the sizes chart, close-up and download card). */
+export const MAX_MOCKUPS = ETSY.photos - 3;
+function mockupIds(v: unknown): number[] {
+  const out: number[] = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    const n = Number(x);
+    if (Number.isInteger(n) && n > 0 && !out.includes(n)) out.push(n);
+  }
+  if (out.length > MAX_MOCKUPS) fail(422, `Pick at most ${MAX_MOCKUPS} mockups for one listing.`);
+  return out;
+}
 
 async function save(c: { env: AppEnv['Bindings'] }, id: number, b: Record<string, unknown>) {
   const p = await c.env.DB.prepare("SELECT id FROM puzzles WHERE id = ? AND status = 'published'").bind(id).first();
@@ -93,19 +107,30 @@ async function save(c: { env: AppEnv['Bindings'] }, id: number, b: Record<string
     tags: b.tags !== undefined ? JSON.stringify(cleanTags(b.tags)) : (cur?.tags ?? null),
     focus: b.focus !== undefined ? Math.max(0, Math.min(1, Number(b.focus) || 0.5)) : (cur?.focus ?? null),
     etsy_url: url || null,
+    mockups: b.mockupIds !== undefined ? JSON.stringify(mockupIds(b.mockupIds)) : (cur?.mockups ?? null),
     prepared_at: status === 'prepared' && cur?.status !== 'prepared' ? now() : (cur?.prepared_at ?? null),
   };
   await c.env.DB.prepare(
-    `INSERT INTO etsy_items (puzzle_id, status, title, intro, tags, focus, etsy_url, prepared_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO etsy_items (puzzle_id, status, title, intro, tags, focus, etsy_url, prepared_at, mockups, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(puzzle_id) DO UPDATE SET status = excluded.status, title = excluded.title, intro = excluded.intro, tags = excluded.tags,
-       focus = excluded.focus, etsy_url = excluded.etsy_url, prepared_at = excluded.prepared_at, updated_at = excluded.updated_at`,
+       focus = excluded.focus, etsy_url = excluded.etsy_url, prepared_at = excluded.prepared_at, mockups = excluded.mockups, updated_at = excluded.updated_at`,
   )
-    .bind(id, row.status, row.title, row.intro, row.tags, row.focus, row.etsy_url, row.prepared_at, now())
+    .bind(id, row.status, row.title, row.intro, row.tags, row.focus, row.etsy_url, row.prepared_at, row.mockups, now())
     .run();
-  return { ...row, tags: row.tags ? (JSON.parse(row.tags) as string[]) : null };
+  return { ...row, tags: row.tags ? (JSON.parse(row.tags) as string[]) : null, mockupIds: row.mockups ? (JSON.parse(row.mockups) as number[]) : [] };
 }
 
 app.put('/items/:id', async (c) => c.json(await save(c, int(c.req.param('id')), await body(c))));
+
+/** The same mockups for several pictures at once. */
+app.put('/items-mockups', async (c) => {
+  const b = await body<{ ids?: unknown; mockupIds?: unknown }>(c);
+  const ids = (Array.isArray(b.ids) ? b.ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500);
+  if (!ids.length) fail(422, 'Select some pictures first.');
+  const m = mockupIds(b.mockupIds);
+  for (const id of ids) await save(c, id, { mockupIds: m });
+  return c.json({ ok: true, count: ids.length, mockupIds: m });
+});
 
 // ---------- AI listing text ----------
 
@@ -170,8 +195,10 @@ app.post('/mockups', async (c) => {
   const key = `etsy/mockups/${randomId(8)}.${file.type.split('/')[1].replace('jpeg', 'jpg')}`;
   await c.env.MEDIA.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' } });
   const name = str(form.get('name'), 60) || file.name.replace(/\.[^.]+$/, '');
-  const r = await c.env.DB.prepare('INSERT INTO etsy_mockups (name, image_key, width, height, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *')
-    .bind(name, key, w, h, now())
+  // The first few uploads become the defaults; later ones are picked per picture.
+  const defaults = (await c.env.DB.prepare('SELECT COUNT(*) AS n FROM etsy_mockups WHERE active = 1').first<{ n: number }>())?.n ?? 0;
+  const r = await c.env.DB.prepare('INSERT INTO etsy_mockups (name, image_key, width, height, active, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *')
+    .bind(name, key, w, h, defaults < MAX_MOCKUPS ? 1 : 0, now())
     .first<MockupRow>();
   return c.json(mockupView(r!));
 });
