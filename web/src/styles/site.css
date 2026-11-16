@@ -711,10 +711,13 @@ dialog.etsy-modal.wide { width: min(1100px, 96vw); }
 .etsy-editor label.grow { flex: 1; }
 .etsy-editor textarea { width: 100%; }
 .etsy-editor-pic { aspect-ratio: 16 / 5; border-radius: 12px; background-size: cover; background-position: center; }
-.etsy-corners { position: relative; user-select: none; cursor: crosshair; line-height: 0; }
-.etsy-corners img { width: 100%; height: auto; border-radius: 8px; max-height: 70vh; object-fit: contain; }
+.etsy-corners { position: relative; display: block; width: fit-content; max-width: 100%; margin: 0 auto; user-select: none; cursor: crosshair; line-height: 0; }
+.etsy-corners img { display: block; width: auto; height: auto; max-width: 100%; max-height: 70vh; border-radius: 8px; }
 .etsy-corners svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .etsy-quad { fill: rgba(255, 138, 61, 0.25); stroke: #ff8a3d; stroke-width: 3; vector-effect: non-scaling-stroke; }
 .etsy-dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #ff8a3d; color: #fff; font: 800 13px/26px system-ui; text-align: center; box-shadow: 0 0 0 3px #fff; cursor: grab; touch-action: none; }
 .wall-art { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(245, 197, 66, 0.1); border: 1px solid rgba(245, 197, 66, 0.4); }
 .btn.gold { background: linear-gradient(135deg, #f5c542, #ff8a3d); color: #1b1300; border: 0; }
+.etsy-preview:empty { display: none; }
+.etsy-preview { margin: 10px 0; }
+.etsy-preview-img { display: block; width: 100%; height: auto; max-height: 60vh; object-fit: contain; border-radius: 8px; }

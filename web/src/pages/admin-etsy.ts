@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { ETSY, fullDescription, type EtsyStatus } from '@shared/etsy';
 import {
-  download, freeCanvas, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
+  download, freeCanvas, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
 } from '../lib/etsy-prep';
 
 interface Item {
@@ -432,6 +432,23 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
   );
 }
 
+/**
+ * Where the picture itself is drawn inside its <img> box. If the photo is shrunk
+ * to fit the screen, the box can be wider than the picture; measuring against the
+ * box would squeeze the corners toward the middle.
+ */
+function picRect(img: HTMLImageElement): { left: number; top: number; width: number; height: number } {
+  const b = img.getBoundingClientRect();
+  const ar = img.naturalWidth / img.naturalHeight || b.width / b.height;
+  let width = b.width;
+  let height = width / ar;
+  if (height > b.height) {
+    height = b.height;
+    width = height * ar;
+  }
+  return { left: b.left + (b.width - width) / 2, top: b.top + (b.height - height) / 2, width, height };
+}
+
 /** Click (or drag) the four corners of the frame's picture area. */
 function cornerEditor(m: Mockup, d: Data, rerender: () => void) {
   const pts: [number, number][] = m.corners ? m.corners.map((p) => [...p] as [number, number]) : [];
@@ -460,7 +477,7 @@ function cornerEditor(m: Mockup, d: Data, rerender: () => void) {
         e.stopPropagation();
         dot.setPointerCapture(e.pointerId);
         const move = (ev: PointerEvent) => {
-          const r = img.getBoundingClientRect();
+          const r = picRect(img);
           pts[i] = [Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))];
           dot.style.left = `${pts[i][0] * 100}%`;
           dot.style.top = `${pts[i][1] * 100}%`;
@@ -477,9 +494,34 @@ function cornerEditor(m: Mockup, d: Data, rerender: () => void) {
   };
   wrap.addEventListener('click', (e) => {
     if (pts.length >= 4) return;
-    const r = img.getBoundingClientRect();
+    const r = picRect(img);
     pts.push([(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]);
     draw();
+  });
+  // Try the corners with a real picture before saving.
+  const previewBox = h('div', { class: 'etsy-preview' });
+  const previewBtn = h('button', { class: 'btn' }, '👁 Preview') as HTMLButtonElement;
+  previewBtn.addEventListener('click', async () => {
+    if (pts.length !== 4) return toast('Mark all four corners first', '', 'bad');
+    const pic = d.puzzles.find((p) => p.status === 'listed') ?? d.puzzles[0];
+    if (!pic) return toast('No pictures to preview with', '', 'bad');
+    previewBtn.disabled = true;
+    try {
+      const img = await loadImage(pic.image);
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext('2d')!.drawImage(img, 0, 0);
+      const out = await onMockup(c, { ...m, corners: pts.map((p) => [...p] as [number, number]) }, 0.5);
+      freeCanvas(c);
+      out.className = 'etsy-preview-img';
+      previewBox.replaceChildren(h('p', { class: 'small muted' }, 'Preview: the art should fill the frame’s picture area exactly. Drag the dots to adjust, then Save.'), out);
+      out.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (e) {
+      toast('Couldn’t make the preview', errorText(e), 'bad');
+    } finally {
+      previewBtn.disabled = false;
+    }
   });
   const name = h('input', { value: m.name }) as HTMLInputElement;
   const dlg = modal(
@@ -489,6 +531,7 @@ function cornerEditor(m: Mockup, d: Data, rerender: () => void) {
       h('h2', {}, 'Mark the frame'),
       help,
       wrap,
+      previewBox,
       h(
         'div',
         { class: 'row spread' },
@@ -497,6 +540,7 @@ function cornerEditor(m: Mockup, d: Data, rerender: () => void) {
           'div',
           { class: 'row' },
           h('button', { class: 'btn', onclick: () => ((pts.length = 0), draw()) }, 'Start over'),
+          previewBtn,
           h('button', { class: 'btn', onclick: () => dlg.close() }, 'Cancel'),
           h(
             'button',

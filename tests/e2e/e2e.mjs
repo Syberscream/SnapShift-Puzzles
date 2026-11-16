@@ -1597,6 +1597,25 @@ check('contact message reaches admin', msgs.length === 1);
   const text = new TextDecoder().decode(z[names.find((n) => n.endsWith('3 - Listing text.txt'))]);
   check('etsy: listing text has title, tags, description and the AI note', /TITLE/.test(text) && /TAGS/.test(text) && /WHAT YOU GET/.test(text) && /using AI image tools/.test(text));
   for (const n of photos.slice(0, 2)) (await import('node:fs')).writeFileSync(`${OUT}/etsy-${n.split('/').pop()}`, z[n]);
+  {
+    // The art fills exactly the area marked on the mockup (800..1600 × 400..920 of 2400×1600), and nothing outside it.
+    const room = Buffer.from(z[photos[0]]).toString('base64');
+    const px = await admin.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = 'data:image/jpeg;base64,' + b64;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0);
+      const at = (u, v) => [...x.getImageData(u, v, 1, 1).data.slice(0, 3)];
+      return { size: [c.width, c.height], inside: [at(812, 412), at(1588, 412), at(1588, 908), at(812, 908), at(1200, 660)], outside: [at(770, 660), at(1630, 660), at(1200, 370), at(1200, 950)] };
+    }, room);
+    const white = (p) => p.every((v) => v > 235);
+    check('etsy: art fills the marked frame on the mockup, corner to corner', px.inside.every((p) => !white(p)), JSON.stringify(px.inside));
+    check('etsy: nothing drawn outside the marked frame', px.outside.every(white), JSON.stringify(px.outside));
+  }
   await admin.waitForSelector('.etsy-job.done');
   const after = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.find((p) => p.id === first.id);
   check('etsy: prepared picture is marked Prepared', after.status === 'prepared');
