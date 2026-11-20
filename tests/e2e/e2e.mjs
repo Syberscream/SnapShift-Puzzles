@@ -1656,6 +1656,92 @@ check('contact message reaches admin', msgs.length === 1);
   check('etsy: listed picture gives players the wall-art link', wa.url === 'https://www.etsy.com/listing/123456/test-print');
   const none = await (await guest.request.get(BASE + `/api/puzzles/${list.puzzles[1]?.slug ?? 'x'}/wall-art`)).json();
   check('etsy: unlisted pictures have no link', none.url === null);
+
+  // Your own pictures: a tall poster (4200x5600): cream page, a green band along the top,
+  // an orange band down the left, a red disc in the middle.
+  const poster = await admin.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 4200;
+    c.height = 5600;
+    const x = c.getContext('2d');
+    x.fillStyle = '#f3ead9';
+    x.fillRect(0, 0, 4200, 5600);
+    x.fillStyle = '#2a8a3a';
+    x.fillRect(0, 0, 4200, 500);
+    x.fillStyle = '#e07a20';
+    x.fillRect(0, 500, 500, 5100);
+    x.fillStyle = '#c03020';
+    x.beginPath();
+    x.arc(2100, 2800, 900, 0, Math.PI * 2);
+    x.fill();
+    return c.toDataURL('image/jpeg', 0.9).split(',')[1];
+  });
+  await admin.locator('.etsy-upload-input').setInputFiles({ name: 'Test_Poster-one.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(poster, 'base64') });
+  await admin.waitForSelector('.etsy-card >> text=Test Poster one');
+  const ups = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.filter((p) => p.upload);
+  const up = ups[0];
+  check('etsy upload: listed with the puzzles, named from the file, whole-picture by default', ups.length === 1 && up.id < 0 && up.name === 'Test Poster one' && up.fit === true && up.category === 'My uploads', JSON.stringify(up));
+  check('etsy upload: "My uploads" filter shows it', /My uploads \(1\)/.test(await admin.locator('.etsy-tools').first().innerText()));
+  check('etsy upload: preview and thumbnail stored', (await admin.request.get(BASE + up.thumb)).ok() && (await admin.request.get(BASE + up.image)).ok());
+  {
+    const small = await admin.request.post(BASE + '/api/admin/etsy/uploads', {
+      multipart: {
+        file: { name: 's.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(poster, 'base64') },
+        preview: { name: 'p.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(poster, 'base64') },
+        thumb: { name: 't.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(poster, 'base64') },
+        name: 'tiny',
+        width: '600',
+        height: '800',
+      },
+    });
+    check('etsy upload: too-small pictures refused', small.status() === 422, String(small.status()));
+  }
+  // Prepare it: portrait print files, whole picture with a matching border, no AI needed at this size.
+  await admin.locator(`.etsy-card[data-id="${up.id}"] input[type=checkbox]`).check();
+  const [dl2] = await Promise.all([admin.waitForEvent('download', { timeout: 300000 }), admin.getByRole('button', { name: /Prepare selected \(1\)/ }).click()]);
+  await dl2.saveAs(`${OUT}/etsy-upload.zip`);
+  const z2 = unzipSync(readFileSync(`${OUT}/etsy-upload.zip`));
+  const prints2 = Object.keys(z2).filter((n) => n.includes('1 - Digital files'));
+  const dims2 = prints2.map((n) => jpegSize(z2[n]));
+  check('etsy upload: portrait print files (24x36, 18x24, 16x20, 11x14, A1)', JSON.stringify(dims2) === JSON.stringify([[7200, 10800], [5400, 7200], [4800, 6000], [3300, 4200], [4961, 7016]]), JSON.stringify(dims2));
+  check('etsy upload: file names say portrait', prints2.some((n) => n.includes('2x3-ratio_up-to-24x36in')), prints2.join(', '));
+  const txt2 = new TextDecoder().decode(z2[Object.keys(z2).find((n) => n.endsWith('3 - Listing text.txt'))]);
+  check('etsy upload: listing text says portrait', /All sizes are portrait/.test(txt2));
+  {
+    const at = async (name, pts) =>
+      admin.evaluate(
+        async ([b64, pts]) => {
+          const img = new Image();
+          img.src = 'data:image/jpeg;base64,' + b64;
+          await img.decode();
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const x = c.getContext('2d');
+          x.drawImage(img, 0, 0);
+          return pts.map(([u, v]) => [...x.getImageData(u, v, 1, 1).data.slice(0, 3)]);
+        },
+        [Buffer.from(z2[prints2.find((n) => n.includes(name))]).toString('base64'), pts],
+      );
+    const near = (p, q) => p.every((v, i) => Math.abs(v - q[i]) < 30);
+    const green = [0x2a, 0x8a, 0x3a], orange = [0xe0, 0x7a, 0x20], red = [0xc0, 0x30, 0x20];
+    // 2:3 (7200x10800): the 3:4 poster is drawn 7200x9600 with 600 px of border above and below.
+    const tall = await at('2x3', [[3600, 300], [3600, 900], [3600, 5400]]);
+    check('etsy upload: 2:3 file shows the whole poster with a border above and below', !near(tall[0], green) && near(tall[1], green) && near(tall[2], red), JSON.stringify(tall));
+    // 4:5 (4800x6000): drawn 4500x6000 with 150 px of border each side; the top band isn't cropped off.
+    const wide = await at('4x5', [[75, 3000], [300, 3000], [2400, 100]]);
+    check('etsy upload: 4:5 file adds side borders instead of cropping', !near(wide[0], orange) && near(wide[1], orange) && near(wide[2], green), JSON.stringify(wide));
+  }
+  await admin.waitForFunction((id) => document.querySelector(`.etsy-card[data-id="${id}"] .pill`)?.textContent === 'Prepared', up.id);
+  // Crop instead, rename, then delete.
+  const crop = await (await admin.request.put(BASE + `/api/admin/etsy/items/${up.id}`, { data: { fit: false } })).json();
+  check('etsy upload: can switch to fill (crop)', crop.fit === false);
+  check('etsy upload: renamed', (await admin.request.put(BASE + `/api/admin/etsy/uploads/${-up.id}`, { data: { name: 'Poster Two' } })).ok());
+  const re = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.find((p) => p.id === up.id);
+  check('etsy upload: new name and fill choice kept', re.name === 'Poster Two' && re.fit === false && re.status === 'prepared', JSON.stringify(re));
+  check('etsy upload: deleted', (await admin.request.delete(BASE + `/api/admin/etsy/uploads/${-up.id}`)).ok());
+  const gone = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.filter((p) => p.upload);
+  check('etsy upload: gone from the list and its files removed', gone.length === 0 && (await admin.request.get(BASE + up.thumb)).status() === 404);
 }
 
 check('no JS errors (admin)', adminErrors.length === 0, adminErrors.join(' | '));

@@ -20,6 +20,17 @@ interface ItemRow {
   prepared_at: number | null;
   updated_at: number;
   mockups: string | null;
+  fit: number | null;
+}
+interface UploadRow {
+  id: number;
+  name: string;
+  original_key: string;
+  image_key: string;
+  thumb_key: string;
+  width: number;
+  height: number;
+  created_at: number;
 }
 interface MockupRow {
   id: number;
@@ -42,40 +53,77 @@ const mockupView = (m: MockupRow) => ({
   active: !!m.active,
 });
 
-/** Every published picture with its Etsy details (or a first draft), plus the mockups. */
+/** A picture's Etsy details (or a first draft) in the shape the admin page uses. */
+function itemView(
+  base: { id: number; slug: string; name: string; category: string | null; original: string; image: string; thumb: string; upload: boolean; description?: string | null },
+  e: ItemRow | undefined,
+) {
+  const draft = draftListing({ title: base.name, description: base.description ?? undefined, category: base.upload ? null : base.category });
+  return {
+    id: base.id,
+    slug: base.slug,
+    name: base.name,
+    category: base.category,
+    original: base.original,
+    image: base.image,
+    thumb: base.thumb,
+    upload: base.upload,
+    status: e?.status ?? 'none',
+    title: e?.title ?? draft.title,
+    intro: e?.intro ?? draft.intro,
+    tags: e?.tags ? (JSON.parse(e.tags) as string[]) : draft.tags,
+    written: !!e?.title,
+    focus: e?.focus ?? 0.5,
+    // Uploads (posters, blueprints…) keep their whole picture unless told otherwise.
+    fit: e?.fit == null ? base.upload : !!e.fit,
+    etsyUrl: e?.etsy_url ?? null,
+    mockupIds: e?.mockups ? (JSON.parse(e.mockups) as number[]) : [],
+    preparedAt: e?.prepared_at ?? null,
+  };
+}
+
+const uploadBase = (u: UploadRow) => ({
+  id: -u.id,
+  slug: '',
+  name: u.name,
+  category: 'My uploads',
+  original: media(u.original_key),
+  image: media(u.image_key),
+  thumb: media(u.thumb_key),
+  upload: true,
+});
+
+/** Every published picture and every upload with its Etsy details, plus the mockups. */
 app.get('/', async (c) => {
-  const [p, items, cats, mocks] = await Promise.all([
+  const [p, items, cats, mocks, ups] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM puzzles WHERE status = 'published' ORDER BY id DESC").all<PuzzleRow>(),
     c.env.DB.prepare('SELECT * FROM etsy_items').all<ItemRow>(),
     c.env.DB.prepare('SELECT id, name FROM categories').all<{ id: string; name: string }>(),
     c.env.DB.prepare('SELECT * FROM etsy_mockups ORDER BY id').all<MockupRow>(),
+    c.env.DB.prepare('SELECT * FROM etsy_uploads ORDER BY id DESC').all<UploadRow>(),
   ]);
   const byId = new Map(items.results.map((x) => [x.puzzle_id, x]));
   const catName = new Map(cats.results.map((x) => [x.id, x.name]));
   return c.json({
-    puzzles: p.results.map((x) => {
-      const e = byId.get(x.id);
-      const category = x.category_id ? (catName.get(x.category_id) ?? null) : null;
-      const draft = draftListing({ title: x.title, description: x.description, category });
-      return {
-        id: x.id,
-        slug: x.slug,
-        name: x.title,
-        category,
-        original: media(x.original_key),
-        image: media(x.image_key || x.original_key),
-        thumb: media(x.thumb_key || x.image_key || x.original_key),
-        status: e?.status ?? 'none',
-        title: e?.title ?? draft.title,
-        intro: e?.intro ?? draft.intro,
-        tags: e?.tags ? (JSON.parse(e.tags) as string[]) : draft.tags,
-        written: !!e?.title,
-        focus: e?.focus ?? 0.5,
-        etsyUrl: e?.etsy_url ?? null,
-        mockupIds: e?.mockups ? (JSON.parse(e.mockups) as number[]) : [],
-        preparedAt: e?.prepared_at ?? null,
-      };
-    }),
+    puzzles: [
+      ...ups.results.map((u) => itemView(uploadBase(u), byId.get(-u.id))),
+      ...p.results.map((x) =>
+        itemView(
+          {
+            id: x.id,
+            slug: x.slug,
+            name: x.title,
+            description: x.description,
+            category: x.category_id ? (catName.get(x.category_id) ?? null) : null,
+            original: media(x.original_key),
+            image: media(x.image_key || x.original_key),
+            thumb: media(x.thumb_key || x.image_key || x.original_key),
+            upload: false,
+          },
+          byId.get(x.id),
+        ),
+      ),
+    ],
     mockups: mocks.results.map(mockupView),
     ai: !!c.env.AI,
   });
@@ -94,8 +142,11 @@ function mockupIds(v: unknown): number[] {
 }
 
 async function save(c: { env: AppEnv['Bindings'] }, id: number, b: Record<string, unknown>) {
-  const p = await c.env.DB.prepare("SELECT id FROM puzzles WHERE id = ? AND status = 'published'").bind(id).first();
-  if (!p) fail(404, 'Puzzle not found.');
+  // Uploads use negative ids (-1 is upload 1).
+  const p = id < 0
+    ? await c.env.DB.prepare('SELECT id FROM etsy_uploads WHERE id = ?').bind(-id).first()
+    : await c.env.DB.prepare("SELECT id FROM puzzles WHERE id = ? AND status = 'published'").bind(id).first();
+  if (!p) fail(404, 'Picture not found.');
   const cur = await c.env.DB.prepare('SELECT * FROM etsy_items WHERE puzzle_id = ?').bind(id).first<ItemRow>();
   const status = (['none', 'prepared', 'listed'] as const).includes(b.status as EtsyStatus) ? (b.status as EtsyStatus) : (cur?.status ?? 'none');
   const url = b.etsyUrl !== undefined ? str(b.etsyUrl, 300) : (cur?.etsy_url ?? '');
@@ -108,16 +159,22 @@ async function save(c: { env: AppEnv['Bindings'] }, id: number, b: Record<string
     focus: b.focus !== undefined ? Math.max(0, Math.min(1, Number(b.focus) || 0.5)) : (cur?.focus ?? null),
     etsy_url: url || null,
     mockups: b.mockupIds !== undefined ? JSON.stringify(mockupIds(b.mockupIds)) : (cur?.mockups ?? null),
+    fit: b.fit !== undefined ? (b.fit ? 1 : 0) : (cur?.fit ?? null),
     prepared_at: status === 'prepared' && cur?.status !== 'prepared' ? now() : (cur?.prepared_at ?? null),
   };
   await c.env.DB.prepare(
-    `INSERT INTO etsy_items (puzzle_id, status, title, intro, tags, focus, etsy_url, prepared_at, mockups, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO etsy_items (puzzle_id, status, title, intro, tags, focus, etsy_url, prepared_at, mockups, fit, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(puzzle_id) DO UPDATE SET status = excluded.status, title = excluded.title, intro = excluded.intro, tags = excluded.tags,
-       focus = excluded.focus, etsy_url = excluded.etsy_url, prepared_at = excluded.prepared_at, mockups = excluded.mockups, updated_at = excluded.updated_at`,
+       focus = excluded.focus, etsy_url = excluded.etsy_url, prepared_at = excluded.prepared_at, mockups = excluded.mockups, fit = excluded.fit, updated_at = excluded.updated_at`,
   )
-    .bind(id, row.status, row.title, row.intro, row.tags, row.focus, row.etsy_url, row.prepared_at, row.mockups, now())
+    .bind(id, row.status, row.title, row.intro, row.tags, row.focus, row.etsy_url, row.prepared_at, row.mockups, row.fit, now())
     .run();
-  return { ...row, tags: row.tags ? (JSON.parse(row.tags) as string[]) : null, mockupIds: row.mockups ? (JSON.parse(row.mockups) as number[]) : [] };
+  return {
+    ...row,
+    tags: row.tags ? (JSON.parse(row.tags) as string[]) : null,
+    mockupIds: row.mockups ? (JSON.parse(row.mockups) as number[]) : [],
+    fit: row.fit == null ? id < 0 : !!row.fit,
+  };
 }
 
 app.put('/items/:id', async (c) => c.json(await save(c, int(c.req.param('id')), await body(c))));
@@ -125,7 +182,7 @@ app.put('/items/:id', async (c) => c.json(await save(c, int(c.req.param('id')), 
 /** The same mockups for several pictures at once. */
 app.put('/items-mockups', async (c) => {
   const b = await body<{ ids?: unknown; mockupIds?: unknown }>(c);
-  const ids = (Array.isArray(b.ids) ? b.ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500);
+  const ids = (Array.isArray(b.ids) ? b.ids : []).map(Number).filter((n) => Number.isInteger(n) && n !== 0).slice(0, 500);
   if (!ids.length) fail(422, 'Select some pictures first.');
   const m = mockupIds(b.mockupIds);
   for (const id of ids) await save(c, id, { mockupIds: m });
@@ -181,6 +238,61 @@ app.post('/items/:id/write', async (c) => {
   return c.json(await save(c, id, { title: fit, intro, tags }));
 });
 
+// ---------- your own pictures ----------
+
+const IMG_TYPES = /^image\/(png|jpeg|webp)$/;
+const ext = (type: string) => type.split('/')[1].replace('jpeg', 'jpg');
+
+/** One picture (a poster, a blueprint…) with a preview and a thumbnail the browser made. */
+app.post('/uploads', async (c) => {
+  const form = await c.req.formData();
+  const file = form.get('file');
+  const preview = form.get('preview');
+  const thumb = form.get('thumb');
+  if (!(file instanceof File)) fail(422, 'Choose a picture.');
+  if (!(preview instanceof File) || !(thumb instanceof File)) fail(422, 'The preview images are missing. Reload the page and try again.');
+  if (file.size > 60 * 1024 * 1024) fail(422, 'Pictures must be under 60 MB.');
+  if (!IMG_TYPES.test(file.type)) fail(422, 'Use PNG, JPEG or WebP.');
+  if (preview.size > 8 * 1024 * 1024 || thumb.size > 2 * 1024 * 1024 || preview.type !== 'image/jpeg' || thumb.type !== 'image/jpeg') fail(422, 'The preview images are the wrong kind.');
+  const w = int(form.get('width'));
+  const h = int(form.get('height'));
+  if (Math.min(w, h) < 1000) fail(422, 'That picture is too small to print well. Use one at least 2000 pixels on its short side.');
+  const base = `etsy/uploads/${randomId(8)}`;
+  const meta = (type: string) => ({ httpMetadata: { contentType: type, cacheControl: 'public, max-age=31536000, immutable' } });
+  const keys = { original: `${base}.${ext(file.type)}`, image: `${base}-preview.jpg`, thumb: `${base}-thumb.jpg` };
+  await Promise.all([
+    c.env.MEDIA.put(keys.original, await file.arrayBuffer(), meta(file.type)),
+    c.env.MEDIA.put(keys.image, await preview.arrayBuffer(), meta('image/jpeg')),
+    c.env.MEDIA.put(keys.thumb, await thumb.arrayBuffer(), meta('image/jpeg')),
+  ]);
+  const name = str(form.get('name'), 80) || file.name.replace(/\.[^.]+$/, '') || 'Untitled';
+  const r = await c.env.DB.prepare('INSERT INTO etsy_uploads (name, original_key, image_key, thumb_key, width, height, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *')
+    .bind(name, keys.original, keys.image, keys.thumb, w, h, now())
+    .first<UploadRow>();
+  return c.json(itemView(uploadBase(r!), undefined));
+});
+
+app.put('/uploads/:id', async (c) => {
+  const id = int(c.req.param('id'));
+  const b = await body<{ name?: string }>(c);
+  const name = str(b.name, 80);
+  if (!name) fail(422, 'Give the picture a name.');
+  const r = await c.env.DB.prepare('UPDATE etsy_uploads SET name = ? WHERE id = ? RETURNING id').bind(name, id).first();
+  if (!r) fail(404, 'Picture not found.');
+  return c.json({ ok: true, name });
+});
+
+app.delete('/uploads/:id', async (c) => {
+  const u = await c.env.DB.prepare('SELECT * FROM etsy_uploads WHERE id = ?').bind(int(c.req.param('id'))).first<UploadRow>();
+  if (!u) fail(404, 'Picture not found.');
+  await c.env.MEDIA.delete([u.original_key, u.image_key, u.thumb_key]);
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM etsy_uploads WHERE id = ?').bind(u.id),
+    c.env.DB.prepare('DELETE FROM etsy_items WHERE puzzle_id = ?').bind(-u.id),
+  ]);
+  return c.json({ ok: true });
+});
+
 // ---------- mockups ----------
 
 app.post('/mockups', async (c) => {
@@ -192,7 +304,7 @@ app.post('/mockups', async (c) => {
   const w = int(form.get('width'));
   const h = int(form.get('height'));
   if (w < 400 || h < 300) fail(422, 'That mockup is too small. Use one at least 2000 pixels wide.');
-  const key = `etsy/mockups/${randomId(8)}.${file.type.split('/')[1].replace('jpeg', 'jpg')}`;
+  const key = `etsy/mockups/${randomId(8)}.${ext(file.type)}`;
   await c.env.MEDIA.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' } });
   const name = str(form.get('name'), 60) || file.name.replace(/\.[^.]+$/, '');
   // The first few uploads become the defaults; later ones are picked per picture.

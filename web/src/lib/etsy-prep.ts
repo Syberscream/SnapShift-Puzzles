@@ -92,6 +92,18 @@ export async function upscale(img: HTMLImageElement | HTMLCanvasElement, onProgr
   const W0 = img instanceof HTMLImageElement ? img.naturalWidth : img.width;
   const H0 = img instanceof HTMLImageElement ? img.naturalHeight : img.height;
   const need = neededScale(W0, H0);
+  // A big, sharp picture (your own poster or blueprint) only needs a gentle
+  // resize: shrinking it so the AI can blow it back up would soften fine lines and text.
+  if (need <= 2 && Math.min(W0, H0) >= 2000) {
+    const s = Math.max(1, need);
+    const out = canvas(Math.round(W0 * s), Math.round(H0 * s));
+    const oc = ctx2d(out);
+    oc.imageSmoothingEnabled = true;
+    oc.imageSmoothingQuality = 'high';
+    oc.drawImage(img, 0, 0, out.width, out.height);
+    onProgress(1);
+    return out;
+  }
   // Feed the model only as much as it needs: 4× of the input should just cover the prints.
   let f = Math.min(1, need / 4);
   // Tests: a cap on the input size keeps the run short.
@@ -203,6 +215,56 @@ export function cropBox(w: number, h: number, ar: number, focus: number): [numbe
   return [0, Math.round((h - ch) / 2), w, ch];
 }
 
+/**
+ * How a picture goes into a frame shape: crop to fill it (centred at `focus`),
+ * or show the whole picture with a border of `bg` where the shape differs.
+ */
+export interface Place {
+  focus: number;
+  fit: boolean;
+  bg: string;
+}
+const asPlace = (p: Place | number): Place => (typeof p === 'number' ? { focus: p, fit: false, bg: '#ffffff' } : p);
+
+/** The colour around the picture's edge, for the border when it is shown whole. */
+export function edgeColor(img: HTMLCanvasElement | HTMLImageElement): string {
+  const N = 64;
+  const c = canvas(N, N);
+  const x = ctx2d(c);
+  x.drawImage(img, 0, 0, N, N);
+  const d = x.getImageData(0, 0, N, N).data;
+  free(c);
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      if (i > 1 && i < N - 2 && j > 1 && j < N - 2) continue;
+      const k = (j * N + i) * 4;
+      r += d[k];
+      g += d[k + 1];
+      b += d[k + 2];
+      n++;
+    }
+  const hex = (v: number) => Math.round(v / n).toString(16).padStart(2, '0');
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
+}
+
+/** Draw the picture into a w×h area of `x` the way `place` says. */
+function drawPlaced(x: CanvasRenderingContext2D, big: HTMLCanvasElement, w: number, h: number, place: Place) {
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = 'high';
+  if (place.fit) {
+    x.fillStyle = place.bg;
+    x.fillRect(0, 0, w, h);
+    const s = Math.min(w / big.width, h / big.height);
+    const dw = Math.round(big.width * s);
+    const dh = Math.round(big.height * s);
+    x.drawImage(big, Math.round((w - dw) / 2), Math.round((h - dh) / 2), dw, dh);
+    return;
+  }
+  const [sx, sy, sw, sh] = cropBox(big.width, big.height, w / h, place.focus);
+  x.drawImage(big, sx, sy, sw, sh, 0, 0, w, h);
+}
+
 export interface PrintFile {
   name: string;
   size: PrintSize;
@@ -211,17 +273,14 @@ export interface PrintFile {
   h: number;
 }
 
-export async function printFiles(big: HTMLCanvasElement, prefix: string, focus: number, onFile?: (i: number) => void): Promise<PrintFile[]> {
+export async function printFiles(big: HTMLCanvasElement, prefix: string, place: Place | number, onFile?: (i: number) => void): Promise<PrintFile[]> {
+  const P = asPlace(place);
   const portrait = big.height > big.width;
   const files: PrintFile[] = [];
   for (const [i, p] of PRINT_SIZES.entries()) {
     const [tw, th] = portrait ? [p.h, p.w] : [p.w, p.h];
-    const [sx, sy, sw, sh] = cropBox(big.width, big.height, tw / th, focus);
     const c = canvas(tw, th);
-    const x = ctx2d(c);
-    x.imageSmoothingEnabled = true;
-    x.imageSmoothingQuality = 'high';
-    x.drawImage(big, sx, sy, sw, sh, 0, 0, tw, th);
+    drawPlaced(ctx2d(c), big, tw, th, P);
     let bytes: Uint8Array | null = null;
     for (const q of [0.95, 0.92, 0.9, 0.88, 0.85, 0.82, 0.8, 0.75]) {
       bytes = await jpegAt300(c, q);
@@ -271,13 +330,10 @@ const noShadow = (x: CanvasRenderingContext2D) => {
   x.shadowOffsetY = 0;
 };
 
-/** The art cropped to `ar` and scaled to `w` wide (for photos). */
-function artAt(big: HTMLCanvasElement, ar: number, w: number, focus: number): HTMLCanvasElement {
-  const [sx, sy, sw, sh] = cropBox(big.width, big.height, ar, focus);
+/** The art in shape `ar` (cropped or shown whole), `w` wide (for photos). */
+function artAt(big: HTMLCanvasElement, ar: number, w: number, place: Place): HTMLCanvasElement {
   const c = canvas(w, Math.round(w / ar));
-  const x = ctx2d(c);
-  x.imageSmoothingQuality = 'high';
-  x.drawImage(big, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  drawPlaced(ctx2d(c), big, c.width, c.height, place);
   return c;
 }
 
@@ -317,7 +373,7 @@ async function toJpeg(c: HTMLCanvasElement, q = 0.9): Promise<Uint8Array> {
 }
 
 /** Built-in room 1: warm wall, oak sideboard, vase and books. */
-function livingRoom(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
+function livingRoom(big: HTMLCanvasElement, focus: Place): HTMLCanvasElement {
   const portrait = big.height > big.width;
   const [c, x] = photoCanvas();
   grad(x, PW, PH, '#ece6dc', '#d6cec1');
@@ -373,7 +429,7 @@ function livingRoom(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
 }
 
 /** Built-in room 2: dark accent wall, bench, the wide 3:2 print in a gold frame. */
-function accentWall(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
+function accentWall(big: HTMLCanvasElement, focus: Place): HTMLCanvasElement {
   const portrait = big.height > big.width;
   const [c, x] = photoCanvas();
   grad(x, PW, PH, '#343c42', '#262c32');
@@ -401,7 +457,7 @@ function accentWall(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
   return c;
 }
 
-function sizesChart(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
+function sizesChart(big: HTMLCanvasElement, focus: Place): HTMLCanvasElement {
   const portrait = big.height > big.width;
   const [c, x] = photoCanvas();
   grad(x, PW, PH, '#faf7f1', '#eee9e0');
@@ -442,7 +498,8 @@ function sizesChart(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
   return c;
 }
 
-function detail(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
+function detail(big: HTMLCanvasElement, place: Place): HTMLCanvasElement {
+  const focus = place.focus;
   const [c, x] = photoCanvas();
   const cw = Math.round(big.width * 0.25);
   const ch = Math.round(cw * 0.75);
@@ -465,7 +522,7 @@ function detail(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
   return c;
 }
 
-function downloadCard(big: HTMLCanvasElement, name: string, focus: number): HTMLCanvasElement {
+function downloadCard(big: HTMLCanvasElement, name: string, focus: Place): HTMLCanvasElement {
   const portrait = big.height > big.width;
   const [c, x] = photoCanvas();
   grad(x, PW, PH, '#22262e', '#16181e');
@@ -516,7 +573,8 @@ function invert3(m: number[]): number[] {
 }
 
 /** The art warped into the frame area the admin marked on a room photo. */
-export async function onMockup(big: HTMLCanvasElement, m: Mockup, focus: number): Promise<HTMLCanvasElement> {
+export async function onMockup(big: HTMLCanvasElement, m: Mockup, place: Place | number): Promise<HTMLCanvasElement> {
+  const focus = asPlace(place);
   const room = await loadImage(m.image);
   const scale = Math.min(1, PW / room.naturalWidth, PW / room.naturalHeight) || 1;
   const W = Math.round(room.naturalWidth * scale);
@@ -581,8 +639,9 @@ export async function onMockup(big: HTMLCanvasElement, m: Mockup, focus: number)
   return c;
 }
 
-export async function listingPhotos(big: HTMLCanvasElement, name: string, focus: number, mockups: Mockup[]): Promise<{ name: string; bytes: Uint8Array }[]> {
+export async function listingPhotos(big: HTMLCanvasElement, name: string, place: Place | number, mockups: Mockup[]): Promise<{ name: string; bytes: Uint8Array }[]> {
   await document.fonts.load(`800 60px "Plus Jakarta Sans Variable"`).catch(() => null);
+  const focus = asPlace(place);
   // The caller picks which mockups (the picture's own choice, or the defaults).
   const ready = mockups.filter((m) => m.corners);
   const rooms: HTMLCanvasElement[] = [];

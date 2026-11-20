@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { ETSY, fullDescription, type EtsyStatus } from '@shared/etsy';
 import {
-  download, freeCanvas, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
+  download, edgeColor, freeCanvas, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
 } from '../lib/etsy-prep';
 
 interface Item {
@@ -15,12 +15,16 @@ interface Item {
   original: string;
   image: string;
   thumb: string;
+  /** Your own picture (a poster, a blueprint…) rather than a puzzle. */
+  upload: boolean;
   status: EtsyStatus;
   title: string;
   intro: string;
   tags: string[];
   written: boolean;
   focus: number;
+  /** Show the whole picture with a matching border (true) or crop to fill each frame shape (false). */
+  fit: boolean;
   etsyUrl: string | null;
   mockupIds: number[];
   preparedAt: number | null;
@@ -33,7 +37,7 @@ interface Data {
 
 const STATUS_LABEL: Record<EtsyStatus, string> = { none: 'Not started', prepared: 'Prepared', listed: 'Listed on Etsy' };
 const PER_PAGE = 24;
-let filter: EtsyStatus | 'all' = 'all';
+let filter: EtsyStatus | 'all' | 'uploads' = 'all';
 let search = '';
 let page = 1;
 const selected = new Set<number>();
@@ -131,10 +135,14 @@ export async function etsyTab(body: HTMLElement): Promise<void> {
 }
 
 function render(body: HTMLElement, d: Data) {
-  const counts = { all: d.puzzles.length, none: 0, prepared: 0, listed: 0 } as Record<string, number>;
-  for (const p of d.puzzles) counts[p.status]++;
+  const counts = { all: d.puzzles.length, none: 0, prepared: 0, listed: 0, uploads: 0 } as Record<string, number>;
+  for (const p of d.puzzles) {
+    counts[p.status]++;
+    if (p.upload) counts.uploads++;
+  }
   const q = search.trim().toLowerCase();
-  const shown = d.puzzles.filter((p) => (filter === 'all' || p.status === filter) && (!q || `${p.name} ${p.category ?? ''}`.toLowerCase().includes(q)));
+  const inFilter = (p: Item) => filter === 'all' || (filter === 'uploads' ? p.upload : p.status === filter);
+  const shown = d.puzzles.filter((p) => inFilter(p) && (!q || `${p.name} ${p.category ?? ''}`.toLowerCase().includes(q)));
   const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
   page = Math.min(page, pages);
   const rerender = () => render(body, d);
@@ -149,7 +157,7 @@ function render(body: HTMLElement, d: Data) {
   const queueBox = h('div', { class: 'etsy-queue' });
   prepBtn.addEventListener('click', () => void runQueue(d, [...selected].map((id) => d.puzzles.find((p) => p.id === id)!).filter(Boolean), queueBox, rerender));
 
-  const chip = (k: EtsyStatus | 'all', label: string) =>
+  const chip = (k: EtsyStatus | 'all' | 'uploads', label: string) =>
     h('button', { class: 'btn small', 'aria-pressed': String(filter === k), onclick: () => ((filter = k), (page = 1), rerender()) }, `${label} (${counts[k]})`);
   const searchBox = h('input', { type: 'search', placeholder: 'Search pictures…', value: search }) as HTMLInputElement;
   searchBox.addEventListener('input', () => {
@@ -175,6 +183,7 @@ function render(body: HTMLElement, d: Data) {
         'Pick pictures and press Prepare. For each one, your browser upscales it with AI, makes the five frame-size print files (300 DPI, each under Etsy’s 20 MB limit), the listing photos and the listing text, then downloads one zip ready to upload to Etsy.',
       ),
       speedNote,
+      uploadRow(d, rerender),
       queueBox,
     ),
     mockupsPanel(d, rerender),
@@ -188,6 +197,7 @@ function render(body: HTMLElement, d: Data) {
         chip('none', 'Not started'),
         chip('prepared', 'Prepared'),
         chip('listed', 'Listed'),
+        chip('uploads', 'My uploads'),
         searchBox,
       ),
       h(
@@ -248,6 +258,13 @@ function editor(d: Data, p: Item, rerender: () => void) {
   const tagNote = h('span', { class: 'small muted' });
   const status = h('select', {}, (['none', 'prepared', 'listed'] as EtsyStatus[]).map((s) => h('option', { value: s, selected: s === p.status }, STATUS_LABEL[s]))) as HTMLSelectElement;
   const url = h('input', { type: 'url', placeholder: 'https://www.etsy.com/listing/…', value: p.etsyUrl ?? '' }) as HTMLInputElement;
+  const fit = h(
+    'select',
+    {},
+    h('option', { value: '1', selected: p.fit }, 'Show the whole picture (adds a matching border where a frame shape differs)'),
+    h('option', { value: '0', selected: !p.fit }, 'Fill each frame shape (crops the edges)'),
+  ) as HTMLSelectElement;
+  const name = h('input', { value: p.name, maxlength: '80' }) as HTMLInputElement;
   const count = () => {
     titleCount.textContent = `${title.value.length}/${ETSY.titleMax}`;
     const list = tags.value.split(',').map((t) => t.trim()).filter(Boolean);
@@ -261,16 +278,21 @@ function editor(d: Data, p: Item, rerender: () => void) {
 
   const picks = [...p.mockupIds];
   const save = async (extra: Record<string, unknown> = {}) => {
-    const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null; mockupIds: number[] }>(`/admin/etsy/items/${p.id}`, {
+    if (p.upload && name.value.trim() && name.value.trim() !== p.name) {
+      await api.put(`/admin/etsy/uploads/${-p.id}`, { name: name.value.trim() });
+      p.name = name.value.trim();
+    }
+    const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null; mockupIds: number[]; fit: boolean }>(`/admin/etsy/items/${p.id}`, {
       title: title.value,
       intro: intro.value,
       tags: tags.value,
       status: status.value,
       etsyUrl: url.value.trim(),
       mockupIds: picks,
+      fit: fit.value === '1',
       ...extra,
     });
-    Object.assign(p, { title: r.title ?? p.title, intro: r.intro ?? p.intro, tags: r.tags ?? p.tags, status: r.status, etsyUrl: r.etsy_url, written: true, mockupIds: r.mockupIds ?? picks });
+    Object.assign(p, { title: r.title ?? p.title, intro: r.intro ?? p.intro, tags: r.tags ?? p.tags, status: r.status, etsyUrl: r.etsy_url, written: true, mockupIds: r.mockupIds ?? picks, fit: r.fit });
     tags.value = p.tags.join(', ');
     count();
   };
@@ -301,7 +323,8 @@ function editor(d: Data, p: Item, rerender: () => void) {
       'div',
       { class: 'etsy-editor' },
       h('div', { class: 'etsy-editor-pic', style: bg(p.image) }),
-      h('h2', {}, p.name),
+      p.upload ? h('label', {}, 'Picture name', name) : h('h2', {}, p.name),
+      h('label', {}, 'Frame shapes', fit),
       h('label', {}, h('span', { class: 'row spread' }, 'Etsy title ', titleCount), title),
       h('label', {}, 'Description (the sizes, how it works and the AI note are added below it automatically)', intro),
       h('label', {}, h('span', { class: 'row spread' }, 'Tags, comma-separated ', tagNote), tags),
@@ -313,6 +336,28 @@ function editor(d: Data, p: Item, rerender: () => void) {
       h(
         'div',
         { class: 'row end' },
+        p.upload
+          ? h(
+              'button',
+              {
+                class: 'btn danger',
+                onclick: async () => {
+                  if (!confirm(`Delete “${p.name}” from Etsy prep? Its listing text goes too.`)) return;
+                  try {
+                    await api.del(`/admin/etsy/uploads/${-p.id}`);
+                    d.puzzles = d.puzzles.filter((x) => x.id !== p.id);
+                    selected.delete(p.id);
+                    dlg.close();
+                    rerender();
+                    toast('Picture deleted', '', 'good');
+                  } catch (e) {
+                    toast('Couldn’t delete', errorText(e), 'bad');
+                  }
+                },
+              },
+              '🗑 Delete',
+            )
+          : null,
         h('button', { class: 'btn', onclick: () => dlg.close() }, 'Close'),
         h(
           'button',
@@ -356,7 +401,7 @@ function editor(d: Data, p: Item, rerender: () => void) {
 
 async function writeWithAI(p: Item): Promise<{ title: string; intro: string; tags: string[] }> {
   const img = await loadImage(p.image);
-  const r = await api.post<{ title: string; intro: string; tags: string[] }>(`/admin/etsy/items/${p.id}/write`, { image: previewDataUrl(img), name: p.name, category: p.category ?? '' });
+  const r = await api.post<{ title: string; intro: string; tags: string[] }>(`/admin/etsy/items/${p.id}/write`, { image: previewDataUrl(img), name: p.name, category: p.upload ? '' : (p.category ?? '') });
   Object.assign(p, { title: r.title, intro: r.intro, tags: r.tags, written: true });
   return r;
 }
@@ -401,13 +446,14 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
         }
         step(r, 'Loading the full-size picture…', 0.04);
         const img = await loadImage(p.original || p.image);
+        const place = { focus: p.focus, fit: p.fit, bg: edgeColor(img) };
         step(r, 'Upscaling with AI…', 0.05);
         big = await upscale(img, (f) => step(r, `Upscaling with AI… ${Math.round(f * 100)}%`, 0.05 + f * 0.65));
         const prefix = p.name.replace(/[^\w\s-]+/g, '').trim().replace(/\s+/g, '-') || `picture-${p.id}`;
         step(r, 'Making the print files…', 0.72);
-        const files = await printFiles(big, prefix, p.focus, (i) => step(r, `Making the print files… ${i + 1}/5`, 0.72 + (i + 1) * 0.04));
+        const files = await printFiles(big, prefix, place, (i) => step(r, `Making the print files… ${i + 1}/5`, 0.72 + (i + 1) * 0.04));
         step(r, 'Making the listing photos…', 0.92);
-        const photos = await listingPhotos(big, p.name, p.focus, chosenMockups(d, p));
+        const photos = await listingPhotos(big, p.name, place, chosenMockups(d, p));
         const text = listingText(p, big.height > big.width);
         step(r, 'Zipping…', 0.97);
         const zip = makeZip(p.name.replace(/[\\/:*?"<>|]+/g, ''), files, photos, text);
@@ -440,6 +486,68 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
     const nb = document.querySelector('.etsy-queue');
     nb?.append(...keep);
   }
+}
+
+// ---------- your own pictures ----------
+
+/** A JPEG of the picture at most `max` pixels on its long side. */
+async function jpegOf(img: HTMLImageElement, max: number, q: number): Promise<Blob> {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * s);
+  c.height = Math.round(img.naturalHeight * s);
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#fff';
+  x.fillRect(0, 0, c.width, c.height);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(img, 0, 0, c.width, c.height);
+  const b = await new Promise<Blob>((res, rej) => c.toBlob((v) => (v ? res(v) : rej(new Error('Couldn’t read the picture'))), 'image/jpeg', q));
+  freeCanvas(c);
+  return b;
+}
+
+function uploadRow(d: Data, rerender: () => void): HTMLElement {
+  const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: true, hidden: true, class: 'etsy-upload-input' }) as HTMLInputElement;
+  const progress = h('span', { class: 'small muted' });
+  file.addEventListener('change', async () => {
+    const files = [...(file.files ?? [])];
+    file.value = '';
+    let done = 0;
+    for (const [i, f] of files.entries()) {
+      progress.textContent = `Uploading ${i + 1} of ${files.length}: ${f.name}…`;
+      try {
+        const url = URL.createObjectURL(f);
+        const img = await loadImage(url);
+        const form = new FormData();
+        form.set('file', f);
+        form.set('preview', new File([await jpegOf(img, 2000, 0.88)], 'preview.jpg', { type: 'image/jpeg' }));
+        form.set('thumb', new File([await jpegOf(img, 600, 0.82)], 'thumb.jpg', { type: 'image/jpeg' }));
+        form.set('name', f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim());
+        form.set('width', String(img.naturalWidth));
+        form.set('height', String(img.naturalHeight));
+        URL.revokeObjectURL(url);
+        d.puzzles.unshift(await api.post<Item>('/admin/etsy/uploads', form));
+        done++;
+      } catch (e) {
+        toast(`Couldn’t upload ${f.name}`, errorText(e), 'bad');
+      }
+    }
+    progress.textContent = '';
+    if (done) {
+      filter = 'uploads';
+      page = 1;
+      toast(`${done} picture${done === 1 ? '' : 's'} added`, 'They keep their whole picture in every frame shape. Tick them and press Prepare.', 'good');
+      rerender();
+    }
+  });
+  return h(
+    'div',
+    { class: 'row' },
+    h('button', { class: 'btn', onclick: () => file.click() }, '+ Upload your own pictures'),
+    h('span', { class: 'small muted' }, 'Posters, blueprints, any art that isn’t a puzzle. Portrait pictures get portrait print files.'),
+    progress,
+    file,
+  );
 }
 
 // ---------- mockups ----------
