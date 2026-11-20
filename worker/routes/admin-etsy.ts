@@ -129,7 +129,7 @@ app.get('/', async (c) => {
   });
 });
 
-// Up to 7 mockups per listing (Etsy allows 10 photos; 3 are the sizes chart, close-up and download card).
+// Up to 8 mockups per listing (Etsy allows 20 photos; 3 more are the sizes chart, close-up and download card).
 function mockupIds(v: unknown): number[] {
   const out: number[] = [];
   for (const x of Array.isArray(v) ? v : []) {

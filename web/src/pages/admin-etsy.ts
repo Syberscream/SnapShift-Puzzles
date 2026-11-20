@@ -2,7 +2,7 @@
 // listing photos, listing text) into one zip each, and track what's listed.
 import { api } from '../lib/api';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
-import { ETSY, fullDescription, type EtsyStatus } from '@shared/etsy';
+import { ETSY, MAX_MOCKUPS, fullDescription, type EtsyStatus } from '@shared/etsy';
 import {
   download, edgeColor, freeCanvas, mockupShape, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
 } from '../lib/etsy-prep';
@@ -42,7 +42,6 @@ let search = '';
 let page = 1;
 const selected = new Set<number>();
 let busy = false;
-const MAX_MOCKUPS = ETSY.photos - 3;
 const isReady = (m: Mockup) => !!m.corners;
 /**
  * The mockups a picture will use: its own picks, else every starred default
@@ -72,7 +71,7 @@ function mockupPicker(d: Data, chosen: number[], onChange: (ids: number[]) => vo
             style: bg(m.image),
             onclick: () => {
               if (i >= 0) chosen.splice(i, 1);
-              else if (chosen.length >= MAX_MOCKUPS) return toast(`At most ${MAX_MOCKUPS} mockups`, 'Etsy allows 10 photos; 3 are the sizes chart, close-up and download card.', 'bad');
+              else if (chosen.length >= MAX_MOCKUPS) return toast(`At most ${MAX_MOCKUPS} mockups`, `With the sizes chart, close-up and download card that makes ${MAX_MOCKUPS + 3} listing photos.`, 'bad');
               else chosen.push(m.id);
               onChange(chosen);
               draw();

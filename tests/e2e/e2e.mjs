@@ -1568,7 +1568,7 @@ check('contact message reaches admin', msgs.length === 1);
   const mkB = mks.find((m) => m.name === 'Wall B');
   check('etsy: mockup saved with its corners', mk && mk.corners?.length === 4 && Math.abs(mk.corners[0][0] - 1 / 3) < 0.02 && Math.abs(mk.corners[2][1] - 0.575) < 0.02, JSON.stringify(mk?.corners));
   check('etsy: second mockup saved via Save & next', mkB && Math.abs(mkB.corners[0][0] - 0.125) < 0.02 && Math.abs(mkB.corners[2][1] - 0.4375) < 0.02, JSON.stringify(mkB?.corners));
-  check('etsy: marking corners stars a mockup into its shape\'s default set', mk.active && mkB.active && /★ 2\/7 landscape · ★ 0\/7 portrait/.test(await admin.locator('.etsy-mockups-panel summary').innerText()), await admin.locator('.etsy-mockups-panel summary').innerText());
+  check('etsy: marking corners stars a mockup into its shape\'s default set', mk.active && mkB.active && /★ 2\/8 landscape · ★ 0\/8 portrait/.test(await admin.locator('.etsy-mockups-panel summary').innerText()), await admin.locator('.etsy-mockups-panel summary').innerText());
   // AI text fails cleanly when the AI can't be reached (no Cloudflare login here).
   const first = list.puzzles[0];
   const aiRes = await admin.request.post(BASE + `/api/admin/etsy/items/${first.id}/write`, { data: { image: 'data:image/jpeg;base64,/9j/4AAQ', name: first.name } });
@@ -1581,8 +1581,8 @@ check('contact message reaches admin', msgs.length === 1);
   await admin.waitForSelector(`.etsy-card[data-id="${first.id}"] >> text=1 mockup picked`);
   const picked = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.find((p) => p.id === first.id);
   check('etsy: mockups picked for a picture are saved', JSON.stringify(picked.mockupIds) === JSON.stringify([mkB.id]));
-  const tooMany = await admin.request.put(BASE + `/api/admin/etsy/items/${first.id}`, { data: { mockupIds: [1, 2, 3, 4, 5, 6, 7, 8] } });
-  check('etsy: more than 7 mockups refused', tooMany.status() === 422);
+  const tooMany = await admin.request.put(BASE + `/api/admin/etsy/items/${first.id}`, { data: { mockupIds: [1, 2, 3, 4, 5, 6, 7, 8, 9] } });
+  check('etsy: more than 8 mockups refused', tooMany.status() === 422);
   // Prepare that picture in the browser and check the zip.
   await admin.locator(`.etsy-card[data-id="${first.id}"] input[type=checkbox]`).check();
   const logs = [];
@@ -1720,13 +1720,13 @@ check('contact message reaches admin', msgs.length === 1);
     check('etsy: upright mockup starred into the portrait set', marked.active === true);
     // The portrait set is full at 7.
     const ids = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       const m = await (await admin.request.post(BASE + '/api/admin/etsy/mockups', { multipart: { file: { name: `T${i}.png`, mimeType: 'image/png', buffer: Buffer.from(tall, 'base64') }, name: `T${i}`, width: '1600', height: '2400' } })).json();
       ids.push((await (await admin.request.put(BASE + `/api/admin/etsy/mockups/${m.id}`, { data: { corners: [[0.28, 0.19], [0.72, 0.19], [0.72, 0.6], [0.28, 0.6]] } })).json()));
     }
-    check('etsy: only 7 portrait defaults; the 8th is left unstarred', ids.filter((m) => m.active).length === 6 && !ids[6].active, JSON.stringify(ids.map((m) => m.active)));
-    const full = await admin.request.put(BASE + `/api/admin/etsy/mockups/${ids[6].id}`, { data: { active: true } });
-    check('etsy: starring an 8th portrait default is refused', full.status() === 422);
+    check('etsy: only 8 portrait defaults; the 9th is left unstarred', ids.filter((m) => m.active).length === 7 && !ids[7].active, JSON.stringify(ids.map((m) => m.active)));
+    const full = await admin.request.put(BASE + `/api/admin/etsy/mockups/${ids[7].id}`, { data: { active: true } });
+    check('etsy: starring a 9th portrait default is refused', full.status() === 422);
     for (const m of ids) await admin.request.delete(BASE + `/api/admin/etsy/mockups/${m.id}`);
     await admin.reload();
     await admin.locator('[data-tab="etsy"]').click();

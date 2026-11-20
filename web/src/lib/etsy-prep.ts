@@ -2,7 +2,7 @@
 // Runtime: the graphics card when there is WebGPU, otherwise every CPU core),
 // the five frame-shape print files at 300 DPI, the listing photos, and a zip.
 import { zipSync } from 'fflate';
-import { ETSY, PRINT_SIZES, frameShape, fullDescription, type PrintSize } from '@shared/etsy';
+import { ETSY, MAX_MOCKUPS, PRINT_SIZES, frameShape, fullDescription, type PrintSize } from '@shared/etsy';
 
 // ---------- the upscaler ----------
 
@@ -667,7 +667,7 @@ export async function listingPhotos(
   });
   if (ready.length < withCorners.length) onSkip?.(withCorners.length - ready.length);
   const rooms: HTMLCanvasElement[] = [];
-  for (const m of ready.slice(0, ETSY.photos - 3)) rooms.push(await onMockup(big, m, focus));
+  for (const m of ready.slice(0, MAX_MOCKUPS)) rooms.push(await onMockup(big, m, focus));
   if (!rooms.length) rooms.push(livingRoom(big, focus), accentWall(big, focus));
   const all: [string, HTMLCanvasElement][] = [
     ...rooms.map((c, i) => [`room-${i + 1}`, c] as [string, HTMLCanvasElement]),

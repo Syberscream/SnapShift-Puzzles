@@ -22,12 +22,16 @@ export const PRINT_SIZES: PrintSize[] = [
 ];
 
 /** Etsy's limits for a digital listing. */
-export const ETSY = { titleMax: 140, tags: 13, tagMax: 20, fileMaxBytes: 20 * 1024 * 1024, files: 5, photos: 10 };
+export const ETSY = { titleMax: 140, tags: 13, tagMax: 20, fileMaxBytes: 20 * 1024 * 1024, files: 5, photos: 20 };
 
 export type EtsyStatus = 'none' | 'prepared' | 'listed';
 
-/** Up to this many starred default mockups for each frame shape. */
-export const MAX_MOCKUPS = ETSY.photos - 3;
+/**
+ * Room mockups per listing, and starred defaults per frame shape (8 landscape,
+ * 8 portrait). With the sizes chart, close-up and download card that's 11 of
+ * Etsy's 20 listing photos.
+ */
+export const MAX_MOCKUPS = 8;
 
 export type FrameShape = 'portrait' | 'landscape' | 'square';
 
