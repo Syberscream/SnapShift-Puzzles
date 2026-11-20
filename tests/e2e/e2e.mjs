@@ -1615,7 +1615,7 @@ check('contact message reaches admin', msgs.length === 1);
   const dims = prints.map((n) => jpegSize(z[n]));
   const dpi = prints.every((n) => z[n][13] === 1 && ((z[n][14] << 8) | z[n][15]) === 300);
   check('etsy: zip has 5 print files', prints.length === 5, names.join(', '));
-  check('etsy: print files at full size (36x24, 24x18, 20x16, 14x11, A1 at 300 DPI)', JSON.stringify(dims) === JSON.stringify([[10800, 7200], [7200, 5400], [6000, 4800], [4200, 3300], [7016, 4961]]), JSON.stringify(dims));
+  check('etsy: print files at full size (48x32, 32x24, 30x24, 28x22, A0 at 300 DPI)', JSON.stringify(dims) === JSON.stringify([[14400, 9600], [9600, 7200], [9000, 7200], [8400, 6600], [14043, 9933]]), JSON.stringify(dims));
   check('etsy: print files say 300 DPI', dpi);
   check('etsy: each print file under 20 MB', prints.every((n) => z[n].length < 20 * 1024 * 1024), prints.map((n) => (z[n].length / 1048576).toFixed(1)).join(','));
   check('etsy: listing photos (mockup + sizes + close-up + download card)', photos.length === 4 && photos[0].endsWith('01-room-1.jpg'), photos.join(', '));
@@ -1703,8 +1703,8 @@ check('contact message reaches admin', msgs.length === 1);
   const z2 = unzipSync(readFileSync(`${OUT}/etsy-upload.zip`));
   const prints2 = Object.keys(z2).filter((n) => n.includes('1 - Digital files'));
   const dims2 = prints2.map((n) => jpegSize(z2[n]));
-  check('etsy upload: portrait print files (24x36, 18x24, 16x20, 11x14, A1)', JSON.stringify(dims2) === JSON.stringify([[7200, 10800], [5400, 7200], [4800, 6000], [3300, 4200], [4961, 7016]]), JSON.stringify(dims2));
-  check('etsy upload: file names say portrait', prints2.some((n) => n.includes('2x3-ratio_up-to-24x36in')), prints2.join(', '));
+  check('etsy upload: portrait print files (32x48, 24x32, 24x30, 22x28, A0)', JSON.stringify(dims2) === JSON.stringify([[9600, 14400], [7200, 9600], [7200, 9000], [6600, 8400], [9933, 14043]]), JSON.stringify(dims2));
+  check('etsy upload: file names say portrait', prints2.some((n) => n.includes('2x3-ratio_up-to-32x48in')), prints2.join(', '));
   const txt2 = new TextDecoder().decode(z2[Object.keys(z2).find((n) => n.endsWith('3 - Listing text.txt'))]);
   check('etsy upload: listing text says portrait', /All sizes are portrait/.test(txt2));
   {
@@ -1725,11 +1725,11 @@ check('contact message reaches admin', msgs.length === 1);
       );
     const near = (p, q) => p.every((v, i) => Math.abs(v - q[i]) < 30);
     const green = [0x2a, 0x8a, 0x3a], orange = [0xe0, 0x7a, 0x20], red = [0xc0, 0x30, 0x20];
-    // 2:3 (7200x10800): the 3:4 poster is drawn 7200x9600 with 600 px of border above and below.
-    const tall = await at('2x3', [[3600, 300], [3600, 900], [3600, 5400]]);
+    // 2:3 (9600x14400): the 3:4 poster is drawn 9600x12800 with 800 px of border above and below.
+    const tall = await at('2x3', [[4800, 400], [4800, 1200], [4800, 7200]]);
     check('etsy upload: 2:3 file shows the whole poster with a border above and below', !near(tall[0], green) && near(tall[1], green) && near(tall[2], red), JSON.stringify(tall));
-    // 4:5 (4800x6000): drawn 4500x6000 with 150 px of border each side; the top band isn't cropped off.
-    const wide = await at('4x5', [[75, 3000], [300, 3000], [2400, 100]]);
+    // 4:5 (7200x9000): drawn 6750x9000 with 225 px of border each side; the top band isn't cropped off.
+    const wide = await at('4x5', [[110, 4500], [450, 4500], [3600, 150]]);
     check('etsy upload: 4:5 file adds side borders instead of cropping', !near(wide[0], orange) && near(wide[1], orange) && near(wide[2], green), JSON.stringify(wide));
   }
   await admin.waitForFunction((id) => document.querySelector(`.etsy-card[data-id="${id}"] .pill`)?.textContent === 'Prepared', up.id);

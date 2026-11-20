@@ -282,7 +282,7 @@ export async function printFiles(big: HTMLCanvasElement, prefix: string, place: 
     const c = canvas(tw, th);
     drawPlaced(ctx2d(c), big, tw, th, P);
     let bytes: Uint8Array | null = null;
-    for (const q of [0.95, 0.92, 0.9, 0.88, 0.85, 0.82, 0.8, 0.75]) {
+    for (const q of [0.92, 0.9, 0.88, 0.85, 0.82, 0.8, 0.75, 0.7]) {
       bytes = await jpegAt300(c, q);
       if (bytes.length <= ETSY.fileMaxBytes - 512 * 1024) break;
     }

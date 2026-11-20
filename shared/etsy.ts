@@ -14,11 +14,11 @@ export interface PrintSize {
 
 /** Landscape files (wider than tall); a portrait picture gets the same sizes turned sideways. */
 export const PRINT_SIZES: PrintSize[] = [
-  { id: '3x2-ratio_up-to-36x24in', label: '3:2', w: 10800, h: 7200, sizes: ['6x4 · 12x8 · 18x12', '24x16 · 30x20 · 36x24 in', '15x10 · 60x40 · 90x60 cm'] },
-  { id: '4x3-ratio_up-to-24x18in', label: '4:3', w: 7200, h: 5400, sizes: ['8x6 · 12x9 · 16x12', '20x15 · 24x18 in'] },
-  { id: '5x4-ratio_up-to-20x16in', label: '5:4', w: 6000, h: 4800, sizes: ['10x8 · 15x12 · 20x16 in', '25x20 · 50x40 cm'] },
-  { id: '14x11in', label: '11:14', w: 4200, h: 3300, sizes: ['14x11 in'] },
-  { id: 'ISO-A-sizes_up-to-A1', label: 'ISO', w: 7016, h: 4961, sizes: ['A5 · A4 · A3 · A2 · A1'] },
+  { id: '3x2-ratio_up-to-48x32in', label: '3:2', w: 14400, h: 9600, sizes: ['6x4 · 12x8 · 18x12 · 24x16', '30x20 · 36x24 · 48x32 in', '15x10 · 60x40 · 90x60 · 120x80 cm'] },
+  { id: '4x3-ratio_up-to-32x24in', label: '4:3', w: 9600, h: 7200, sizes: ['8x6 · 12x9 · 16x12', '20x15 · 24x18 · 32x24 in'] },
+  { id: '5x4-ratio_up-to-30x24in', label: '5:4', w: 9000, h: 7200, sizes: ['10x8 · 15x12 · 20x16', '25x20 · 30x24 in', '50x40 · 75x60 cm'] },
+  { id: '14x11-ratio_up-to-28x22in', label: '11:14', w: 8400, h: 6600, sizes: ['14x11 · 28x22 in'] },
+  { id: 'ISO-A-sizes_up-to-A0', label: 'ISO', w: 14043, h: 9933, sizes: ['A5 · A4 · A3 · A2 · A1 · A0'] },
 ];
 
 /** Etsy's limits for a digital listing. */
@@ -32,11 +32,11 @@ export function sizesBlock(portrait: boolean): string {
     'WHAT YOU GET',
     'Five high-resolution JPG files at 300 DPI, one for each standard frame shape. Each file prints sharp at every size on its line:',
     '',
-    `• 3:2 ratio: ${t('6x4, 12x8, 18x12, 24x16, 30x20, 36x24 in')} (also ${t('15x10, 45x30, 60x40, 90x60 cm')})`,
-    `• 4:3 ratio: ${t('8x6, 12x9, 16x12, 20x15, 24x18 in')}`,
-    `• 5:4 ratio: ${t('10x8, 15x12, 20x16 in')} (also ${t('25x20, 50x40 cm')})`,
-    `• 11:14 ratio: ${t('14x11 in')}`,
-    '• ISO A sizes: A5, A4, A3, A2, A1',
+    `• 3:2 ratio: ${t('6x4, 12x8, 18x12, 24x16, 30x20, 36x24, 48x32 in')} (also ${t('15x10, 45x30, 60x40, 90x60, 120x80 cm')})`,
+    `• 4:3 ratio: ${t('8x6, 12x9, 16x12, 20x15, 24x18, 32x24 in')}`,
+    `• 5:4 ratio: ${t('10x8, 15x12, 20x16, 25x20, 30x24 in')} (also ${t('50x40, 75x60 cm')})`,
+    `• 11:14 ratio: ${t('14x11, 28x22 in')}`,
+    '• ISO A sizes: A5, A4, A3, A2, A1, A0',
     '',
     portrait ? 'All sizes are portrait (taller than wide).' : 'All sizes are landscape (wider than tall).',
   ].join('\n');
