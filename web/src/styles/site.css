@@ -694,6 +694,11 @@ dialog.event-done-modal { overflow: hidden; max-width: min(480px, calc(100vw - 2
 .pill.etsy-none { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18); color: var(--muted); }
 .pill.etsy-prepared { background: #3a3010; border-color: var(--gold); }
 .pill.etsy-listed { background: #0f3d24; border-color: #2fbf71; }
+.etsy-names { display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
+.etsy-name-list { display: flex; flex-direction: column; gap: 10px; max-height: 55vh; overflow-y: auto; }
+.etsy-name-row { display: flex; gap: 12px; align-items: center; }
+.etsy-name-row .thumb { width: 84px; height: 64px; flex: none; border-radius: 8px; background-size: cover; background-position: center; }
+.etsy-name-row input { flex: 1; min-width: 0; }
 .etsy-queue:empty { display: none; }
 .etsy-queue { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .etsy-job { padding: 10px 12px; border: 1px solid var(--line, rgba(255, 255, 255, 0.12)); border-radius: 12px; }

@@ -2,7 +2,7 @@
 // listing photos, listing text) into one zip each, and track what's listed.
 import { api } from '../lib/api';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
-import { ETSY, MAX_MOCKUPS, fullDescription, type EtsyStatus } from '@shared/etsy';
+import { ETSY, MAX_MOCKUPS, draftListing, fullDescription, type EtsyStatus } from '@shared/etsy';
 import {
   download, edgeInfo, freeCanvas, mockupShape, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
 } from '../lib/etsy-prep';
@@ -279,12 +279,22 @@ function editor(d: Data, p: Item, rerender: () => void) {
   tags.addEventListener('input', count);
   count();
 
+  // Until the listing text has been written, the first draft follows the name.
+  name.addEventListener('input', () => {
+    if (p.written || !name.value.trim()) return;
+    const dr = draftListing({ title: name.value.trim(), category: null });
+    title.value = dr.title;
+    intro.value = dr.intro;
+    tags.value = dr.tags.join(', ');
+    count();
+  });
+  const rename = async () => {
+    if (p.upload && name.value.trim() && name.value.trim() !== p.name) await renameUpload(p, name.value.trim());
+  };
+
   const picks = [...p.mockupIds];
   const save = async (extra: Record<string, unknown> = {}) => {
-    if (p.upload && name.value.trim() && name.value.trim() !== p.name) {
-      await api.put(`/admin/etsy/uploads/${-p.id}`, { name: name.value.trim() });
-      p.name = name.value.trim();
-    }
+    await rename();
     const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null; mockupIds: number[]; fit: boolean | null }>(`/admin/etsy/items/${p.id}`, {
       title: title.value,
       intro: intro.value,
@@ -305,6 +315,7 @@ function editor(d: Data, p: Item, rerender: () => void) {
     aiBtn.disabled = true;
     aiBtn.textContent = 'Writing…';
     try {
+      await rename();
       const r = await writeWithAI(p);
       title.value = r.title;
       intro.value = r.intro;
@@ -407,6 +418,70 @@ async function writeWithAI(p: Item): Promise<{ title: string; intro: string; tag
   const r = await api.post<{ title: string; intro: string; tags: string[] }>(`/admin/etsy/items/${p.id}/write`, { image: previewDataUrl(img), name: p.name, category: p.upload ? '' : (p.category ?? '') });
   Object.assign(p, { title: r.title, intro: r.intro, tags: r.tags, written: true });
   return r;
+}
+
+async function renameUpload(p: Item, name: string) {
+  await api.put(`/admin/etsy/uploads/${-p.id}`, { name });
+  p.name = name;
+  if (!p.written) Object.assign(p, draftListing({ title: name, category: null }));
+}
+
+/**
+ * Straight after an upload: name the new pictures. The AI writes the title,
+ * description and tags from the name and the picture, so a good name first
+ * makes a better listing.
+ */
+function nameDialog(d: Data, added: Item[], rerender: () => void) {
+  const rows = added.map((p) => {
+    const input = h('input', { value: p.name, maxlength: '80', 'aria-label': 'Picture name' }) as HTMLInputElement;
+    return { p, input, el: h('div', { class: 'etsy-name-row' }, h('div', { class: 'thumb', style: bg(p.thumb) }), input) };
+  });
+  const note = h('p', { class: 'small muted' });
+  const saveNames = async () => {
+    for (const r of rows) {
+      const v = r.input.value.trim();
+      if (v && v !== r.p.name) await renameUpload(r.p, v);
+    }
+  };
+  const run = async (write: boolean, btn: HTMLButtonElement) => {
+    for (const b of buttons) b.disabled = true;
+    try {
+      note.textContent = 'Saving the names…';
+      await saveNames();
+      if (write) {
+        let n = 0;
+        for (const r of rows) {
+          note.textContent = `Writing the listing for “${r.p.name}” (${++n} of ${rows.length})…`;
+          await writeWithAI(r.p).catch((e) => toast(`Couldn’t write “${r.p.name}”`, errorText(e), 'bad'));
+        }
+      }
+      dlg.close();
+      toast(write ? 'Named and written' : 'Names saved', 'Tick them and press Prepare.', 'good');
+    } catch (e) {
+      note.textContent = '';
+      toast('Couldn’t save the names', errorText(e), 'bad');
+      for (const b of buttons) b.disabled = false;
+      btn.focus();
+    }
+  };
+  const saveBtn = h('button', { class: 'btn' }, 'Save names') as HTMLButtonElement;
+  const writeBtn = h('button', { class: 'btn primary', disabled: !d.ai }, '✨ Save and write listings with AI') as HTMLButtonElement;
+  const buttons = [saveBtn, writeBtn];
+  saveBtn.addEventListener('click', () => void run(false, saveBtn));
+  writeBtn.addEventListener('click', () => void run(true, writeBtn));
+  const dlg = modal(
+    h(
+      'div',
+      { class: 'etsy-names' },
+      h('h2', {}, added.length === 1 ? 'Name your picture' : `Name your ${added.length} pictures`),
+      h('p', { class: 'muted' }, 'The AI writes the Etsy title, description and tags from the name and the picture, so say what it is: “Viking Longship in a Storm” rather than “image_0042”.'),
+      h('div', { class: 'etsy-name-list' }, rows.map((r) => r.el)),
+      note,
+      h('div', { class: 'row' }, writeBtn, saveBtn),
+    ),
+  );
+  dlg.addEventListener('close', rerender);
+  rows[0]?.input.select();
 }
 
 // ---------- the queue ----------
@@ -521,7 +596,7 @@ function uploadRow(d: Data, rerender: () => void): HTMLElement {
   file.addEventListener('change', async () => {
     const files = [...(file.files ?? [])];
     file.value = '';
-    let done = 0;
+    const added: Item[] = [];
     for (const [i, f] of files.entries()) {
       progress.textContent = `Uploading ${i + 1} of ${files.length}: ${f.name}…`;
       try {
@@ -535,18 +610,19 @@ function uploadRow(d: Data, rerender: () => void): HTMLElement {
         form.set('width', String(img.naturalWidth));
         form.set('height', String(img.naturalHeight));
         URL.revokeObjectURL(url);
-        d.puzzles.unshift(await api.post<Item>('/admin/etsy/uploads', form));
-        done++;
+        const it = await api.post<Item>('/admin/etsy/uploads', form);
+        d.puzzles.unshift(it);
+        added.push(it);
       } catch (e) {
         toast(`Couldn’t upload ${f.name}`, errorText(e), 'bad');
       }
     }
     progress.textContent = '';
-    if (done) {
+    if (added.length) {
       filter = 'uploads';
       page = 1;
-      toast(`${done} picture${done === 1 ? '' : 's'} added`, 'Tick them and press Prepare. Ones with a plain border keep their whole picture; others fill each frame.', 'good');
       rerender();
+      nameDialog(d, added, rerender);
     }
   });
   return h(

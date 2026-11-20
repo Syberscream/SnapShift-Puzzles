@@ -1678,10 +1678,18 @@ check('contact message reaches admin', msgs.length === 1);
     return c.toDataURL('image/jpeg', 0.9).split(',')[1];
   });
   await admin.locator('.etsy-upload-input').setInputFiles({ name: 'Test_Poster-one.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(poster, 'base64') });
-  await admin.waitForSelector('.etsy-card >> text=Test Poster one');
+  // Straight after the upload: name it (the AI writes from the name).
+  await admin.waitForSelector('.etsy-names .etsy-name-row input');
+  const named = admin.locator('.etsy-names .etsy-name-row input').first();
+  check('etsy upload: asks for a name first, filled in from the file', (await named.inputValue()) === 'Test Poster one', await named.inputValue());
+  await named.fill('Green Poster');
+  await admin.locator('.etsy-names button', { hasText: 'Save names' }).click();
+  await admin.waitForSelector('.etsy-names', { state: 'detached' });
+  await admin.waitForSelector('.etsy-card >> text=Green Poster');
   const ups = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.filter((p) => p.upload);
   const up = ups[0];
-  check('etsy upload: listed with the puzzles, named from the file, frame shapes on Automatic', ups.length === 1 && up.id < 0 && up.name === 'Test Poster one' && up.fit === null && up.category === 'My uploads', JSON.stringify(up));
+  check('etsy upload: listed with the puzzles under the name you gave, frame shapes on Automatic', ups.length === 1 && up.id < 0 && up.name === 'Green Poster' && up.fit === null && up.category === 'My uploads', JSON.stringify(up));
+  check('etsy upload: first-draft title uses the new name', up.title.startsWith('Green Poster') && !up.written, up.title);
   check('etsy upload: "My uploads" filter shows it', /My uploads \(1\)/.test(await admin.locator('.etsy-tools').first().innerText()));
   check('etsy upload: preview and thumbnail stored', (await admin.request.get(BASE + up.thumb)).ok() && (await admin.request.get(BASE + up.image)).ok());
   {
