@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { media, type PuzzleRow } from '../lib/catalog';
 import { body, fail, int, now, randomId, str } from '../lib/util';
-import { cleanTags, draftListing, ETSY, type EtsyStatus } from '../../shared/etsy';
+import { cleanTags, draftListing, ETSY, frameShape, MAX_MOCKUPS, type EtsyStatus, type FrameShape } from '../../shared/etsy';
 
 const app = new Hono<AppEnv>();
 
@@ -129,8 +129,7 @@ app.get('/', async (c) => {
   });
 });
 
-/** Up to 7 mockups per listing (Etsy allows 10 photos; 3 are the sizes chart, close-up and download card). */
-export const MAX_MOCKUPS = ETSY.photos - 3;
+// Up to 7 mockups per listing (Etsy allows 10 photos; 3 are the sizes chart, close-up and download card).
 function mockupIds(v: unknown): number[] {
   const out: number[] = [];
   for (const x of Array.isArray(v) ? v : []) {
@@ -307,10 +306,9 @@ app.post('/mockups', async (c) => {
   const key = `etsy/mockups/${randomId(8)}.${ext(file.type)}`;
   await c.env.MEDIA.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' } });
   const name = str(form.get('name'), 60) || file.name.replace(/\.[^.]+$/, '');
-  // The first few uploads become the defaults; later ones are picked per picture.
-  const defaults = (await c.env.DB.prepare('SELECT COUNT(*) AS n FROM etsy_mockups WHERE active = 1').first<{ n: number }>())?.n ?? 0;
+  // Starred (made a default) when its corners are marked, if its shape's set has room.
   const r = await c.env.DB.prepare('INSERT INTO etsy_mockups (name, image_key, width, height, active, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *')
-    .bind(name, key, w, h, defaults < MAX_MOCKUPS ? 1 : 0, now())
+    .bind(name, key, w, h, 0, now())
     .first<MockupRow>();
   return c.json(mockupView(r!));
 });
@@ -327,10 +325,28 @@ app.put('/mockups/:id', async (c) => {
     if (!ok) fail(422, 'Mark the four corners of the frame.');
     corners = JSON.stringify(k);
   }
-  await c.env.DB.prepare('UPDATE etsy_mockups SET name = ?, corners = ?, active = ? WHERE id = ?')
-    .bind(b.name !== undefined ? str(b.name, 60) || m.name : m.name, corners, b.active === undefined ? m.active : b.active ? 1 : 0, id)
-    .run();
-  return c.json(mockupView({ ...m, name: b.name !== undefined ? str(b.name, 60) || m.name : m.name, corners, active: b.active === undefined ? m.active : b.active ? 1 : 0 }));
+  // Defaults come in sets by frame shape: up to 7 landscape, 7 portrait (and 7 square).
+  const shape = frameShape(corners ? (JSON.parse(corners) as [number, number][]) : null, m.width, m.height);
+  const starredLike = async (s: FrameShape) => {
+    const all = await c.env.DB.prepare('SELECT * FROM etsy_mockups WHERE active = 1 AND corners IS NOT NULL AND id != ?').bind(id).all<MockupRow>();
+    return all.results.filter((x) => frameShape(JSON.parse(x.corners!) as [number, number][], x.width, x.height) === s).length;
+  };
+  let active = m.active;
+  if (b.active !== undefined) {
+    if (b.active && !shape) fail(422, 'Mark the frame corners before starring it.');
+    if (b.active && !m.active && (await starredLike(shape!)) >= MAX_MOCKUPS) fail(422, `You already have ${MAX_MOCKUPS} ${shape} defaults. Unstar one first.`);
+    active = b.active ? 1 : 0;
+  } else if (!m.corners && shape) {
+    // Corners marked for the first time: star it if its set has room.
+    active = (await starredLike(shape)) < MAX_MOCKUPS ? 1 : 0;
+  } else if (shape && m.active && m.corners && corners !== m.corners) {
+    // Re-marked into another shape whose set is full: unstar.
+    const before = frameShape(JSON.parse(m.corners) as [number, number][], m.width, m.height);
+    if (before !== shape && (await starredLike(shape)) >= MAX_MOCKUPS) active = 0;
+  }
+  const name = b.name !== undefined ? str(b.name, 60) || m.name : m.name;
+  await c.env.DB.prepare('UPDATE etsy_mockups SET name = ?, corners = ?, active = ? WHERE id = ?').bind(name, corners, active, id).run();
+  return c.json(mockupView({ ...m, name, corners, active }));
 });
 
 app.delete('/mockups/:id', async (c) => {

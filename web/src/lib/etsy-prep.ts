@@ -2,7 +2,7 @@
 // Runtime: the graphics card when there is WebGPU, otherwise every CPU core),
 // the five frame-shape print files at 300 DPI, the listing photos, and a zip.
 import { zipSync } from 'fflate';
-import { ETSY, PRINT_SIZES, fullDescription, type PrintSize } from '@shared/etsy';
+import { ETSY, PRINT_SIZES, frameShape, fullDescription, type PrintSize } from '@shared/etsy';
 
 // ---------- the upscaler ----------
 
@@ -642,14 +642,7 @@ export async function onMockup(big: HTMLCanvasElement, m: Mockup, place: Place |
 }
 
 /** Which way up a mockup's marked frame is (from its corners). */
-export function mockupShape(m: Mockup): 'portrait' | 'landscape' | 'square' | null {
-  if (!m.corners) return null;
-  const q = m.corners.map(([u, v]) => [u * m.width, v * m.height]);
-  const side = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  const w = (side(q[0], q[1]) + side(q[3], q[2])) / 2;
-  const h = (side(q[0], q[3]) + side(q[1], q[2])) / 2;
-  return h > w * 1.08 ? 'portrait' : w > h * 1.08 ? 'landscape' : 'square';
-}
+export const mockupShape = (m: Mockup) => frameShape(m.corners, m.width, m.height);
 
 /**
  * The listing photos. Only mockups whose frame is the same way up as the picture

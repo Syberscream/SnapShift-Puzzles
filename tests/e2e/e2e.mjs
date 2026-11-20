@@ -1568,6 +1568,7 @@ check('contact message reaches admin', msgs.length === 1);
   const mkB = mks.find((m) => m.name === 'Wall B');
   check('etsy: mockup saved with its corners', mk && mk.corners?.length === 4 && Math.abs(mk.corners[0][0] - 1 / 3) < 0.02 && Math.abs(mk.corners[2][1] - 0.575) < 0.02, JSON.stringify(mk?.corners));
   check('etsy: second mockup saved via Save & next', mkB && Math.abs(mkB.corners[0][0] - 0.125) < 0.02 && Math.abs(mkB.corners[2][1] - 0.4375) < 0.02, JSON.stringify(mkB?.corners));
+  check('etsy: marking corners stars a mockup into its shape\'s default set', mk.active && mkB.active && /★ 2\/7 landscape · ★ 0\/7 portrait/.test(await admin.locator('.etsy-mockups-panel summary').innerText()), await admin.locator('.etsy-mockups-panel summary').innerText());
   // AI text fails cleanly when the AI can't be reached (no Cloudflare login here).
   const first = list.puzzles[0];
   const aiRes = await admin.request.post(BASE + `/api/admin/etsy/items/${first.id}/write`, { data: { image: 'data:image/jpeg;base64,/9j/4AAQ', name: first.name } });
@@ -1696,6 +1697,41 @@ check('contact message reaches admin', msgs.length === 1);
     });
     check('etsy upload: too-small pictures refused', small.status() === 422, String(small.status()));
   }
+  // A portrait mockup (an upright frame): starred into the portrait set when its corners are marked.
+  {
+    const tall = await admin.evaluate(async () => {
+      const c = document.createElement('canvas');
+      c.width = 1600;
+      c.height = 2400;
+      const x = c.getContext('2d');
+      x.fillStyle = '#d8d0c4';
+      x.fillRect(0, 0, 1600, 2400);
+      x.fillStyle = '#222';
+      x.fillRect(400, 400, 800, 1100);
+      return c.toDataURL('image/png').split(',')[1];
+    });
+    const made = await (
+      await admin.request.post(BASE + '/api/admin/etsy/mockups', {
+        multipart: { file: { name: 'Tall Wall.png', mimeType: 'image/png', buffer: Buffer.from(tall, 'base64') }, name: 'Tall Wall', width: '1600', height: '2400' },
+      })
+    ).json();
+    check('etsy: a new mockup isn\'t a default until its corners are marked', made.active === false, JSON.stringify(made));
+    const marked = await (await admin.request.put(BASE + `/api/admin/etsy/mockups/${made.id}`, { data: { corners: [[0.28, 0.19], [0.72, 0.19], [0.72, 0.6], [0.28, 0.6]] } })).json();
+    check('etsy: upright mockup starred into the portrait set', marked.active === true);
+    // The portrait set is full at 7.
+    const ids = [];
+    for (let i = 0; i < 7; i++) {
+      const m = await (await admin.request.post(BASE + '/api/admin/etsy/mockups', { multipart: { file: { name: `T${i}.png`, mimeType: 'image/png', buffer: Buffer.from(tall, 'base64') }, name: `T${i}`, width: '1600', height: '2400' } })).json();
+      ids.push((await (await admin.request.put(BASE + `/api/admin/etsy/mockups/${m.id}`, { data: { corners: [[0.28, 0.19], [0.72, 0.19], [0.72, 0.6], [0.28, 0.6]] } })).json()));
+    }
+    check('etsy: only 7 portrait defaults; the 8th is left unstarred', ids.filter((m) => m.active).length === 6 && !ids[6].active, JSON.stringify(ids.map((m) => m.active)));
+    const full = await admin.request.put(BASE + `/api/admin/etsy/mockups/${ids[6].id}`, { data: { active: true } });
+    check('etsy: starring an 8th portrait default is refused', full.status() === 422);
+    for (const m of ids) await admin.request.delete(BASE + `/api/admin/etsy/mockups/${m.id}`);
+    await admin.reload();
+    await admin.locator('[data-tab="etsy"]').click();
+    await admin.waitForSelector(`.etsy-card[data-id="${up.id}"]`);
+  }
   // Prepare it: portrait print files, whole picture with a matching border, no AI needed at this size.
   await admin.locator(`.etsy-card[data-id="${up.id}"] input[type=checkbox]`).check();
   const [dl2] = await Promise.all([admin.waitForEvent('download', { timeout: 300000 }), admin.getByRole('button', { name: /Prepare selected \(1\)/ }).click()]);
@@ -1709,15 +1745,13 @@ check('contact message reaches admin', msgs.length === 1);
   {
     const photos2 = Object.keys(z2).filter((n) => n.includes('2 - Listing photos')).sort();
     (await import('node:fs')).writeFileSync(`${OUT}/etsy-upload-room-1.jpg`, z2[photos2[0]]);
-    const jobText = await admin.locator('.etsy-job').last().innerText();
-    check('etsy upload: landscape-frame mockups left out for a portrait picture', /left out: frame isn.t portrait/.test(jobText), jobText);
     const roomDims = await admin.evaluate(async (b64) => {
       const img = new Image();
       img.src = 'data:image/jpeg;base64,' + b64;
       await img.decode();
       return [img.naturalWidth, img.naturalHeight];
     }, Buffer.from(z2[photos2[0]]).toString('base64'));
-    check('etsy upload: built-in room used instead (3000x2250)', photos2.length === 5 && roomDims[0] === 3000, JSON.stringify([photos2, roomDims]));
+    check('etsy upload: portrait picture uses the portrait default set, not the landscape walls', photos2.length === 4 && JSON.stringify(roomDims) === '[1600,2400]', JSON.stringify([photos2, roomDims]));
   }
   check('etsy upload: listing text says portrait', /All sizes are portrait/.test(txt2));
   {

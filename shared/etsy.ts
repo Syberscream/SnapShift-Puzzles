@@ -26,6 +26,21 @@ export const ETSY = { titleMax: 140, tags: 13, tagMax: 20, fileMaxBytes: 20 * 10
 
 export type EtsyStatus = 'none' | 'prepared' | 'listed';
 
+/** Up to this many starred default mockups for each frame shape. */
+export const MAX_MOCKUPS = ETSY.photos - 3;
+
+export type FrameShape = 'portrait' | 'landscape' | 'square';
+
+/** Which way up a mockup's marked frame is, from its four corners (fractions of the photo). */
+export function frameShape(corners: [number, number][] | null | undefined, width: number, height: number): FrameShape | null {
+  if (!corners || corners.length !== 4) return null;
+  const q = corners.map(([u, v]) => [u * width, v * height]);
+  const side = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const w = (side(q[0], q[1]) + side(q[3], q[2])) / 2;
+  const h = (side(q[0], q[3]) + side(q[1], q[2])) / 2;
+  return h > w * 1.08 ? 'portrait' : w > h * 1.08 ? 'landscape' : 'square';
+}
+
 export function sizesBlock(portrait: boolean): string {
   const t = (s: string) => (portrait ? s.replace(/(\d+)x(\d+)/g, '$2x$1') : s);
   return [

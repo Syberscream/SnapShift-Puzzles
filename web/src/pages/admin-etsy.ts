@@ -44,10 +44,13 @@ const selected = new Set<number>();
 let busy = false;
 const MAX_MOCKUPS = ETSY.photos - 3;
 const isReady = (m: Mockup) => !!m.corners;
-/** The mockups a picture will use: its own picks, else the defaults (up to 7). */
-function chosenMockups(d: Data, p: Item): Mockup[] {
+/**
+ * The mockups a picture will use: its own picks, else every starred default
+ * (the photos step keeps the ones whose frame is the picture's shape, up to 7).
+ */
+function chosenMockups(d: Data, p: Item): { list: Mockup[]; own: boolean } {
   const own = p.mockupIds.map((id) => d.mockups.find((m) => m.id === id)).filter((m): m is Mockup => !!m && isReady(m));
-  return own.length ? own : d.mockups.filter((m) => m.active && isReady(m)).slice(0, MAX_MOCKUPS);
+  return own.length ? { list: own, own: true } : { list: d.mockups.filter((m) => m.active && isReady(m)), own: false };
 }
 
 /** Thumbnails to tick, up to 7, in the order ticked. */
@@ -56,7 +59,7 @@ function mockupPicker(d: Data, chosen: number[], onChange: (ids: number[]) => vo
   const count = h('span', { class: 'small muted' });
   const grid = h('div', { class: 'etsy-pick-grid' });
   const draw = () => {
-    count.textContent = chosen.length ? `${chosen.length} of ${MAX_MOCKUPS} picked (in this order)` : `None picked: uses your default mockups. Pick up to ${MAX_MOCKUPS}.`;
+    count.textContent = chosen.length ? `${chosen.length} of ${MAX_MOCKUPS} picked (in this order)` : `None picked: uses your starred defaults for its shape (portrait or landscape). Pick up to ${MAX_MOCKUPS}.`;
     grid.replaceChildren(
       ...ready.map((m) => {
         const i = chosen.indexOf(m.id);
@@ -454,7 +457,9 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
         const files = await printFiles(big, prefix, place, (i) => step(r, `Making the print files… ${i + 1}/5`, 0.72 + (i + 1) * 0.04));
         step(r, 'Making the listing photos…', 0.92);
         let skipped = 0;
-        const photos = await listingPhotos(big, p.name, place, chosenMockups(d, p), (n) => (skipped = n));
+        const use = chosenMockups(d, p);
+        // Only tell you about picks that didn't fit; the other shape's defaults are skipped quietly.
+        const photos = await listingPhotos(big, p.name, place, use.list, (n) => (skipped = use.own ? n : 0));
         const text = listingText(p, big.height > big.width);
         step(r, 'Zipping…', 0.97);
         const zip = makeZip(p.name.replace(/[\\/:*?"<>|]+/g, ''), files, photos, text);
@@ -594,16 +599,17 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
   });
   const ready = d.mockups.filter(isReady);
   const todo = d.mockups.filter((m) => !isReady(m));
-  const defaults = ready.filter((m) => m.active);
+  const starred = (shape: string) => ready.filter((m) => m.active && mockupShape(m) === shape).length;
+  const sets = [`★ ${starred('landscape')}/${MAX_MOCKUPS} landscape`, `★ ${starred('portrait')}/${MAX_MOCKUPS} portrait`, starred('square') ? `★ ${starred('square')} square` : ''].filter(Boolean).join(' · ');
   const open = mockupsOpen ?? (todo.length > 0 || d.mockups.length === 0);
   const details = h(
     'details',
     { class: 'panel etsy-mockups-panel', open },
-    h('summary', {}, h('h2', {}, `Room mockups (${d.mockups.length})`), h('span', { class: 'small muted' }, ` ${ready.length} ready · ${defaults.length} default${todo.length ? ` · ${todo.length} need corners` : ''}`)),
+    h('summary', {}, h('h2', {}, `Room mockups (${d.mockups.length})`), h('span', { class: 'small muted' }, ` ${ready.length} ready · ${sets}${todo.length ? ` · ${todo.length} need corners` : ''}`)),
     h(
       'p',
       { class: 'muted' },
-      `Upload photos of an empty frame on a wall, then mark the four corners of the picture area. Upload some with upright (portrait) frames too: portrait pictures only go in portrait frames, landscape ones in landscape frames. Each listing uses the mockups you pick for that picture (up to ${MAX_MOCKUPS}). Pictures with no picks use your ★ starred defaults (up to ${MAX_MOCKUPS}; the first ${MAX_MOCKUPS} uploads start starred). With no mockups at all, two simple built-in rooms are used.`,
+      `Upload photos of an empty frame on a wall, then mark the four corners of the picture area. Upload some with upright (portrait) frames too: portrait pictures only go in portrait frames, landscape ones in landscape frames. Each listing uses the mockups you pick for that picture (up to ${MAX_MOCKUPS}). Pictures with no picks use your ★ starred defaults for their shape: up to ${MAX_MOCKUPS} landscape and ${MAX_MOCKUPS} portrait. A mockup is starred when you mark its corners, if its set has room. With no defaults for a picture's shape, two simple built-in rooms are used.`,
     ),
     h(
       'div',
@@ -638,9 +644,13 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
                     class: 'btn small',
                     title: 'Defaults are used for pictures without their own mockup picks',
                     onclick: async () => {
-                      Object.assign(m, await api.put<Mockup>(`/admin/etsy/mockups/${m.id}`, { active: !m.active }));
-                      mockupsOpen = true;
-                      rerender();
+                      try {
+                        Object.assign(m, await api.put<Mockup>(`/admin/etsy/mockups/${m.id}`, { active: !m.active }));
+                        mockupsOpen = true;
+                        rerender();
+                      } catch (e) {
+                        toast('Couldn’t star it', errorText(e), 'bad');
+                      }
                     },
                   },
                   m.active ? 'Unstar' : '★ Star',
