@@ -586,7 +586,9 @@ export async function onMockup(big: HTMLCanvasElement, m: Mockup, place: Place |
   const side = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const qw = (side(q[0], q[1]) + side(q[3], q[2])) / 2;
   const qh = (side(q[0], q[3]) + side(q[1], q[2])) / 2;
-  const art = artAt(big, qw / qh, Math.min(big.width, Math.round(qw * 1.5)), focus);
+  // In a frame of nearly the same shape, fill it rather than leave thin bands.
+  const close = Math.abs(Math.log(qw / qh / (big.width / big.height))) < 0.12;
+  const art = artAt(big, qw / qh, Math.min(big.width, Math.round(qw * 1.5)), close ? { ...focus, fit: false } : focus);
   const ad = ctx2d(art).getImageData(0, 0, art.width, art.height).data;
   const inv = invert3(squareToQuad(q));
   const xs = q.map((p) => p[0]);
@@ -639,11 +641,38 @@ export async function onMockup(big: HTMLCanvasElement, m: Mockup, place: Place |
   return c;
 }
 
-export async function listingPhotos(big: HTMLCanvasElement, name: string, place: Place | number, mockups: Mockup[]): Promise<{ name: string; bytes: Uint8Array }[]> {
+/** Which way up a mockup's marked frame is (from its corners). */
+export function mockupShape(m: Mockup): 'portrait' | 'landscape' | 'square' | null {
+  if (!m.corners) return null;
+  const q = m.corners.map(([u, v]) => [u * m.width, v * m.height]);
+  const side = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const w = (side(q[0], q[1]) + side(q[3], q[2])) / 2;
+  const h = (side(q[0], q[3]) + side(q[1], q[2])) / 2;
+  return h > w * 1.08 ? 'portrait' : w > h * 1.08 ? 'landscape' : 'square';
+}
+
+/**
+ * The listing photos. Only mockups whose frame is the same way up as the picture
+ * are used (a portrait picture never sits in a landscape frame); with none
+ * left, the built-in rooms are used, which turn their frame to suit.
+ */
+export async function listingPhotos(
+  big: HTMLCanvasElement,
+  name: string,
+  place: Place | number,
+  mockups: Mockup[],
+  onSkip?: (skipped: number) => void,
+): Promise<{ name: string; bytes: Uint8Array }[]> {
   await document.fonts.load(`800 60px "Plus Jakarta Sans Variable"`).catch(() => null);
   const focus = asPlace(place);
+  const way = big.height > big.width * 1.08 ? 'portrait' : big.width > big.height * 1.08 ? 'landscape' : 'square';
   // The caller picks which mockups (the picture's own choice, or the defaults).
-  const ready = mockups.filter((m) => m.corners);
+  const withCorners = mockups.filter((m) => m.corners);
+  const ready = withCorners.filter((m) => {
+    const s = mockupShape(m);
+    return s === way || s === 'square' || way === 'square';
+  });
+  if (ready.length < withCorners.length) onSkip?.(withCorners.length - ready.length);
   const rooms: HTMLCanvasElement[] = [];
   for (const m of ready.slice(0, ETSY.photos - 3)) rooms.push(await onMockup(big, m, focus));
   if (!rooms.length) rooms.push(livingRoom(big, focus), accentWall(big, focus));

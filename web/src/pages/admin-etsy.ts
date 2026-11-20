@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { ETSY, fullDescription, type EtsyStatus } from '@shared/etsy';
 import {
-  download, edgeColor, freeCanvas, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
+  download, edgeColor, freeCanvas, mockupShape, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
 } from '../lib/etsy-prep';
 
 interface Item {
@@ -76,7 +76,7 @@ function mockupPicker(d: Data, chosen: number[], onChange: (ids: number[]) => vo
             },
           },
           i >= 0 ? h('span', { class: 'etsy-pick-n' }, String(i + 1)) : null,
-          h('span', { class: 'etsy-pick-name' }, m.name),
+          h('span', { class: 'etsy-pick-name' }, `${mockupShape(m) === 'portrait' ? '▯ ' : mockupShape(m) === 'landscape' ? '▭ ' : ''}${m.name}`),
         );
       }),
     );
@@ -453,7 +453,8 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
         step(r, 'Making the print files…', 0.72);
         const files = await printFiles(big, prefix, place, (i) => step(r, `Making the print files… ${i + 1}/5`, 0.72 + (i + 1) * 0.04));
         step(r, 'Making the listing photos…', 0.92);
-        const photos = await listingPhotos(big, p.name, place, chosenMockups(d, p));
+        let skipped = 0;
+        const photos = await listingPhotos(big, p.name, place, chosenMockups(d, p), (n) => (skipped = n));
         const text = listingText(p, big.height > big.width);
         step(r, 'Zipping…', 0.97);
         const zip = makeZip(p.name.replace(/[\\/:*?"<>|]+/g, ''), files, photos, text);
@@ -462,7 +463,8 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
           await api.put(`/admin/etsy/items/${p.id}`, { status: 'prepared', title: p.title, intro: p.intro, tags: p.tags }).catch(() => null);
           p.status = 'prepared';
         }
-        step(r, `✓ Downloaded (${(zip.size / 1048576).toFixed(0)} MB)`, 1);
+        const way = big.height > big.width ? 'portrait' : 'landscape';
+        step(r, `✓ Downloaded (${(zip.size / 1048576).toFixed(0)} MB)${skipped ? ` · ${skipped} mockup${skipped === 1 ? '' : 's'} left out: frame isn’t ${way}` : ''}`, 1);
         r.el.classList.add('done');
         ok++;
       } catch (e) {
@@ -601,7 +603,7 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
     h(
       'p',
       { class: 'muted' },
-      `Upload photos of an empty frame on a wall, then mark the four corners of the picture area. Each listing uses the mockups you pick for that picture (up to ${MAX_MOCKUPS}). Pictures with no picks use your ★ starred defaults (up to ${MAX_MOCKUPS}; the first ${MAX_MOCKUPS} uploads start starred). With no mockups at all, two simple built-in rooms are used.`,
+      `Upload photos of an empty frame on a wall, then mark the four corners of the picture area. Upload some with upright (portrait) frames too: portrait pictures only go in portrait frames, landscape ones in landscape frames. Each listing uses the mockups you pick for that picture (up to ${MAX_MOCKUPS}). Pictures with no picks use your ★ starred defaults (up to ${MAX_MOCKUPS}; the first ${MAX_MOCKUPS} uploads start starred). With no mockups at all, two simple built-in rooms are used.`,
     ),
     h(
       'div',
@@ -620,7 +622,11 @@ function mockupsPanel(d: Data, rerender: () => void): HTMLElement {
           { class: `etsy-mockup ${isReady(m) ? '' : 'todo'}` },
           h('div', { class: 'thumb wide', style: bg(m.image), title: 'Mark corners', onclick: () => cornerEditor(m, d, rerender) }),
           h('b', { class: 'small' }, m.name),
-          h('span', { class: 'small muted' }, !isReady(m) ? '⚠ Corners not set' : m.active ? '★ Default' : 'Ready (pick per picture)'),
+          h(
+            'span',
+            { class: 'small muted' },
+            `${!isReady(m) ? '⚠ Corners not set' : m.active ? '★ Default' : 'Ready (pick per picture)'}${mockupShape(m) ? ` · ${mockupShape(m) === 'portrait' ? '▯ portrait' : mockupShape(m) === 'landscape' ? '▭ landscape' : '◻ square'} frame` : ''}`,
+          ),
           h(
             'div',
             { class: 'row' },

@@ -1706,6 +1706,19 @@ check('contact message reaches admin', msgs.length === 1);
   check('etsy upload: portrait print files (32x48, 24x32, 24x30, 22x28, A0)', JSON.stringify(dims2) === JSON.stringify([[9600, 14400], [7200, 9600], [7200, 9000], [6600, 8400], [9933, 14043]]), JSON.stringify(dims2));
   check('etsy upload: file names say portrait', prints2.some((n) => n.includes('2x3-ratio_up-to-32x48in')), prints2.join(', '));
   const txt2 = new TextDecoder().decode(z2[Object.keys(z2).find((n) => n.endsWith('3 - Listing text.txt'))]);
+  {
+    const photos2 = Object.keys(z2).filter((n) => n.includes('2 - Listing photos')).sort();
+    (await import('node:fs')).writeFileSync(`${OUT}/etsy-upload-room-1.jpg`, z2[photos2[0]]);
+    const jobText = await admin.locator('.etsy-job').last().innerText();
+    check('etsy upload: landscape-frame mockups left out for a portrait picture', /left out: frame isn.t portrait/.test(jobText), jobText);
+    const roomDims = await admin.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = 'data:image/jpeg;base64,' + b64;
+      await img.decode();
+      return [img.naturalWidth, img.naturalHeight];
+    }, Buffer.from(z2[photos2[0]]).toString('base64'));
+    check('etsy upload: built-in room used instead (3000x2250)', photos2.length === 5 && roomDims[0] === 3000, JSON.stringify([photos2, roomDims]));
+  }
   check('etsy upload: listing text says portrait', /All sizes are portrait/.test(txt2));
   {
     const at = async (name, pts) =>
