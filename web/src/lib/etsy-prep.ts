@@ -226,26 +226,30 @@ export interface Place {
 }
 const asPlace = (p: Place | number): Place => (typeof p === 'number' ? { focus: p, fit: false, bg: '#ffffff' } : p);
 
-/** The colour around the picture's edge, for the border when it is shown whole. */
-export function edgeColor(img: HTMLCanvasElement | HTMLImageElement): string {
+/**
+ * The colour around the picture's edge (for the border when it is shown whole),
+ * and whether that edge is plain enough for a border to blend in: a poster's
+ * paper or a blueprint's sheet is; a photo running to the edge isn't.
+ */
+export function edgeInfo(img: HTMLCanvasElement | HTMLImageElement): { bg: string; plain: boolean } {
   const N = 64;
   const c = canvas(N, N);
   const x = ctx2d(c);
   x.drawImage(img, 0, 0, N, N);
   const d = x.getImageData(0, 0, N, N).data;
   free(c);
-  let r = 0, g = 0, b = 0, n = 0;
+  const px: [number, number, number][] = [];
   for (let j = 0; j < N; j++)
     for (let i = 0; i < N; i++) {
       if (i > 1 && i < N - 2 && j > 1 && j < N - 2) continue;
       const k = (j * N + i) * 4;
-      r += d[k];
-      g += d[k + 1];
-      b += d[k + 2];
-      n++;
+      px.push([d[k], d[k + 1], d[k + 2]]);
     }
-  const hex = (v: number) => Math.round(v / n).toString(16).padStart(2, '0');
-  return `#${hex(r)}${hex(g)}${hex(b)}`;
+  const mean = [0, 1, 2].map((c) => px.reduce((s, p) => s + p[c], 0) / px.length);
+  // Typical distance of an edge pixel from the average colour.
+  const spread = Math.sqrt(px.reduce((s, p) => s + (p[0] - mean[0]) ** 2 + (p[1] - mean[1]) ** 2 + (p[2] - mean[2]) ** 2, 0) / px.length);
+  const hex = (v: number) => Math.round(v).toString(16).padStart(2, '0');
+  return { bg: `#${hex(mean[0])}${hex(mean[1])}${hex(mean[2])}`, plain: spread < 20 };
 }
 
 /** Draw the picture into a w×h area of `x` the way `place` says. */

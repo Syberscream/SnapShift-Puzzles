@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { ETSY, MAX_MOCKUPS, fullDescription, type EtsyStatus } from '@shared/etsy';
 import {
-  download, edgeColor, freeCanvas, mockupShape, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
+  download, edgeInfo, freeCanvas, mockupShape, onMockup, getEngine, listingPhotos, listingText, loadImage, makeZip, previewDataUrl, printFiles, upscale, hasGpu, type Mockup,
 } from '../lib/etsy-prep';
 
 interface Item {
@@ -23,8 +23,8 @@ interface Item {
   tags: string[];
   written: boolean;
   focus: number;
-  /** Show the whole picture with a matching border (true) or crop to fill each frame shape (false). */
-  fit: boolean;
+  /** Show the whole picture with a matching border (true), crop to fill each frame shape (false), or decide from its edge (null). */
+  fit: boolean | null;
   etsyUrl: string | null;
   mockupIds: number[];
   preparedAt: number | null;
@@ -263,8 +263,9 @@ function editor(d: Data, p: Item, rerender: () => void) {
   const fit = h(
     'select',
     {},
-    h('option', { value: '1', selected: p.fit }, 'Show the whole picture (adds a matching border where a frame shape differs)'),
-    h('option', { value: '0', selected: !p.fit }, 'Fill each frame shape (crops the edges)'),
+    h('option', { value: '', selected: p.fit === null }, 'Automatic: whole picture if it has a plain border (posters, blueprints), otherwise fill'),
+    h('option', { value: '1', selected: p.fit === true }, 'Always show the whole picture (adds a matching border where a frame shape differs)'),
+    h('option', { value: '0', selected: p.fit === false }, 'Always fill each frame shape (crops the edges)'),
   ) as HTMLSelectElement;
   const name = h('input', { value: p.name, maxlength: '80' }) as HTMLInputElement;
   const count = () => {
@@ -284,14 +285,14 @@ function editor(d: Data, p: Item, rerender: () => void) {
       await api.put(`/admin/etsy/uploads/${-p.id}`, { name: name.value.trim() });
       p.name = name.value.trim();
     }
-    const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null; mockupIds: number[]; fit: boolean }>(`/admin/etsy/items/${p.id}`, {
+    const r = await api.put<{ status: EtsyStatus; title: string; intro: string; tags: string[]; etsy_url: string | null; mockupIds: number[]; fit: boolean | null }>(`/admin/etsy/items/${p.id}`, {
       title: title.value,
       intro: intro.value,
       tags: tags.value,
       status: status.value,
       etsyUrl: url.value.trim(),
       mockupIds: picks,
-      fit: fit.value === '1',
+      fit: fit.value === '' ? null : fit.value === '1',
       ...extra,
     });
     Object.assign(p, { title: r.title ?? p.title, intro: r.intro ?? p.intro, tags: r.tags ?? p.tags, status: r.status, etsyUrl: r.etsy_url, written: true, mockupIds: r.mockupIds ?? picks, fit: r.fit });
@@ -448,7 +449,9 @@ async function runQueue(d: Data, list: Item[], box: HTMLElement, rerender: () =>
         }
         step(r, 'Loading the full-size picture…', 0.04);
         const img = await loadImage(p.original || p.image);
-        const place = { focus: p.focus, fit: p.fit, bg: edgeColor(img) };
+        const edge = edgeInfo(img);
+        // Automatic: keep the whole picture only when its edge is plain, so the border blends in.
+        const place = { focus: p.focus, fit: p.fit ?? (p.upload && edge.plain), bg: edge.bg };
         step(r, 'Upscaling with AI…', 0.05);
         big = await upscale(img, (f) => step(r, `Upscaling with AI… ${Math.round(f * 100)}%`, 0.05 + f * 0.65));
         const prefix = p.name.replace(/[^\w\s-]+/g, '').trim().replace(/\s+/g, '-') || `picture-${p.id}`;
@@ -542,7 +545,7 @@ function uploadRow(d: Data, rerender: () => void): HTMLElement {
     if (done) {
       filter = 'uploads';
       page = 1;
-      toast(`${done} picture${done === 1 ? '' : 's'} added`, 'They keep their whole picture in every frame shape. Tick them and press Prepare.', 'good');
+      toast(`${done} picture${done === 1 ? '' : 's'} added`, 'Tick them and press Prepare. Ones with a plain border keep their whole picture; others fill each frame.', 'good');
       rerender();
     }
   });

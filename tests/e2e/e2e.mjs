@@ -1681,7 +1681,7 @@ check('contact message reaches admin', msgs.length === 1);
   await admin.waitForSelector('.etsy-card >> text=Test Poster one');
   const ups = (await (await admin.request.get(BASE + '/api/admin/etsy')).json()).puzzles.filter((p) => p.upload);
   const up = ups[0];
-  check('etsy upload: listed with the puzzles, named from the file, whole-picture by default', ups.length === 1 && up.id < 0 && up.name === 'Test Poster one' && up.fit === true && up.category === 'My uploads', JSON.stringify(up));
+  check('etsy upload: listed with the puzzles, named from the file, frame shapes on Automatic', ups.length === 1 && up.id < 0 && up.name === 'Test Poster one' && up.fit === null && up.category === 'My uploads', JSON.stringify(up));
   check('etsy upload: "My uploads" filter shows it', /My uploads \(1\)/.test(await admin.locator('.etsy-tools').first().innerText()));
   check('etsy upload: preview and thumbnail stored', (await admin.request.get(BASE + up.thumb)).ok() && (await admin.request.get(BASE + up.image)).ok());
   {
@@ -1732,6 +1732,11 @@ check('contact message reaches admin', msgs.length === 1);
     await admin.locator('[data-tab="etsy"]').click();
     await admin.waitForSelector(`.etsy-card[data-id="${up.id}"]`);
   }
+  // This test poster has coloured bands at its edge (Automatic would crop it), so ask for the whole picture.
+  check('etsy upload: whole picture chosen', (await (await admin.request.put(BASE + `/api/admin/etsy/items/${up.id}`, { data: { fit: true } })).json()).fit === true);
+  await admin.reload();
+  await admin.locator('[data-tab="etsy"]').click();
+  await admin.waitForSelector(`.etsy-card[data-id="${up.id}"]`);
   // Prepare it: portrait print files, whole picture with a matching border, no AI needed at this size.
   await admin.locator(`.etsy-card[data-id="${up.id}"] input[type=checkbox]`).check();
   const [dl2] = await Promise.all([admin.waitForEvent('download', { timeout: 300000 }), admin.getByRole('button', { name: /Prepare selected \(1\)/ }).click()]);

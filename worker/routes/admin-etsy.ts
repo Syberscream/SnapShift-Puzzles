@@ -74,8 +74,8 @@ function itemView(
     tags: e?.tags ? (JSON.parse(e.tags) as string[]) : draft.tags,
     written: !!e?.title,
     focus: e?.focus ?? 0.5,
-    // Uploads (posters, blueprints…) keep their whole picture unless told otherwise.
-    fit: e?.fit == null ? base.upload : !!e.fit,
+    // Empty = automatic: the browser keeps the whole picture when its edge is plain.
+    fit: e?.fit == null ? null : !!e.fit,
     etsyUrl: e?.etsy_url ?? null,
     mockupIds: e?.mockups ? (JSON.parse(e.mockups) as number[]) : [],
     preparedAt: e?.prepared_at ?? null,
@@ -158,7 +158,7 @@ async function save(c: { env: AppEnv['Bindings'] }, id: number, b: Record<string
     focus: b.focus !== undefined ? Math.max(0, Math.min(1, Number(b.focus) || 0.5)) : (cur?.focus ?? null),
     etsy_url: url || null,
     mockups: b.mockupIds !== undefined ? JSON.stringify(mockupIds(b.mockupIds)) : (cur?.mockups ?? null),
-    fit: b.fit !== undefined ? (b.fit ? 1 : 0) : (cur?.fit ?? null),
+    fit: b.fit !== undefined ? (b.fit === null ? null : b.fit ? 1 : 0) : (cur?.fit ?? null),
     prepared_at: status === 'prepared' && cur?.status !== 'prepared' ? now() : (cur?.prepared_at ?? null),
   };
   await c.env.DB.prepare(
@@ -172,7 +172,7 @@ async function save(c: { env: AppEnv['Bindings'] }, id: number, b: Record<string
     ...row,
     tags: row.tags ? (JSON.parse(row.tags) as string[]) : null,
     mockupIds: row.mockups ? (JSON.parse(row.mockups) as number[]) : [],
-    fit: row.fit == null ? id < 0 : !!row.fit,
+    fit: row.fit == null ? null : !!row.fit,
   };
 }
 
