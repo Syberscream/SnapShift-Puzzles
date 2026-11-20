@@ -526,17 +526,18 @@ function detail(big: HTMLCanvasElement, place: Place): HTMLCanvasElement {
   return c;
 }
 
-function downloadCard(big: HTMLCanvasElement, name: string, focus: Place): HTMLCanvasElement {
-  const portrait = big.height > big.width;
+/** The title card: the picture at its own shape (never cropped, never with bars), name and steps. */
+function downloadCard(big: HTMLCanvasElement, name: string): HTMLCanvasElement {
   const [c, x] = photoCanvas();
   grad(x, PW, PH, '#22262e', '#16181e');
-  const art = artAt(big, portrait ? 3 / 4 : 3 / 2, 1900, focus);
-  const aw = portrait ? 1000 : 1900;
-  const ah = aw * (art.height / art.width);
+  const s = Math.min(2600 / big.width, 1330 / big.height);
+  const aw = Math.round(big.width * s);
+  const ah = Math.round(big.height * s);
   shadow(x, 40, 24, 0.5);
-  x.drawImage(art, 1500 - aw / 2, 160, aw, Math.min(ah, 1330));
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(big, 1500 - aw / 2, 160 + (1330 - ah) / 2, aw, ah);
   noShadow(x);
-  free(art);
   x.textAlign = 'center';
   x.textBaseline = 'middle';
   x.fillStyle = '#fff';
@@ -677,7 +678,7 @@ export async function listingPhotos(
     ...rooms.map((c, i) => [`room-${i + 1}`, c] as [string, HTMLCanvasElement]),
     ['sizes', sizesChart(big, focus)],
     ['detail', detail(big, focus)],
-    ['instant-download', downloadCard(big, name, focus)],
+    ['instant-download', downloadCard(big, name)],
   ];
   const out: { name: string; bytes: Uint8Array }[] = [];
   for (const [i, [label, c]] of all.entries()) out.push({ name: `${String(i + 1).padStart(2, '0')}-${label}.jpg`, bytes: await toJpeg(c) });
