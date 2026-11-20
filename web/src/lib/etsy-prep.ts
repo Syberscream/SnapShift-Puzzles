@@ -524,15 +524,22 @@ function sizesChart(big: HTMLCanvasElement, focus: Place): HTMLCanvasElement {
   return c;
 }
 
-function detail(big: HTMLCanvasElement, place: Place): HTMLCanvasElement {
-  const focus = place.focus;
-  const [c, x] = photoCanvas();
+/** The full-resolution patch the close-up shows (a quarter of the width, at the focus). */
+function detailCrop(big: HTMLCanvasElement, focus: number): HTMLCanvasElement {
   const cw = Math.round(big.width * 0.25);
   const ch = Math.round(cw * 0.75);
   const fx = Math.min(Math.max(0, Math.round(big.width * focus - cw / 2)), big.width - cw);
   const fy = Math.round(big.height / 2 - ch / 2);
+  const c = canvas(cw, ch);
+  ctx2d(c).drawImage(big, fx, fy, cw, ch, 0, 0, cw, ch);
+  return c;
+}
+
+function detail(crop: HTMLCanvasElement): HTMLCanvasElement {
+  const [c, x] = photoCanvas();
+  x.imageSmoothingEnabled = true;
   x.imageSmoothingQuality = 'high';
-  x.drawImage(big, fx, fy, cw, ch, 0, 0, PW, PH);
+  x.drawImage(crop, 0, 0, PW, PH);
   x.fillStyle = 'rgba(20,20,22,0.92)';
   x.beginPath();
   x.roundRect(90, PH - 300, 1120, 220, 40);
@@ -693,18 +700,37 @@ export async function listingPhotos(
     return s === way || s === 'square' || way === 'square';
   });
   if (ready.length < withCorners.length) onSkip?.(withCorners.length - ready.length);
-  const rooms: HTMLCanvasElement[] = [];
-  for (const m of ready.slice(0, MAX_MOCKUPS)) rooms.push(await onMockup(big, m, focus));
-  if (!rooms.length) rooms.push(livingRoom(big, focus), accentWall(big, focus));
-  const all: [string, HTMLCanvasElement][] = [
-    ...rooms.map((c, i) => [`room-${i + 1}`, c] as [string, HTMLCanvasElement]),
-    ['sizes', sizesChart(big, focus)],
-    ['detail', detail(big, focus)],
-    ['instant-download', downloadCard(big, name)],
-  ];
+  // The photos are 3000 px: draw them from a smaller copy, not the 48 in print
+  // file. Copying a picture that size onto every photo is what runs a laptop's
+  // graphics memory out (and the photos come out black).
+  const view = shrinkTo(big, 4500);
+  const crop = detailCrop(big, focus.focus);
+  const makers: [string, () => HTMLCanvasElement | Promise<HTMLCanvasElement>][] = ready
+    .slice(0, MAX_MOCKUPS)
+    .map((m, i) => [`room-${i + 1}`, () => onMockup(view, m, focus)] as [string, () => Promise<HTMLCanvasElement>]);
+  if (!makers.length) makers.push(['room-1', () => livingRoom(view, focus)], ['room-2', () => accentWall(view, focus)]);
+  makers.push(['sizes', () => sizesChart(view, focus)], ['detail', () => detail(crop)], ['instant-download', () => downloadCard(view, name)]);
   const out: { name: string; bytes: Uint8Array }[] = [];
-  for (const [i, [label, c]] of all.entries()) out.push({ name: `${String(i + 1).padStart(2, '0')}-${label}.jpg`, bytes: await toJpeg(c) });
+  try {
+    // One photo at a time: draw it, save it, let it go.
+    for (const [i, [label, make]] of makers.entries()) out.push({ name: `${String(i + 1).padStart(2, '0')}-${label}.jpg`, bytes: await toJpeg(await make()) });
+  } finally {
+    free(crop);
+    if (view !== big) free(view);
+  }
   return out;
+}
+
+/** A copy no longer than `max` px on its long side (the canvas itself if it already is). */
+function shrinkTo(big: HTMLCanvasElement, max: number): HTMLCanvasElement {
+  const s = max / Math.max(big.width, big.height);
+  if (s >= 1) return big;
+  const c = canvas(Math.round(big.width * s), Math.round(big.height * s));
+  const x = ctx2d(c);
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(big, 0, 0, c.width, c.height);
+  return c;
 }
 
 // ---------- listing text + zip ----------
