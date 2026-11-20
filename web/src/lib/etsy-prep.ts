@@ -67,7 +67,23 @@ function canvas(w: number, h: number): HTMLCanvasElement {
   c.height = h;
   return c;
 }
-const ctx2d = (c: HTMLCanvasElement) => c.getContext('2d', { willReadFrequently: false })!;
+// Keep every canvas in ordinary memory, not graphics memory: a 48×32 in print
+// is 138 million pixels, and a laptop's graphics chip quietly drops canvases
+// that big (they come out black).
+const ctx2d = (c: HTMLCanvasElement) => c.getContext('2d', { willReadFrequently: true })!;
+
+const LOST = 'Your browser ran out of graphics memory and the pictures came out blank. Close other tabs (or restart the browser) and press Prepare again.';
+/** Throw if the browser dropped the canvas: everything we draw is opaque, a dropped canvas reads back empty. */
+function checkDrawn(c: HTMLCanvasElement) {
+  const x = ctx2d(c) as CanvasRenderingContext2D & { isContextLost?: () => boolean };
+  if (x.isContextLost?.()) throw new Error(LOST);
+  const pts = [
+    [0.5, 0.5],
+    [0.25, 0.3],
+    [0.75, 0.7],
+  ];
+  if (pts.every(([u, v]) => x.getImageData(Math.floor(c.width * u), Math.floor(c.height * v), 1, 1).data[3] === 0)) throw new Error(LOST);
+}
 const free = (...cs: (HTMLCanvasElement | null | undefined)[]) => cs.forEach((c) => c && ((c.width = 0), (c.height = 0)));
 
 /** How much bigger the picture must get for the largest print (the 3:2 file). */
@@ -98,9 +114,12 @@ export async function upscale(img: HTMLImageElement | HTMLCanvasElement, onProgr
     const s = Math.max(1, need);
     const out = canvas(Math.round(W0 * s), Math.round(H0 * s));
     const oc = ctx2d(out);
+    oc.fillStyle = '#fff';
+    oc.fillRect(0, 0, out.width, out.height);
     oc.imageSmoothingEnabled = true;
     oc.imageSmoothingQuality = 'high';
     oc.drawImage(img, 0, 0, out.width, out.height);
+    checkDrawn(out);
     onProgress(1);
     return out;
   }
@@ -177,6 +196,7 @@ export async function upscale(img: HTMLImageElement | HTMLCanvasElement, onProgr
     if (n % 4 === 0) await new Promise((r) => setTimeout(r, 0));
   }
   free(src);
+  checkDrawn(out);
   return out;
 }
 
@@ -184,6 +204,7 @@ export async function upscale(img: HTMLImageElement | HTMLCanvasElement, onProgr
 
 /** Canvas JPEGs say 72 DPI or nothing; print shops read 300 from the JFIF header. */
 async function jpegAt300(c: HTMLCanvasElement, quality: number): Promise<Uint8Array> {
+  checkDrawn(c);
   const b = await new Promise<Blob>((res, rej) => c.toBlob((x) => (x ? res(x) : rej(new Error('Couldn’t make the JPEG (out of memory?)'))), 'image/jpeg', quality));
   const u = new Uint8Array(await b.arrayBuffer());
   // FF D8 FF E0 len 'JFIF\0' ver(2) units(1) Xdensity(2) Ydensity(2)
@@ -371,6 +392,7 @@ function photoCanvas(): [HTMLCanvasElement, CanvasRenderingContext2D] {
 }
 
 async function toJpeg(c: HTMLCanvasElement, q = 0.9): Promise<Uint8Array> {
+  checkDrawn(c);
   const b = await new Promise<Blob>((res, rej) => c.toBlob((x) => (x ? res(x) : rej(new Error('encode'))), 'image/jpeg', q));
   free(c);
   return new Uint8Array(await b.arrayBuffer());
