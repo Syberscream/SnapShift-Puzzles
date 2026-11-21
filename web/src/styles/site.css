@@ -682,6 +682,8 @@ dialog.event-done-modal { overflow: hidden; max-width: min(480px, calc(100vw - 2
 .ach-more { display: block; margin: 12px auto 0; }
 
 /* ---------- Admin → Etsy prep ---------- */
+.pub-tools { flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.pub-tools input[type='search'] { flex: 1; min-width: 200px; }
 .etsy-tools { flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .etsy-tools input[type='search'] { flex: 1; min-width: 180px; }
 .etsy-tools .btn[aria-pressed='true'] { background: var(--accent); color: #fff; }

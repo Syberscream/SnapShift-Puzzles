@@ -4,6 +4,7 @@ import { me, requireSignIn, shell } from '../lib/shell';
 import { bg, errorText, h, modal, mount, toast } from '../lib/ui';
 import { applyTheme, type Banner, type Theme } from '../lib/theme';
 import { etsyTab } from './admin-etsy';
+import { pager } from './shared';
 
 interface AdminPuzzle {
   id: number;
@@ -567,17 +568,78 @@ async function generate() {
   mount(body, !g.configured ? h('div', { class: 'notice warn' }, 'Add your ElevenLabs API key (Pro plan or higher, with Image access): npx wrangler secret put ELEVENLABS_API_KEY') : null, h('div', { class: 'two-col' }, now, settingsForm), jobs);
 }
 
+// Published: search and category filter, kept while you edit.
+let pubQuery = '';
+let pubCat = '';
+let pubPage = 1;
+const PUB_PER = 48;
+
 async function published() {
   const [{ puzzles }, needs] = await Promise.all([
     api.get<{ puzzles: AdminPuzzle[] }>('/admin/puzzles?status=published'),
     api.get<{ puzzles: { id: number; title: string; image: string; needsSmall: boolean; needsShare: boolean }[] }>('/admin/puzzles/needs-small'),
   ]);
+  const count = new Map<string, number>();
+  for (const p of puzzles) count.set(p.categoryId ?? '', (count.get(p.categoryId ?? '') ?? 0) + 1);
+  const search = h('input', { type: 'search', placeholder: 'Search titles, descriptions, prompts or #id…', value: pubQuery, 'aria-label': 'Search published puzzles' }) as HTMLInputElement;
+  const cat = h(
+    'select',
+    { 'aria-label': 'Category' },
+    h('option', { value: '' }, `All categories (${puzzles.length})`),
+    cats.filter((c) => count.get(c.id)).map((c) => h('option', { value: c.id, selected: c.id === pubCat }, `${c.name} (${count.get(c.id)})`)),
+    count.get('') ? h('option', { value: '-', selected: pubCat === '-' }, `No category (${count.get('')})`) : null,
+  ) as HTMLSelectElement;
+  const found = h('span', { class: 'muted small' });
+  const grid = h('div', { class: 'grid wide' });
+  const pages = h('div', { class: 'pager-wrap' });
+  const show = () => {
+    const q = pubQuery.trim().toLowerCase().replace(/^#/, '');
+    const list = puzzles.filter(
+      (p) =>
+        (!pubCat || (pubCat === '-' ? !p.categoryId : p.categoryId === pubCat)) &&
+        (!q || String(p.id) === q || `${p.title} ${p.description} ${p.slug} ${p.prompt ?? ''}`.toLowerCase().includes(q)),
+    );
+    const last = Math.max(1, Math.ceil(list.length / PUB_PER));
+    pubPage = Math.min(Math.max(1, pubPage), last);
+    found.textContent = q || pubCat ? `${list.length} found` : '';
+    mount(grid, list.length ? list.slice((pubPage - 1) * PUB_PER, pubPage * PUB_PER).map((p) => reviewCard(p, published)) : h('p', { class: 'muted' }, 'No puzzles match.'));
+    mount(
+      pages,
+      pager(
+        pubPage,
+        list.length,
+        (n) => {
+          pubPage = n;
+          show();
+          grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+        PUB_PER,
+      ),
+    );
+  };
+  let t = 0;
+  search.addEventListener('input', () => {
+    clearTimeout(t);
+    t = window.setTimeout(() => {
+      pubQuery = search.value;
+      pubPage = 1;
+      show();
+    }, 150);
+  });
+  cat.addEventListener('change', () => {
+    pubCat = cat.value;
+    pubPage = 1;
+    show();
+  });
   mount(
     body,
     h('section', { class: 'panel' }, h('h2', {}, `Published (${puzzles.length})`), h('p', { class: 'muted' }, 'Edit titles and categories. Removing a puzzle that people have played hides it but keeps their results.')),
     needs.puzzles.length ? phoneCopiesPanel(needs.puzzles) : null,
-    h('div', { class: 'grid wide' }, puzzles.map((p) => reviewCard(p, published))),
+    h('div', { class: 'row pub-tools' }, search, cat, found),
+    grid,
+    pages,
   );
+  show();
 }
 
 /** Older puzzles have no phone-sized copy: make them here, in the browser, a few at a time. */

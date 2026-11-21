@@ -94,7 +94,7 @@ app.get('/puzzles', async (c) => {
   const cat = c.req.query('category');
   const { results } = await c.env.DB.prepare(
     `SELECT * FROM puzzles WHERE status = ? ${cat ? 'AND category_id = ?' : ''}
-     ORDER BY ${status === 'published' ? 'category_id, sort, id' : 'created_at DESC'} LIMIT 300`,
+     ORDER BY ${status === 'published' ? 'category_id, sort, id' : 'created_at DESC LIMIT 300'}`,
   )
     .bind(...(cat ? [status, cat] : [status]))
     .all<PuzzleRow>();
@@ -103,7 +103,7 @@ app.get('/puzzles', async (c) => {
   if (results.length) {
     const r = await c.env.DB.prepare(
       `SELECT j.puzzle_id, u.username, r.idea FROM puzzle_requests r JOIN generation_jobs j ON j.id = r.job_id JOIN users u ON u.id = r.user_id
-       WHERE j.puzzle_id IN (${results.map((p) => p.id).join(',')})`,
+       WHERE j.puzzle_id IS NOT NULL ${status === 'published' ? '' : `AND j.puzzle_id IN (${results.map((p) => p.id).join(',')})`}`,
     ).all<{ puzzle_id: number; username: string; idea: string }>();
     for (const x of r.results) req.set(x.puzzle_id, { username: x.username, idea: x.idea });
   }

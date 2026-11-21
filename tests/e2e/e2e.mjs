@@ -151,6 +151,21 @@ check('all 7 published', pub.puzzles.length === 7);
 sql('UPDATE puzzles SET published_at = published_at - 259200000');
 check('published puzzles have web copy + thumbnail', pub.puzzles.every((p) => p.image.endsWith('.webp') && p.thumb.endsWith('.webp')));
 check('rename kept', pub.puzzles.some((p) => p.title === 'Renamed Test Puzzle'));
+// Admin > Published: search and category filter.
+await admin.goto(BASE + '/admin#puzzles');
+await admin.waitForSelector('.pub-tools input[type=search]');
+{
+  const total = await admin.locator('.queue-card').count();
+  await admin.fill('.pub-tools input[type=search]', 'renamed test');
+  await admin.waitForFunction(() => document.querySelectorAll('.queue-card').length === 1);
+  const one = await admin.locator('.queue-card input').first().inputValue();
+  await admin.fill('.pub-tools input[type=search]', 'zzzz-nothing');
+  await admin.waitForSelector('text=No puzzles match.');
+  await admin.fill('.pub-tools input[type=search]', '');
+  await admin.waitForFunction((n) => document.querySelectorAll('.queue-card').length === n, total);
+  const opts = await admin.locator('.pub-tools select option').allInnerTexts();
+  check('admin published: search finds by title, category filter lists every category', total > 1 && one === 'Renamed Test Puzzle' && opts.length >= 2, `${total} ${one} ${opts.join('|')}`);
+}
 const img = await admin.request.get(BASE + pub.puzzles[0].image);
 check('media served from R2 with long cache', img.ok() && /immutable/.test(img.headers()['cache-control'] || ''), `${img.headers()['content-type']} ${(await img.body()).length} bytes`);
 
